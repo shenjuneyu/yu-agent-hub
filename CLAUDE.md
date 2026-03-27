@@ -73,9 +73,3 @@ npm run build        # 打包
 | `.knowledge/company/templates/dev-plan.md.template` | 開發計畫書範本 |
 | `.knowledge/company/templates/internal-review.md.template` | 內部審查報告範本 |
 
-### Sprint 規劃
-
-| 文件 | 用途 |
-|------|------|
-| `proposal/sprint1-proposal.md` | Sprint 1 提案書（搬家 + 清理） |
-| `proposal/sprint1-dev-plan.md` | Sprint 1 開發計畫書 |
