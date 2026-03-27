@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import BaseTag from '../common/BaseTag.vue';
 import type { ProjectRecord, ProjectStats } from '../../stores/projects';
-import { formatTokens } from '../../utils/format-tokens';
 
 const props = defineProps<{
   project: ProjectRecord;
@@ -50,10 +49,6 @@ const gateStatusLabel: Record<string, string> = {
   submitted: 'Submitted',
 };
 
-function formatUsage(tokens: number): string {
-  return formatTokens(tokens);
-}
-
 function formatDate(iso: string): string {
   const now = new Date();
   const date = new Date(iso);
@@ -94,84 +89,290 @@ const sprintFooterText = computed(() => {
 <template>
   <router-link
     :to="'/projects/' + project.id"
-    class="block cursor-pointer rounded-xl border border-border-default bg-bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
-    :class="{ 'opacity-70': isCompleted }"
+    class="project-card"
+    :class="{ 'project-card--completed': isCompleted }"
   >
-    <!-- Row 1: status tag (left) + creation date (right) -->
-    <div class="mb-2.5 flex items-center gap-2">
+    <!-- Row 1: title (left) + status tag (right) -->
+    <div class="project-card__header">
+      <h3 class="project-card__title">{{ project.name }}</h3>
       <BaseTag :color="statusColor">{{ statusLabel[project.status] }}</BaseTag>
-      <span class="ml-auto text-[11px] text-text-muted">{{ formatDate(project.createdAt) }}</span>
     </div>
 
-    <!-- Row 2: title + workDir -->
-    <h3 class="mb-1 text-base font-semibold">{{ project.name }}</h3>
-    <p v-if="project.workDir" class="mb-3 truncate text-[11px] text-text-muted" :title="project.workDir">
-      {{ project.workDir }}
-    </p>
-    <div v-else class="mb-4" />
+    <!-- Row 2: description -->
+    <p class="project-card__desc">{{ project.description || '' }}</p>
+
+    <!-- Divider -->
+    <div class="project-card__divider" />
 
     <!-- Stats skeleton -->
     <template v-if="!stats">
-      <div class="mb-4 grid grid-cols-3 gap-3">
-        <div v-for="i in 3" :key="i" class="text-center">
-          <div class="mx-auto mb-1 h-6 w-10 animate-pulse rounded bg-bg-hover" />
-          <div class="mx-auto h-3 w-12 animate-pulse rounded bg-bg-hover" />
+      <div class="project-card__sprint-section">
+        <div class="project-card__sprint-row">
+          <div class="project-card__skeleton project-card__skeleton--sprint-name" />
+          <div class="project-card__skeleton project-card__skeleton--sprint-gate" />
+        </div>
+        <div class="project-card__skeleton project-card__skeleton--progress-bar" />
+      </div>
+      <div class="project-card__stats-row">
+        <div class="project-card__stat-item">
+          <div class="project-card__skeleton project-card__skeleton--stat-value" />
+          <div class="project-card__skeleton project-card__skeleton--stat-label" />
+        </div>
+        <div class="project-card__stat-item">
+          <div class="project-card__skeleton project-card__skeleton--stat-value" />
+          <div class="project-card__skeleton project-card__skeleton--stat-label" />
         </div>
       </div>
-      <div class="mb-3">
-        <div class="mb-1 h-3 w-24 animate-pulse rounded bg-bg-hover" />
-        <div class="h-1.5 animate-pulse rounded-full bg-bg-hover" />
-      </div>
-      <div class="border-t border-border-default pt-3">
-        <div class="h-4 w-32 animate-pulse rounded bg-bg-hover" />
+      <div class="project-card__footer">
+        <div class="project-card__skeleton project-card__skeleton--footer" />
       </div>
     </template>
 
     <!-- Stats data -->
     <template v-else>
-      <!-- 3-column stats -->
-      <div class="mb-4 grid grid-cols-3 gap-3">
-        <div class="text-center">
-          <div class="text-lg font-bold text-success">{{ stats.tasksDone }}</div>
-          <div class="text-[10px] uppercase text-text-muted">已完成</div>
+      <!-- Sprint section: name + gate count row, then progress bar -->
+      <div class="project-card__sprint-section">
+        <div class="project-card__sprint-row">
+          <span class="project-card__sprint-label">{{ sprintFooterText }}</span>
+          <span v-if="stats.latestGate" class="project-card__sprint-gate">
+            {{ stats.latestGate.type }} · {{ gateStatusLabel[stats.latestGate.status] || stats.latestGate.status }}
+          </span>
+          <span v-else class="project-card__sprint-gate">—</span>
         </div>
-        <div class="text-center">
-          <div class="text-lg font-bold text-warning">{{ stats.tasksInProgress }}</div>
-          <div class="text-[10px] uppercase text-text-muted">進行中</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-bold text-accent-light">{{ formatUsage(stats.totalTokens) }}</div>
-          <div class="text-[10px] uppercase text-text-muted">總用量</div>
-        </div>
-      </div>
-
-      <!-- Sprint progress bar -->
-      <div class="mb-3">
-        <div class="mb-1 flex items-center justify-between text-[11px] text-text-muted">
-          <span>{{ sprintProgressLabel }}</span>
-          <span>{{ sprintProgressPct }}%</span>
-        </div>
-        <div class="h-1.5 overflow-hidden rounded-full bg-bg-hover">
+        <div class="project-card__progress-track">
           <div
-            class="h-full rounded-full bg-success transition-all"
+            class="project-card__progress-fill"
             :style="{ width: `${sprintProgressPct}%` }"
           />
         </div>
       </div>
 
-      <!-- Footer: sprint name + gate tag -->
-      <div class="flex items-center justify-between border-t border-border-default pt-3">
-        <div class="text-xs">
-          <template v-if="stats.activeSprint">
-            <span class="text-text-muted">Sprint:</span>
-            <span class="ml-1 font-medium">{{ stats.activeSprint.name }}</span>
-          </template>
-          <span v-else class="text-text-muted">{{ sprintFooterText }}</span>
+      <!-- Stats row: task completion + sprint progress -->
+      <div class="project-card__stats-row">
+        <div class="project-card__stat-item">
+          <span class="project-card__stat-value">{{ stats.tasksDone }} / {{ stats.totalTasks }} 任務完成</span>
+          <span class="project-card__stat-label">任務完成</span>
         </div>
-        <BaseTag v-if="stats.latestGate" :color="gateStatusColor">
-          {{ stats.latestGate.type }} {{ gateStatusLabel[stats.latestGate.status] || stats.latestGate.status }}
-        </BaseTag>
+        <div class="project-card__stat-item">
+          <span class="project-card__stat-value">{{ sprintProgressPct }}%</span>
+          <span class="project-card__stat-label">Sprint 進度</span>
+        </div>
+      </div>
+
+      <!-- Footer: gate tag (left) + date (right) -->
+      <div class="project-card__footer">
+        <div class="project-card__footer-tags">
+          <BaseTag v-if="stats.latestGate" :color="gateStatusColor">
+            {{ gateStatusLabel[stats.latestGate.status] || stats.latestGate.status }}
+          </BaseTag>
+        </div>
+        <span class="project-card__footer-meta">{{ formatDate(project.createdAt) }}</span>
       </div>
     </template>
+
+    <!-- workDir path at bottom -->
+    <span v-if="project.workDir" class="project-card__path" :title="project.workDir">
+      {{ project.workDir }}
+    </span>
   </router-link>
 </template>
+
+<style scoped>
+/* Card base */
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-card);
+  padding: 18px;
+  min-height: 280px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.project-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-border-light);
+  background-color: var(--color-bg-hover);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.project-card--completed {
+  opacity: 0.7;
+}
+
+/* Header: title left, status tag right */
+.project-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+/* Description */
+.project-card__desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Divider */
+.project-card__divider {
+  height: 1px;
+  background-color: var(--color-border-default);
+  flex-shrink: 0;
+}
+
+/* Sprint section */
+.project-card__sprint-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-card__sprint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.project-card__sprint-label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.project-card__sprint-gate {
+  color: var(--color-text-muted);
+}
+
+.project-card__progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background-color: var(--color-border-default);
+}
+
+.project-card__progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-light));
+  transition: width 0.3s ease;
+}
+
+/* Stats row */
+.project-card__stats-row {
+  display: flex;
+  gap: 16px;
+}
+
+.project-card__stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-card__stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.project-card__stat-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Footer */
+.project-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.project-card__footer-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.project-card__footer-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Path */
+.project-card__path {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-family: 'Consolas', 'SF Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Skeletons */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.project-card__skeleton {
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-hover);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.project-card__skeleton--sprint-name {
+  height: 14px;
+  width: 80px;
+}
+
+.project-card__skeleton--sprint-gate {
+  height: 14px;
+  width: 60px;
+}
+
+.project-card__skeleton--progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  width: 100%;
+}
+
+.project-card__skeleton--stat-value {
+  height: 20px;
+  width: 90px;
+}
+
+.project-card__skeleton--stat-label {
+  height: 12px;
+  width: 60px;
+}
+
+.project-card__skeleton--footer {
+  height: 16px;
+  width: 8rem;
+}
+</style>

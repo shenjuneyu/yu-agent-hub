@@ -21,15 +21,20 @@ async function handleCreate(params: { name: string; description: string; templat
 </script>
 
 <template>
-  <div class="h-full">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-xl font-semibold">專案</h2>
+  <div class="projects-view">
+    <!-- Header -->
+    <div class="projects-header">
+      <h2 class="projects-title">專案</h2>
       <BaseButton variant="primary" size="sm" @click="showCreateModal = true">
-        + 新增專案
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        新增專案
       </BaseButton>
     </div>
 
-    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))">
+    <!-- Project grid -->
+    <div class="projects-grid">
       <ProjectCard
         v-for="project in projectsStore.projects"
         :key="project.id"
@@ -37,14 +42,14 @@ async function handleCreate(params: { name: string; description: string; templat
         :stats="projectsStore.projectStats[project.id] ?? null"
       />
 
-      <!-- New project card (dashed) -->
-      <div
-        class="flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-bg-card opacity-60 transition-all hover:border-accent hover:opacity-80"
-        @click="showCreateModal = true"
-      >
-        <div class="mb-3 text-4xl text-text-muted">+</div>
-        <div class="text-sm font-medium text-text-muted">建立新專案</div>
-        <div class="mt-1 text-xs text-text-muted">選擇模板</div>
+      <!-- Add new card -->
+      <div class="project-card-new" @click="showCreateModal = true">
+        <svg class="new-card-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <div class="new-card-text">建立新專案</div>
+        <div class="new-card-hint">選擇模板開始</div>
       </div>
     </div>
 
@@ -58,3 +63,79 @@ async function handleCreate(params: { name: string; description: string; templat
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.projects-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 20px;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.projects-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  align-content: start;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Add new project card */
+.project-card-new {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 2px dashed var(--color-border-default);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: all 0.2s;
+  text-align: center;
+  padding: 20px;
+}
+
+.project-card-new:hover {
+  opacity: 0.85;
+  border-color: var(--color-border-light);
+  background: var(--color-bg-card);
+  transform: translateY(-1px);
+}
+
+.new-card-icon {
+  color: var(--color-text-muted);
+  transition: color 0.2s;
+}
+
+.project-card-new:hover .new-card-icon {
+  color: var(--color-accent-light);
+}
+
+.new-card-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.new-card-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+</style>

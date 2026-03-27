@@ -93,7 +93,7 @@ const selectedAgent = computed(() =>
   selectedAgentId.value ? agentsStore.getById(selectedAgentId.value) : null,
 );
 
-const canLaunch = computed(() => selectedAgentId.value && task.value.trim().length > 0);
+const canLaunch = computed(() => !!selectedAgentId.value);
 
 /** Agent is locked when pre-selected from agent page or remix */
 const agentLocked = computed(() => !!(props.preselectedAgentId || props.remixData));
@@ -278,24 +278,25 @@ const departmentLabel: Record<string, string> = {
   testing: '測試部',
   'project-management': '專案管理部',
   'studio-operations': '工作室營運',
+  company: '公司管理',
   bonus: '特殊',
 };
 </script>
 
 <template>
   <BaseModal :show="show" title="啟動工作階段" @close="emit('close')">
-    <div class="space-y-4">
+    <div class="launcher">
       <!-- Agent Selection -->
-      <div>
-        <label class="mb-1.5 block text-xs text-text-muted">選擇代理人</label>
-        <div v-if="agentLocked && selectedAgent" class="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
-          <span class="text-sm font-medium text-text-primary">{{ agentsStore.displayName(selectedAgent) }}</span>
-          <span class="text-xs text-text-muted">({{ selectedAgent.id }})</span>
+      <div class="launcher__field">
+        <label class="launcher__label">選擇代理人</label>
+        <div v-if="agentLocked && selectedAgent" class="launcher__agent-locked">
+          <span class="launcher__agent-locked-name">{{ agentsStore.displayName(selectedAgent) }}</span>
+          <span class="launcher__agent-locked-id">({{ selectedAgent.id }})</span>
         </div>
         <select
           v-else
           v-model="selectedAgentId"
-          class="w-full rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+          class="launcher__select"
           @change="onAgentChange"
         >
           <option value="" disabled>請選擇代理人...</option>
@@ -312,18 +313,18 @@ const departmentLabel: Record<string, string> = {
       </div>
 
       <!-- Selected agent info -->
-      <div v-if="selectedAgent" class="flex items-center gap-2">
+      <div v-if="selectedAgent" class="launcher__agent-info">
         <BaseTag :color="selectedAgent.color as any">{{ selectedAgent.level }}</BaseTag>
         <BaseTag>{{ departmentLabel[selectedAgent.department] || selectedAgent.department }}</BaseTag>
-        <span class="text-xs text-text-muted">{{ selectedAgent.model }}</span>
+        <span class="launcher__agent-model">{{ selectedAgent.model }}</span>
       </div>
 
       <!-- Project Selection -->
-      <div v-if="!props.preselectedProjectId">
-        <label class="mb-1.5 block text-xs text-text-muted">專案</label>
+      <div v-if="!props.preselectedProjectId" class="launcher__field">
+        <label class="launcher__label">專案</label>
         <select
           v-model="selectedProjectId"
-          class="w-full rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+          class="launcher__select"
           @change="onProjectSelectChange"
         >
           <option :value="null">所有專案</option>
@@ -334,44 +335,38 @@ const departmentLabel: Record<string, string> = {
         </select>
 
         <!-- 9E: 內嵌專案建立表單 -->
-        <div
-          v-if="showCreateProject"
-          class="mt-2 space-y-2 rounded-lg border border-accent/30 bg-accent/5 p-3"
-        >
-          <div>
-            <label class="mb-1 block text-[11px] text-text-muted">專案名稱</label>
+        <div v-if="showCreateProject" class="launcher__create-project">
+          <div class="launcher__field">
+            <label class="launcher__label launcher__label--sm">專案名稱</label>
             <input
               v-model="newProjectName"
               type="text"
               placeholder="例：我的新專案"
-              class="w-full rounded border border-border-default bg-bg-hover px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent"
+              class="launcher__input launcher__input--sm"
             />
           </div>
-          <div>
-            <label class="mb-1 block text-[11px] text-text-muted">工作目錄</label>
-            <div class="flex gap-1.5">
+          <div class="launcher__field">
+            <label class="launcher__label launcher__label--sm">工作目錄</label>
+            <div class="launcher__workdir-row">
               <input
                 v-model="newProjectWorkDir"
                 type="text"
                 readonly
                 placeholder="選擇資料夾..."
-                class="min-w-0 flex-1 rounded border border-border-default bg-bg-hover px-2.5 py-1.5 text-xs text-text-primary outline-none"
+                class="launcher__input launcher__input--sm launcher__input--flex"
               />
               <BaseButton size="sm" @click="selectWorkDir">瀏覽</BaseButton>
             </div>
           </div>
-          <div>
-            <label class="mb-1 block text-[11px] text-text-muted">模板</label>
-            <select
-              v-model="newProjectTemplate"
-              class="w-full rounded border border-border-default bg-bg-hover px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent"
-            >
+          <div class="launcher__field">
+            <label class="launcher__label launcher__label--sm">模板</label>
+            <select v-model="newProjectTemplate" class="launcher__select launcher__select--sm">
               <option v-for="t in templateOptions" :key="t.value" :value="t.value">
                 {{ t.label }}
               </option>
             </select>
           </div>
-          <div class="flex gap-1.5">
+          <div class="launcher__create-project-actions">
             <BaseButton
               size="sm"
               variant="primary"
@@ -388,11 +383,11 @@ const departmentLabel: Record<string, string> = {
       </div>
 
       <!-- Associated Task (optional) -->
-      <div>
-        <label class="mb-1.5 block text-xs text-text-muted">關聯任務（選填）</label>
+      <div class="launcher__field">
+        <label class="launcher__label">關聯任務（選填）</label>
         <select
           v-model="selectedTaskId"
-          class="w-full rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+          class="launcher__select"
           @change="onTaskSelect"
         >
           <option :value="null">不綁定任務</option>
@@ -418,60 +413,51 @@ const departmentLabel: Record<string, string> = {
       </div>
 
       <!-- Task -->
-      <div>
-        <label class="mb-1.5 block text-xs text-text-muted">任務描述</label>
+      <div class="launcher__field">
+        <label class="launcher__label">任務描述（選填）</label>
         <textarea
           v-model="task"
-          rows="3"
-          class="w-full resize-none rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-          placeholder="請描述要交給代理人的任務..."
+          rows="2"
+          class="launcher__textarea"
+          placeholder="可留空，直接在終端下指令..."
         />
       </div>
 
       <!-- Model + Max Turns -->
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="mb-1.5 block text-xs text-text-muted">模型</label>
-          <select
-            v-model="model"
-            class="w-full rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-          >
+      <div class="launcher__grid-2">
+        <div class="launcher__field">
+          <label class="launcher__label">模型</label>
+          <select v-model="model" class="launcher__select">
             <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }} - {{ opt.desc }}
             </option>
           </select>
         </div>
-        <div>
-          <label class="mb-1.5 block text-xs text-text-muted">最大回合數</label>
+        <div class="launcher__field">
+          <label class="launcher__label">最大回合數</label>
           <input
             v-model.number="maxTurns"
             type="number"
             min="1"
             max="100"
-            class="w-full rounded-lg border border-border-default bg-bg-hover px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+            class="launcher__input"
           />
         </div>
       </div>
 
       <!-- Prompt Preview -->
-      <div>
-        <button
-          class="cursor-pointer border-none bg-transparent text-xs text-accent-light hover:underline"
-          @click="loadPromptPreview"
-        >
+      <div class="launcher__field">
+        <button class="launcher__preview-btn" @click="loadPromptPreview">
           {{ showPromptPreview ? '隱藏' : '預覽' }}系統提示詞
         </button>
-        <div
-          v-if="showPromptPreview"
-          class="mt-2 max-h-[400px] overflow-y-auto rounded-lg border border-border-default bg-bg-primary p-3 font-mono text-xs text-text-secondary"
-        >
-          <pre class="whitespace-pre-wrap">{{ promptPreview }}</pre>
+        <div v-if="showPromptPreview" class="launcher__prompt-preview">
+          <pre class="launcher__prompt-pre">{{ promptPreview }}</pre>
         </div>
       </div>
     </div>
 
     <template #footer>
-      <div class="flex items-center justify-end gap-2">
+      <div class="launcher__footer">
         <BaseButton variant="ghost" @click="emit('close')">取消</BaseButton>
         <BaseButton variant="primary" :disabled="!canLaunch || launching" @click="launch">
           {{ launching ? '啟動中...' : '啟動' }}
@@ -480,3 +466,211 @@ const departmentLabel: Record<string, string> = {
     </template>
   </BaseModal>
 </template>
+
+<style scoped>
+/* ── Launcher form shell ── */
+.launcher {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Field + label ── */
+.launcher__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.launcher__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.launcher__label--sm {
+  font-size: 11px;
+}
+
+/* ── Inputs ── */
+.launcher__input {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-hover);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 150ms ease;
+}
+
+.launcher__input--sm {
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.launcher__input--flex {
+  flex: 1;
+  min-width: 0;
+}
+
+.launcher__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.launcher__input:focus {
+  border-color: var(--color-accent);
+}
+
+.launcher__select {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-hover);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 150ms ease;
+}
+
+.launcher__select--sm {
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.launcher__select:focus {
+  border-color: var(--color-accent);
+}
+
+.launcher__textarea {
+  width: 100%;
+  resize: none;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-hover);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 150ms ease;
+}
+
+.launcher__textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.launcher__textarea:focus {
+  border-color: var(--color-accent);
+}
+
+/* ── Agent locked display ── */
+.launcher__agent-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  background-color: rgba(108, 92, 231, 0.05);
+  padding: 8px 12px;
+}
+
+.launcher__agent-locked-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.launcher__agent-locked-id {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ── Agent info tags row ── */
+.launcher__agent-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.launcher__agent-model {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ── Create project inline form ── */
+.launcher__create-project {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  background-color: rgba(108, 92, 231, 0.05);
+  padding: 12px;
+}
+
+.launcher__workdir-row {
+  display: flex;
+  gap: 6px;
+}
+
+.launcher__create-project-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Two-column grid ── */
+.launcher__grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Prompt preview ── */
+.launcher__preview-btn {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--color-accent-light);
+  padding: 0;
+  text-align: left;
+}
+
+.launcher__preview-btn:hover {
+  text-decoration: underline;
+}
+
+.launcher__prompt-preview {
+  margin-top: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-base);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.launcher__prompt-pre {
+  white-space: pre-wrap;
+}
+
+/* ── Footer ── */
+.launcher__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+</style>

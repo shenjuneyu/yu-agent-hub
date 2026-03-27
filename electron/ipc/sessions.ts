@@ -131,6 +131,16 @@ export function registerSessionHandlers(): void {
     return sessionManager.getSessionSummaries(sessionId);
   });
 
+  // Scan resumable sessions from Claude Code conversation files
+  ipcMain.handle(IpcChannels.SESSION_SCAN_RESUMABLE, (_e, limit?: number) => {
+    try {
+      return sessionManager.scanResumableSessions(limit);
+    } catch (err) {
+      logger.error('Failed to scan resumable sessions', err);
+      throw err;
+    }
+  });
+
   // PTY input
   ipcMain.on(IpcChannels.PTY_INPUT, (_e, data: PtyInputData) => {
     try {

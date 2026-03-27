@@ -41,7 +41,7 @@ const KANBAN_COLUMNS: { key: TaskStatus; label: string }[] = [
 ];
 
 export const useTasksStore = defineStore('tasks', () => {
-  const { listTasks, createTask, transitionTask, updateTask, deleteTask, getTaskSessionCounts, getTask, addTaskDependency, removeTaskDependency } = useIpc();
+  const { listTasks, createTask, transitionTask, updateTask, deleteTask, getTaskSessionCounts, getTask, addTaskDependency, removeTaskDependency, onProjectSynced } = useIpc();
 
   const tasks = ref<TaskRecord[]>([]);
   const subtasks = ref<TaskRecord[]>([]);
@@ -105,9 +105,9 @@ export const useTasksStore = defineStore('tasks', () => {
     return task;
   }
 
-  async function transition(taskId: string, toStatus: TaskStatus) {
-    const result = (await transitionTask(taskId, toStatus)) as TaskRecord;
-    const idx = tasks.value.findIndex((t) => t.id === taskId);
+  async function transition(projectId: string, taskId: string, toStatus: TaskStatus) {
+    const result = (await transitionTask(projectId, taskId, toStatus)) as TaskRecord;
+    const idx = tasks.value.findIndex((t) => t.id === taskId && t.projectId === projectId);
     if (idx !== -1) tasks.value[idx] = result;
     if (toStatus === 'done') {
       const projectsStore = useProjectsStore();
@@ -120,24 +120,24 @@ export const useTasksStore = defineStore('tasks', () => {
     return result;
   }
 
-  async function update(taskId: string, params: Record<string, unknown>) {
-    const result = (await updateTask(taskId, params)) as TaskRecord;
-    const idx = tasks.value.findIndex((t) => t.id === taskId);
+  async function update(projectId: string, taskId: string, params: Record<string, unknown>) {
+    const result = (await updateTask(projectId, taskId, params)) as TaskRecord;
+    const idx = tasks.value.findIndex((t) => t.id === taskId && t.projectId === projectId);
     if (idx !== -1) tasks.value[idx] = result;
     return result;
   }
 
-  async function remove(taskId: string) {
-    await deleteTask(taskId);
-    tasks.value = tasks.value.filter((t) => t.id !== taskId);
+  async function remove(projectId: string, taskId: string) {
+    await deleteTask(projectId, taskId);
+    tasks.value = tasks.value.filter((t) => !(t.id === taskId && t.projectId === projectId));
     if (selectedTaskId.value === taskId) selectedTaskId.value = null;
   }
 
-  async function fetchById(id: string): Promise<TaskRecord | null> {
+  async function fetchById(projectId: string, id: string): Promise<TaskRecord | null> {
     try {
-      const task = (await getTask(id)) as TaskRecord | null;
+      const task = (await getTask(projectId, id)) as TaskRecord | null;
       if (task) {
-        const idx = tasks.value.findIndex((t) => t.id === id);
+        const idx = tasks.value.findIndex((t) => t.id === id && t.projectId === projectId);
         if (idx !== -1) tasks.value[idx] = task;
       }
       return task;
@@ -158,12 +158,12 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  async function addDependency(taskId: string, dependsOnId: string) {
-    await addTaskDependency(taskId, dependsOnId);
+  async function addDependency(projectId: string, taskId: string, dependsOnId: string) {
+    await addTaskDependency(projectId, taskId, dependsOnId);
   }
 
-  async function removeDependency(taskId: string, dependsOnId: string) {
-    await removeTaskDependency(taskId, dependsOnId);
+  async function removeDependency(projectId: string, taskId: string, dependsOnId: string) {
+    await removeTaskDependency(projectId, taskId, dependsOnId);
   }
 
   function selectTask(id: string | null) {
@@ -191,6 +191,24 @@ export const useTasksStore = defineStore('tasks', () => {
     currentProjectId.value = projectId;
     currentSprintId.value = sprintId;
   }
+
+  // Listen for project-sync events (file watcher detected task/gate changes)
+  // Auto-refresh task list when relevant sync events arrive
+  let syncListenerRegistered = false;
+  function initSyncListener() {
+    if (syncListenerRegistered) return;
+    syncListenerRegistered = true;
+    onProjectSynced((data) => {
+      if (data.type === 'task' || data.type === 'full') {
+        // Only refresh if we're viewing the same project or all projects
+        if (!currentProjectId.value || currentProjectId.value === data.projectId) {
+          fetchTasks();
+        }
+      }
+    });
+  }
+  // Register immediately
+  initSyncListener();
 
   return {
     tasks,

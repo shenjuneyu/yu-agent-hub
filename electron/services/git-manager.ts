@@ -1,62 +1,101 @@
-import simpleGit, { type SimpleGit, type StatusResult, type DiffResult } from 'simple-git';
-import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../utils/logger';
 import type {
   GitStatus, DiffEntry, WorktreeInfo, CommitInfo, GitBranchInfo,
   GitCommitParams, GitCommitResult, GitPushResult, GitPullResult,
 } from '../types';
 
-class GitManager {
-  private getGit(cwd: string): SimpleGit {
-    return simpleGit({ baseDir: cwd });
-  }
+function exec(cmd: string, cwd: string): string {
+  return execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+}
 
+function tryExec(cmd: string, cwd: string): string | null {
+  try {
+    return exec(cmd, cwd);
+  } catch {
+    return null;
+  }
+}
+
+class GitManager {
   async getStatus(cwd: string): Promise<GitStatus> {
-    const git = this.getGit(cwd);
     try {
-      const status: StatusResult = await git.status();
-      return {
-        isRepo: true,
-        branch: status.current || 'HEAD',
-        ahead: status.ahead,
-        behind: status.behind,
-        staged: status.staged,
-        modified: status.modified,
-        untracked: status.not_added,
-        conflicted: status.conflicted,
-      };
+      const branch = (tryExec('git rev-parse --abbrev-ref HEAD', cwd) ?? 'HEAD').trim();
+
+      const aheadBehindRaw = tryExec('git rev-list --left-right --count @{u}...HEAD', cwd);
+      let ahead = 0;
+      let behind = 0;
+      if (aheadBehindRaw) {
+        const parts = aheadBehindRaw.trim().split(/\s+/);
+        behind = parseInt(parts[0] ?? '0', 10) || 0;
+        ahead = parseInt(parts[1] ?? '0', 10) || 0;
+      }
+
+      const statusRaw = tryExec('git status --porcelain', cwd) ?? '';
+      const staged: string[] = [];
+      const modified: string[] = [];
+      const untracked: string[] = [];
+      const conflicted: string[] = [];
+
+      for (const line of statusRaw.split('\n')) {
+        if (!line) continue;
+        const x = line[0];
+        const y = line[1];
+        const file = line.slice(3);
+
+        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+          conflicted.push(file);
+        } else if (x !== ' ' && x !== '?') {
+          staged.push(file);
+        }
+
+        if (y === 'M' || y === 'D') {
+          modified.push(file);
+        } else if (x === '?' && y === '?') {
+          untracked.push(file);
+        }
+      }
+
+      return { isRepo: true, branch, ahead, behind, staged, modified, untracked, conflicted };
     } catch {
-      return {
-        isRepo: false,
-        branch: '',
-        ahead: 0,
-        behind: 0,
-        staged: [],
-        modified: [],
-        untracked: [],
-        conflicted: [],
-      };
+      return { isRepo: false, branch: '', ahead: 0, behind: 0, staged: [], modified: [], untracked: [], conflicted: [] };
     }
   }
 
   async getDiff(cwd: string): Promise<DiffEntry[]> {
-    const git = this.getGit(cwd);
     try {
-      const diff: DiffResult = await git.diffSummary(['HEAD']);
-      return diff.files.map((f) => ({
-        file: f.file,
-        status: f.binary
-          ? 'modified'
-          : (f as any).status === 'A'
-            ? 'added'
-            : (f as any).status === 'D'
-              ? 'deleted'
-              : (f as any).status?.startsWith('R')
-                ? 'renamed'
-                : 'modified',
-        insertions: f.insertions,
-        deletions: f.deletions,
-      }));
+      const raw = tryExec('git diff --numstat HEAD', cwd) ?? '';
+      const entries: DiffEntry[] = [];
+
+      for (const line of raw.split('\n')) {
+        if (!line.trim()) continue;
+        const parts = line.split('\t');
+        if (parts.length < 3) continue;
+        const insertions = parseInt(parts[0] ?? '0', 10) || 0;
+        const deletions = parseInt(parts[1] ?? '0', 10) || 0;
+        const file = parts[2] ?? '';
+
+        // Detect status via git diff --name-status HEAD
+        entries.push({ file, status: 'modified', insertions, deletions });
+      }
+
+      // Enrich with actual status (A/D/R/M)
+      const nameStatus = tryExec('git diff --name-status HEAD', cwd) ?? '';
+      const statusMap: Record<string, DiffEntry['status']> = {};
+      for (const line of nameStatus.split('\n')) {
+        if (!line.trim()) continue;
+        const parts = line.split('\t');
+        const flag = parts[0]?.[0] ?? 'M';
+        const file = parts[1] ?? '';
+        if (flag === 'A') statusMap[file] = 'added';
+        else if (flag === 'D') statusMap[file] = 'deleted';
+        else if (flag === 'R') statusMap[parts[2] ?? file] = 'renamed';
+        else statusMap[file] = 'modified';
+      }
+
+      return entries.map((e) => ({ ...e, status: statusMap[e.file] ?? e.status }));
     } catch (err) {
       logger.warn('Failed to get diff', err);
       return [];
@@ -67,19 +106,20 @@ class GitManager {
     cwd: string,
     filePath: string,
   ): Promise<{ original: string; modified: string }> {
-    const git = this.getGit(cwd);
     try {
       let original = '';
       try {
-        original = await git.show([`HEAD:${filePath}`]);
+        original = exec(`git show HEAD:${filePath}`, cwd);
       } catch {
-        // New file, no HEAD version
+        // New file — no HEAD version
       }
 
       let modified = '';
       try {
-        const fullPath = require('path').join(cwd, filePath);
-        modified = readFileSync(fullPath, 'utf-8');
+        const fullPath = join(cwd, filePath);
+        if (existsSync(fullPath)) {
+          modified = readFileSync(fullPath, 'utf-8');
+        }
       } catch {
         // Deleted file
       }
@@ -92,16 +132,25 @@ class GitManager {
   }
 
   async getLog(cwd: string, limit = 20): Promise<CommitInfo[]> {
-    const git = this.getGit(cwd);
     try {
-      const log = await git.log({ maxCount: limit });
-      return log.all.map((c) => ({
-        hash: c.hash,
-        message: c.message,
-        author: c.author_name,
-        date: c.date,
-        refs: c.refs,
-      }));
+      const format = '%H%x1f%s%x1f%an%x1f%ai%x1f%D%x1e';
+      const raw = tryExec(`git log -${limit} --format="${format}"`, cwd) ?? '';
+      const commits: CommitInfo[] = [];
+
+      for (const entry of raw.split('\x1e')) {
+        const trimmed = entry.trim();
+        if (!trimmed) continue;
+        const parts = trimmed.split('\x1f');
+        commits.push({
+          hash: parts[0] ?? '',
+          message: parts[1] ?? '',
+          author: parts[2] ?? '',
+          date: parts[3] ?? '',
+          refs: parts[4] ?? '',
+        });
+      }
+
+      return commits;
     } catch (err) {
       logger.warn('Failed to get git log', err);
       return [];
@@ -109,14 +158,27 @@ class GitManager {
   }
 
   async getBranches(cwd: string): Promise<GitBranchInfo> {
-    const git = this.getGit(cwd);
     try {
-      const result = await git.branch();
-      return {
-        current: result.current,
-        all: result.all,
-        branches: result.branches as any,
-      };
+      const currentRaw = tryExec('git rev-parse --abbrev-ref HEAD', cwd) ?? '';
+      const current = currentRaw.trim();
+
+      const allRaw = tryExec('git branch -a --format=%(refname:short)', cwd) ?? '';
+      const all = allRaw.split('\n').map((b) => b.trim()).filter(Boolean);
+
+      const branchesRaw = tryExec('git branch -v --format=%(refname:short)%09%(objectname:short)%09%(contents:subject)', cwd) ?? '';
+      const branches: GitBranchInfo['branches'] = {};
+      for (const line of branchesRaw.split('\n')) {
+        if (!line.trim()) continue;
+        const parts = line.split('\t');
+        const name = parts[0]?.trim() ?? '';
+        const commit = parts[1]?.trim() ?? '';
+        const label = parts[2]?.trim() ?? '';
+        if (name) {
+          branches[name] = { current: name === current, name, commit, label };
+        }
+      }
+
+      return { current, all, branches };
     } catch (err) {
       logger.warn('Failed to get branches', err);
       return { current: '', all: [], branches: {} };
@@ -124,12 +186,12 @@ class GitManager {
   }
 
   async stage(cwd: string, files?: string[]): Promise<void> {
-    const git = this.getGit(cwd);
     try {
       if (files && files.length > 0) {
-        await git.add(files);
+        const escaped = files.map((f) => `"${f}"`).join(' ');
+        exec(`git add -- ${escaped}`, cwd);
       } else {
-        await git.add('.');
+        exec('git add .', cwd);
       }
     } catch (err) {
       logger.error('Git stage failed', err);
@@ -138,17 +200,21 @@ class GitManager {
   }
 
   async commit(params: GitCommitParams): Promise<GitCommitResult> {
-    const git = this.getGit(params.cwd);
     try {
       if (params.files && params.files.length > 0) {
-        await git.add(params.files);
+        const escaped = params.files.map((f) => `"${f}"`).join(' ');
+        exec(`git add -- ${escaped}`, params.cwd);
       }
-      const result = await git.commit(params.message);
-      return {
-        hash: result.commit || '',
-        message: params.message,
-        filesChanged: result.summary.changes,
-      };
+
+      const escapedMsg = params.message.replace(/"/g, '\\"');
+      exec(`git commit -m "${escapedMsg}"`, params.cwd);
+
+      const hash = (tryExec('git rev-parse --short HEAD', params.cwd) ?? '').trim();
+      const statsRaw = tryExec('git diff --shortstat HEAD~1 HEAD', params.cwd) ?? '';
+      const changesMatch = statsRaw.match(/(\d+)\s+file/);
+      const filesChanged = changesMatch ? parseInt(changesMatch[1] ?? '0', 10) : 0;
+
+      return { hash, message: params.message, filesChanged };
     } catch (err) {
       logger.error('Git commit failed', err);
       throw err;
@@ -156,11 +222,10 @@ class GitManager {
   }
 
   async push(cwd: string, remote = 'origin', branch?: string, setUpstream = false): Promise<GitPushResult> {
-    const git = this.getGit(cwd);
     try {
-      const currentBranch = branch || (await git.branch()).current;
-      const args = setUpstream ? ['--set-upstream', remote, currentBranch] : [remote, currentBranch];
-      await git.push(args);
+      const currentBranch = branch ?? (tryExec('git rev-parse --abbrev-ref HEAD', cwd) ?? 'main').trim();
+      const upstreamFlag = setUpstream ? '--set-upstream ' : '';
+      exec(`git push ${upstreamFlag}${remote} ${currentBranch}`, cwd);
       return { success: true, branch: currentBranch, remote };
     } catch (err) {
       logger.error('Git push failed', err);
@@ -169,16 +234,20 @@ class GitManager {
   }
 
   async pull(cwd: string, remote = 'origin', branch?: string): Promise<GitPullResult> {
-    const git = this.getGit(cwd);
     try {
-      const result = await git.pull(remote, branch);
-      return {
-        success: true,
-        summary: result.summary.changes
-          ? `${result.summary.changes} changes, ${result.summary.insertions} insertions, ${result.summary.deletions} deletions`
-          : 'Already up to date',
-        filesChanged: result.files.length,
-      };
+      const target = branch ? `${remote} ${branch}` : remote;
+      const raw = exec(`git pull ${target}`, cwd);
+
+      const changesMatch = raw.match(/(\d+)\s+file/);
+      const insertionsMatch = raw.match(/(\d+)\s+insertion/);
+      const deletionsMatch = raw.match(/(\d+)\s+deletion/);
+      const filesChanged = changesMatch ? parseInt(changesMatch[1] ?? '0', 10) : 0;
+
+      const summary = filesChanged > 0
+        ? `${filesChanged} files changed, ${insertionsMatch?.[1] ?? 0} insertions, ${deletionsMatch?.[1] ?? 0} deletions`
+        : 'Already up to date';
+
+      return { success: true, summary, filesChanged };
     } catch (err) {
       logger.error('Git pull failed', err);
       throw err;
@@ -186,12 +255,11 @@ class GitManager {
   }
 
   async createBranch(cwd: string, branchName: string, checkout = true): Promise<void> {
-    const git = this.getGit(cwd);
     try {
       if (checkout) {
-        await git.checkoutLocalBranch(branchName);
+        exec(`git checkout -b "${branchName}"`, cwd);
       } else {
-        await git.branch([branchName]);
+        exec(`git branch "${branchName}"`, cwd);
       }
       logger.info(`Created branch ${branchName}${checkout ? ' (checked out)' : ''}`);
     } catch (err) {
@@ -201,9 +269,8 @@ class GitManager {
   }
 
   async checkout(cwd: string, branchName: string): Promise<void> {
-    const git = this.getGit(cwd);
     try {
-      await git.checkout(branchName);
+      exec(`git checkout "${branchName}"`, cwd);
       logger.info(`Checked out branch ${branchName}`);
     } catch (err) {
       logger.error(`Failed to checkout branch ${branchName}`, err);
@@ -212,9 +279,9 @@ class GitManager {
   }
 
   async deleteBranch(cwd: string, branchName: string, force = false): Promise<void> {
-    const git = this.getGit(cwd);
     try {
-      await git.branch([force ? '-D' : '-d', branchName]);
+      const flag = force ? '-D' : '-d';
+      exec(`git branch ${flag} "${branchName}"`, cwd);
       logger.info(`Deleted branch ${branchName}`);
     } catch (err) {
       logger.error(`Failed to delete branch ${branchName}`, err);
@@ -223,9 +290,8 @@ class GitManager {
   }
 
   async createWorktree(cwd: string, branch: string, path: string): Promise<void> {
-    const git = this.getGit(cwd);
     try {
-      await git.raw(['worktree', 'add', path, '-b', branch]);
+      exec(`git worktree add "${path}" -b "${branch}"`, cwd);
       logger.info(`Created worktree at ${path} with branch ${branch}`);
     } catch (err) {
       logger.error('Failed to create worktree', err);
@@ -234,9 +300,8 @@ class GitManager {
   }
 
   async removeWorktree(cwd: string, path: string): Promise<void> {
-    const git = this.getGit(cwd);
     try {
-      await git.raw(['worktree', 'remove', path, '--force']);
+      exec(`git worktree remove "${path}" --force`, cwd);
       logger.info(`Removed worktree at ${path}`);
     } catch (err) {
       logger.error('Failed to remove worktree', err);
@@ -245,9 +310,8 @@ class GitManager {
   }
 
   async listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
-    const git = this.getGit(cwd);
     try {
-      const raw = await git.raw(['worktree', 'list', '--porcelain']);
+      const raw = exec('git worktree list --porcelain', cwd);
       const worktrees: WorktreeInfo[] = [];
       let current: Partial<WorktreeInfo> = {};
 

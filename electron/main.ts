@@ -6,19 +6,18 @@ import { agentLoader } from './services/agent-loader';
 import { sessionManager } from './services/session-manager';
 import { eventBus } from './services/event-bus';
 import { fileWatcher } from './services/file-watcher';
+import { projectSync } from './services/project-sync';
 import { logger } from './utils/logger';
 import { IpcChannels } from './types';
-import { notificationService } from './services/notification-service';
 import { trayService } from './services/tray-service';
-import { shortcutService } from './services/shortcut-service';
-import { crashReporter } from './services/crash-reporter';
 import { loadEnv } from './utils/env';
 
 // Load .env before anything else
 loadEnv();
 
 // Ensure consistent app name (affects userData path) regardless of launch method
-app.name = 'maestro';
+// v2 uses 'maestro-v2' to isolate from v1's database at %APPDATA%/maestro/
+app.name = 'maestro-v2';
 
 // Fix GPU cache errors on Windows with non-ASCII userdata paths
 // The Chromium disk_cache fails when %APPDATA% contains CJK characters
@@ -67,7 +66,7 @@ function createWindow(): void {
 
   // Minimize to tray instead of closing
   mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!(app as any).isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
     }
@@ -140,6 +139,11 @@ function setupEventForwarding(): void {
   eventBus.on('gate:reviewed', (data) => {
     mainWindow?.webContents.send('gate:status-changed', data);
   });
+
+  // Sprint 3: Forward project file-sync events to renderer
+  eventBus.onFileSynced((data) => {
+    mainWindow?.webContents.send(IpcChannels.PROJECT_SYNC_STATUS, data);
+  });
 }
 
 app.whenReady().then(async () => {
@@ -181,9 +185,6 @@ app.whenReady().then(async () => {
   ]);
   Menu.setApplicationMenu(appMenu);
 
-  // Initialize crash reporter
-  crashReporter.initialize();
-
   // Initialize database (async for sql.js WASM loading)
   await database.initialize();
   logger.info('Database initialized');
@@ -205,15 +206,35 @@ app.whenReady().then(async () => {
   // Setup event forwarding after window is created
   setupEventForwarding();
 
-  // Initialize notification service
+  // Initialize tray service
   if (mainWindow) {
-    notificationService.initialize(mainWindow);
     trayService.initialize(mainWindow);
-    shortcutService.initialize(mainWindow);
   }
 
   // Start file watcher
   fileWatcher.start();
+
+  // Auto-start project sync for all projects that have a work directory
+  try {
+    const projects = database.prepare(
+      `SELECT id, work_dir FROM projects WHERE work_dir IS NOT NULL AND status IN (?, ?)`,
+      ['planning', 'active'],
+    );
+    logger.info(`Project sync: found ${projects.length} projects with work_dir`);
+    for (const p of projects as any[]) {
+      logger.info(`Project sync: project ${p.id} work_dir=${p.work_dir}`);
+      if (p.work_dir) {
+        projectSync.startWatch(p.id as string, p.work_dir as string);
+        // Run fullSync to capture files that existed before watcher started
+        projectSync.fullSync(p.id as string, p.work_dir as string).catch((err) => {
+          logger.warn(`Initial fullSync failed for project ${p.id}`, err);
+        });
+      }
+    }
+    logger.info(`Project sync started for ${projects.length} projects`);
+  } catch (err) {
+    logger.warn('Failed to auto-start project sync', err);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -242,8 +263,8 @@ app.on('before-quit', () => {
 
 app.on('window-all-closed', () => {
   trayService.destroy();
-  shortcutService.destroy();
   fileWatcher.stop();
+  projectSync.stopAll();
   sessionManager.cleanup();
   database.close();
   if (process.platform !== 'darwin') {

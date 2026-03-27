@@ -14,6 +14,8 @@ import { ipcMain } from 'electron';
 import { database } from '../services/database';
 import { getKnowledgeDir } from '../utils/paths';
 import { logger } from '../utils/logger';
+import { hookManager } from '../services/hook-manager';
+import { skillManager } from '../services/skill-manager';
 import { IpcChannels } from '../types';
 import type {
   ProjectRecord,
@@ -32,6 +34,37 @@ function rowToProject(row: any): ProjectRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * Deploy shared company rules to child project .knowledge/ directory.
+ * Source: knowledge/company/standards/project-rules.md → .knowledge/company-rules.md
+ * Source: knowledge/company/standards/team-workflow.md → .knowledge/team-workflow.md
+ */
+function scaffoldCompanyRules(workDir: string): string[] {
+  const created: string[] = [];
+  const knowledgeDir = getKnowledgeDir();
+  const destDir = join(workDir, '.knowledge');
+
+  if (!existsSync(destDir)) {
+    mkdirSync(destDir, { recursive: true });
+  }
+
+  const rules = [
+    { src: join(knowledgeDir, 'company', 'standards', 'project-rules.md'), dest: 'company-rules.md' },
+    { src: join(knowledgeDir, 'company', 'standards', 'team-workflow.md'), dest: 'team-workflow.md' },
+    { src: join(knowledgeDir, 'company', 'standards', 'postmortem-common.md'), dest: 'postmortem-common.md' },
+  ];
+
+  for (const { src, dest } of rules) {
+    const destPath = join(destDir, dest);
+    if (existsSync(src) && !existsSync(destPath)) {
+      copyFileSync(src, destPath);
+      created.push(`.knowledge/${dest}`);
+    }
+  }
+
+  return created;
 }
 
 export function registerProjectHandlers(): void {
@@ -61,10 +94,10 @@ export function registerProjectHandlers(): void {
 
           // Write CLAUDE.md (don't overwrite existing)
           if (existsSync(tmplPath) && !existsSync(destClaude)) {
-            const content = readFileSync(tmplPath, 'utf-8').replace(
-              /\{專案名稱\}/g,
-              params.name,
-            );
+            const agentHubPath = process.cwd().replace(/\\/g, '/');
+            const content = readFileSync(tmplPath, 'utf-8')
+              .replace(/\{專案名稱\}/g, params.name)
+              .replace(/\{\{AGENT_HUB_PATH\}\}/g, agentHubPath);
             writeFileSync(destClaude, content, 'utf-8');
           }
 
@@ -82,6 +115,42 @@ export function registerProjectHandlers(): void {
           logger.warn('Failed to scaffold project template files', err);
         }
       }
+
+      // Deploy shared company rules regardless of template type
+      try {
+        const rulesCreated = scaffoldCompanyRules(params.workDir);
+        if (rulesCreated.length > 0) {
+          logger.info(`Deployed company rules: ${rulesCreated.join(', ')}`);
+        }
+      } catch (err) {
+        logger.warn('Failed to deploy company rules', err);
+      }
+
+      // Inject hooks + deploy skills asynchronously (don't block UI)
+      const workDirForAsync = params.workDir;
+      setImmediate(() => {
+        try {
+          hookManager.tryInjectHooks(workDirForAsync);
+          logger.info(`Hooks injected for new project: ${workDirForAsync}`);
+        } catch (err) {
+          logger.warn('Failed to inject hooks for new project', err);
+        }
+
+        try {
+          const allSkills = skillManager.list();
+          const systemSkillNames = allSkills
+            .filter((s) => s.source === 'system' && s.scope === 'global')
+            .map((s) => s.name);
+          for (const skillName of systemSkillNames) {
+            skillManager.deploy(skillName, [workDirForAsync]);
+          }
+          if (systemSkillNames.length > 0) {
+            logger.info(`Deployed ${systemSkillNames.length} system skills to ${workDirForAsync}`);
+          }
+        } catch (err) {
+          logger.warn('Failed to deploy skills for new project', err);
+        }
+      });
     }
 
     database.run(
@@ -145,7 +214,9 @@ export function registerProjectHandlers(): void {
     );
     let tasksDone = 0;
     let tasksInProgress = 0;
+    let totalTasks = 0;
     for (const row of taskRows as any[]) {
+      totalTasks += row.count;
       if (row.status === 'done') tasksDone = row.count;
       if (row.status === 'in_progress') tasksInProgress += row.count;
       if (row.status === 'in_review') tasksInProgress += row.count;
@@ -207,7 +278,7 @@ export function registerProjectHandlers(): void {
       latestGate = { type: gate.gate_type, status: gate.status };
     }
 
-    return { tasksDone, tasksInProgress, totalTokens, totalCostUsd, activeSprint, latestGate };
+    return { tasksDone, tasksInProgress, totalTasks, totalTokens, totalCostUsd, activeSprint, latestGate };
   });
 
   ipcMain.handle(IpcChannels.PROJECT_GET_BUDGET, (_e, projectId: string): BudgetStatus => {

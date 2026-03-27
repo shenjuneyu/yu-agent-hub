@@ -1,5 +1,14 @@
 /// <reference types="vite/client" />
 
+interface ResumableSession {
+  conversationId: string;
+  projectPath: string;
+  projectName: string;
+  firstMessage: string;
+  lastModified: string;
+  fileSize: number;
+}
+
 declare module '*.vue' {
   import type { DefineComponent } from 'vue';
   const component: DefineComponent<object, object, unknown>;
@@ -28,6 +37,8 @@ interface MaestroApi {
       taskId?: string | null;
       parentSessionId?: string;
       resumeSessionId?: string;
+      resumeConversationId?: string;
+      projectPath?: string;
     }) => Promise<{ sessionId: string; ptyId: string }>;
     stop: (sessionId: string, force?: boolean) => Promise<{ success: boolean }>;
     list: (limit?: number) => Promise<unknown[]>;
@@ -49,6 +60,9 @@ interface MaestroApi {
       instruction: string;
     }) => Promise<unknown>;
     listDelegations: () => Promise<unknown[]>;
+    requestSummary: (sessionId: string) => Promise<string | null>;
+    getSummaries: (sessionId: string) => Promise<Array<{ content: string; createdAt: string }>>;
+    scanResumable: (limit?: number) => Promise<ResumableSession[]>;
   };
   agents: {
     list: (filters?: {
@@ -62,12 +76,12 @@ interface MaestroApi {
   tasks: {
     create: (params: unknown) => Promise<unknown>;
     list: (filters?: unknown) => Promise<unknown[]>;
-    get: (id: string) => Promise<unknown>;
-    update: (id: string, params: unknown) => Promise<unknown>;
-    delete: (id: string) => Promise<{ success: boolean }>;
-    transition: (params: { taskId: string; toStatus: string }) => Promise<unknown>;
-    addDependency: (taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
-    removeDependency: (taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
+    get: (projectId: string, id: string) => Promise<unknown>;
+    update: (projectId: string, id: string, params: unknown) => Promise<unknown>;
+    delete: (projectId: string, id: string) => Promise<{ success: boolean }>;
+    transition: (params: { projectId?: string; taskId: string; toStatus: string }) => Promise<unknown>;
+    addDependency: (projectId: string, taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
+    removeDependency: (projectId: string, taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
     getReady: (projectId: string) => Promise<unknown[]>;
     getSessionCounts: (taskIds: string[]) => Promise<Record<string, { total: number; active: number }>>;
   };
@@ -90,11 +104,14 @@ interface MaestroApi {
     getStats: (projectId: string) => Promise<{
       tasksDone: number;
       tasksInProgress: number;
+      totalTasks: number;
       totalTokens: number;
       totalCostUsd: number;
       activeSprint: { name: string; progressPct: number; activeCount: number } | null;
       latestGate: { type: string; status: string } | null;
     }>;
+    initClaudeDir: (projectId: string) => Promise<{ success: boolean; created: string[]; error?: string }>;
+    getClaudeDir: (projectId: string) => Promise<{ exists: boolean; files: Array<{ path: string; type: 'file' | 'dir' }> }>;
   };
   knowledge: {
     listTree: () => Promise<unknown[]>;
@@ -125,29 +142,116 @@ interface MaestroApi {
     getChecklists: () => Promise<unknown[]>;
     initPipeline: (params: { projectId: string; sprintId: string }) => Promise<unknown[]>;
   };
-  costs: {
-    getOverview: () => Promise<unknown>;
-    getBreakdown: (type: string) => Promise<unknown>;
-    getBudget: (projectId: string) => Promise<unknown>;
-    setBudget: (params: {
-      projectId: string;
-      dailyTokenLimit?: number;
-      totalTokenLimit?: number;
-      alertThreshold?: number;
-    }) => Promise<unknown>;
-  };
   settings: {
     get: (key: string) => Promise<string | null>;
     update: (params: { key: string; value: string; category?: string }) => Promise<unknown>;
     getAll: () => Promise<Record<string, string>>;
   };
-  objections: {
-    list: () => Promise<unknown[]>;
-    resolve: (params: {
-      objectionId: string;
-      resolution: string;
-      resolvedBy: string;
-    }) => Promise<unknown>;
+  hooks: {
+    getConfig: (workDir: string) => Promise<{
+      autoInject: boolean;
+      stopValidatorEnabled: boolean;
+      stack: { testCommand: string; lintCommand: string };
+    }>;
+    updateConfig: (params: { workDir: string; autoInject?: boolean; stopValidatorEnabled?: boolean }) => Promise<{ success: boolean }>;
+    list: (params?: { projectPath?: string }) => Promise<Array<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      type: string;
+      matcher: string;
+      enabled: boolean;
+    }>>;
+    get: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      type: string;
+      matcher: string;
+      enabled: boolean;
+      script: string;
+    }>;
+    create: (params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    update: (params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    delete: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    toggle: (params: { name: string; enabled: boolean; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    getLogs: (filters?: { hookName?: string; result?: string; limit?: number; offset?: number; projectPath?: string }) => Promise<Array<{
+      id: number;
+      hook_name: string;
+      hook_type: string;
+      trigger_time: string;
+      trigger_reason: string | null;
+      result: 'blocked' | 'passed' | 'warned';
+      details: string | null;
+      session_id: string | null;
+      scope: string;
+      project_path: string | null;
+      created_at: string;
+    }>>;
+    getStats: (projectPath?: string) => Promise<{ total: number; blocked: number; passed: number; warned: number }>;
+  };
+  skills: {
+    list: (params?: { projectPath?: string }) => Promise<Array<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      enabled: boolean;
+    }>>;
+    get: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      enabled: boolean;
+      content: string;
+      deployedTo: string[];
+    }>;
+    create: (params: { name: string; content: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean; path: string }>;
+    update: (params: { name: string; content: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    delete: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    deploy: (params: { name: string; projects: string[] }) => Promise<{ success: boolean; deployed: string[] }>;
+    toggle: (params: { name: string; enabled: boolean; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    export: (params: { names: string[] }) => Promise<{
+      version: number;
+      exportedAt: string;
+      skills: Array<{
+        name: string;
+        content: string;
+        source: 'system' | 'user';
+        scope: 'global' | 'project';
+      }>;
+    }>;
+    import: (params: {
+      bundle: {
+        version: number;
+        exportedAt: string;
+        skills: Array<{
+          name: string;
+          content: string;
+          source: 'system' | 'user';
+          scope: 'global' | 'project';
+        }>;
+      };
+      onConflict: 'skip' | 'overwrite';
+    }) => Promise<{
+      imported: string[];
+      skipped: string[];
+      overwritten: string[];
+      errors: string[];
+    }>;
+  };
+  pitfall: {
+    getOverdue: () => Promise<Array<{
+      project: string;
+      title: string;
+      category: string;
+      dueDate: string;
+      daysOverdue: number;
+      problem: string;
+    }>>;
   };
   audit: {
     query: (params?: unknown) => Promise<unknown[]>;
@@ -169,12 +273,6 @@ interface MaestroApi {
     checkout: (cwd: string, branchName: string) => Promise<{ success: boolean }>;
     deleteBranch: (cwd: string, branchName: string, force?: boolean) => Promise<{ success: boolean }>;
   };
-  auth: {
-    login: () => Promise<{ success: boolean; user?: unknown; error?: string }>;
-    logout: () => Promise<{ success: boolean }>;
-    getProfile: () => Promise<unknown>;
-    getStatus: () => Promise<{ authenticated: boolean; user?: unknown }>;
-  };
   github: {
     createPR: (params: {
       owner: string;
@@ -194,30 +292,18 @@ interface MaestroApi {
     }) => Promise<unknown>;
     getRepos: (page?: number, perPage?: number) => Promise<unknown[]>;
   };
-  notion: {
-    login: () => Promise<unknown>;
-    disconnect: () => Promise<{ success: boolean }>;
-    getStatus: () => Promise<unknown>;
-    verify: () => Promise<{ valid: boolean; error?: string }>;
-    setParentPage: (pageId: string) => Promise<{ success: boolean }>;
-    initDatabases: () => Promise<{ success: boolean; created: number; error?: string }>;
-    getDbStatus: () => Promise<unknown[]>;
-    syncPush: (tableName?: string) => Promise<unknown>;
-    syncPull: (tableName?: string) => Promise<unknown>;
-    syncAll: (options?: unknown) => Promise<unknown>;
-  };
-  docSync: {
-    getStatus: (scope: string, projectWorkDir?: string) => Promise<unknown>;
-    discover: (scope: string, projectWorkDir?: string) => Promise<string[]>;
-    getMappings: (scope: string) => Promise<unknown[]>;
-    setRootPage: (scope: string, pageId: string) => Promise<{ success: boolean }>;
-    push: (options: unknown) => Promise<unknown>;
-    pull: (options: unknown) => Promise<unknown>;
-    syncAll: (options: unknown) => Promise<unknown>;
-  };
   pty: {
     input: (ptyId: string, data: string) => void;
     resize: (ptyId: string, cols: number, rows: number) => void;
+  };
+  projectSync: {
+    start: (params: { projectId: string; workDir: string }) => Promise<{ success: boolean }>;
+    stop: (params: { projectId: string }) => Promise<{ success: boolean }>;
+    fullSync: (params: { projectId: string; workDir: string }) => Promise<{
+      tasksUpdated: number;
+      gatesUpdated: number;
+      errors: string[];
+    }>;
   };
   on: {
     sessionEvent: (callback: (data: unknown) => void) => void;
@@ -226,7 +312,8 @@ interface MaestroApi {
     notification: (callback: (data: unknown) => void) => void;
     agentsReloaded: (callback: (data: unknown) => void) => void;
     delegationReport: (callback: (data: unknown) => void) => void;
-    syncStatus: (callback: (data: unknown) => void) => void;
+    gateStatusChanged: (callback: (data: unknown) => void) => void;
+    projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
   };
 }
 

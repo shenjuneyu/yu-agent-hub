@@ -90,7 +90,7 @@
 
 ## 6. 任務定義與分配
 
-> L1 在此定義所有任務。老闆透過 PM 產生任務指令後手動建立，轉達給負責 Agent。
+> L1 讀取本節後按依賴順序執行。第一步先執行 `/task-delegation` 建立 `.tasks/` 檔案，系統自動追蹤進度。
 
 ### 任務清單
 
@@ -100,28 +100,28 @@
 | T2 | {任務名} | {具體要做什麼} | {agent-id} | T1 | 實作 | {完成條件} |
 | T3 | {任務名} | {具體要做什麼} | {agent-id} | T2 | 測試 | {完成條件} |
 
-### 任務指令（DelegationCommand 格式）
+### 依賴圖
 
-> 老闆手動建立任務時，依此格式產生指令轉達給 Agent。格式對齊系統的 `DelegationCommand` 型別。
-
-```json
-{
-  "targetAgent": "{agent-id}",
-  "task": "{T# — 具體任務描述，含範圍和完成條件}",
-  "priority": "medium",
-  "context": "{背景資訊：依賴的前置任務、注意事項、禁止事項}"
-}
+```
+T1 → T2 → T3
+（依實際任務畫出依賴關係）
 ```
 
-#### 範例
+### L1 執行指令
 
-```json
-{
-  "targetAgent": "fe-dev-01",
-  "task": "T2 — SessionsView 新增分組切換下拉選單，支援 none/project/department 三種模式，分組偏好存 localStorage",
-  "priority": "high",
-  "context": "依賴 T1（sessions store groupedSessions computed）。不動 SessionCard 元件，只改 SessionsView。"
-}
+> PM 產出此區塊，老闆複製貼入 L1 session 即可啟動。
+
+```
+請執行 {Sprint 名稱} 開發計畫。
+
+📄 計畫書：proposal/{sprint}-dev-plan.md
+📋 你負責的任務：{直接執行的任務 ID}（第 6 節）
+🎨 委派 {Agent}：{任務 ID}
+🔧 委派 {Agent}：{任務 ID}
+
+⚠️ 阻斷規則：{如有}
+
+第一步請先執行 /task-delegation 建立任務檔案。
 ```
 
 ### 共用檔案（需協調）

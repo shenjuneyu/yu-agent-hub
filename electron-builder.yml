@@ -20,6 +20,10 @@ extraResources:
     to: knowledge/
     filter:
       - '**/*'
+  - from: electron/migrations/
+    to: migrations/
+    filter:
+      - '**/*'
   - from: node_modules/sql.js/dist/sql-wasm.wasm
     to: sql-wasm.wasm
   - from: .env

@@ -1,30 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, onMounted } from 'vue';
 import { useSettingsStore } from '../stores/settings';
-import { useAuthStore } from '../stores/auth';
-import { useSyncStore } from '../stores/sync';
-import { useIpc } from '../composables/useIpc';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseToggle from '../components/common/BaseToggle.vue';
 
 const settingsStore = useSettingsStore();
-const authStore = useAuthStore();
-const syncStore = useSyncStore();
-const route = useRoute();
-const { onSyncStatus } = useIpc();
 
 const activeTab = ref('general');
 const saveMessage = ref('');
-const parentPageInput = ref('');
-const initMessage = ref('');
-const docSyncRootPages = ref<Record<string, string>>({});
-const docConflictStrategy = ref('local-wins');
-const autoSyncIntervalMs = ref(syncStore.schedulerInterval);
 
 const tabs = [
-  { key: 'account', label: '帳號' },
-  { key: 'sync', label: '同步' },
   { key: 'general', label: '一般' },
   { key: 'claude', label: 'Claude 命令列' },
   { key: 'session', label: '工作階段' },
@@ -151,25 +136,8 @@ async function handleClearDatabase() {
   }
 }
 
-const syncProgressPct = computed(() => {
-  const p = syncStore.syncProgress;
-  if (!p || p.totalTables === 0) return 0;
-  const tableWeight = (p.currentTableIndex - 1) / p.totalTables;
-  const rowWeight = p.totalRows > 0 ? p.processedRows / p.totalRows / p.totalTables : 0;
-  return Math.min(100, Math.round((tableWeight + rowWeight) * 100));
-});
-
-const syncProgressText = computed(() => {
-  const p = syncStore.syncProgress;
-  if (!p || p.phase === 'idle') return '';
-  const phaseLabel = p.phase === 'push' ? '推送中' : '拉取中';
-  return `${phaseLabel}：${p.currentTable} (${p.currentTableIndex}/${p.totalTables})`;
-});
-
 onMounted(async () => {
   await settingsStore.fetchAll();
-  await authStore.checkStatus();
-  await syncStore.checkStatus();
   // Populate form from stored preferences
   const prefs = settingsStore.preferences;
   for (const key of Object.keys(form.value) as Array<keyof typeof form.value>) {
@@ -177,28 +145,8 @@ onMounted(async () => {
       form.value[key] = prefs[key];
     }
   }
-  // Handle ?tab= query
-  if (route.query.tab === 'account') {
-    activeTab.value = 'account';
-  } else if (route.query.tab === 'sync') {
-    activeTab.value = 'sync';
-  }
-  // 註冊同步進度事件
-  onSyncStatus((data) => syncStore.handleSyncProgress(data));
-  // 載入文件同步狀態
-  await syncStore.refreshDocSyncStatus();
   // 載入自動審核規則
   await loadAutoApproveRules();
-
-  // 還原自動同步排程偏好
-  const savedAutoSyncEnabled = prefs['autoSyncEnabled'];
-  const savedAutoSyncInterval = prefs['autoSyncInterval'];
-  if (savedAutoSyncInterval) {
-    autoSyncIntervalMs.value = Number(savedAutoSyncInterval);
-  }
-  if (savedAutoSyncEnabled === 'true' && syncStore.isConnected) {
-    await syncStore.startScheduler(autoSyncIntervalMs.value);
-  }
 });
 
 async function save() {
@@ -225,696 +173,266 @@ const models = [
   { value: 'haiku', label: 'Claude Haiku' },
 ];
 
-// Sync helpers
-async function saveParentPage() {
-  if (parentPageInput.value.trim()) {
-    await syncStore.setParentPage(parentPageInput.value.trim());
-  }
-}
-
-async function handleInitDatabases() {
-  initMessage.value = '';
-  const result = await syncStore.initDatabases();
-  if (result.success) {
-    initMessage.value = `${result.created} 個 Database 初始化完成`;
-    setTimeout(() => { initMessage.value = ''; }, 3000);
-  }
-}
-
-function formatSyncTime(dateStr: string | null): string {
-  if (!dateStr) return '尚未同步';
-  try {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return '剛才';
-    if (diffMin < 60) return `${diffMin} 分鐘前`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} 小時前`;
-    return `${Math.floor(diffHr / 24)} 天前`;
-  } catch {
-    return dateStr;
-  }
-}
-
-function dbStatusIcon(status: string): string {
-  if (status === 'ok') return '\u2713';
-  if (status === 'error') return '!';
-  return '\u2717';
-}
-
-function dbStatusColor(status: string): string {
-  if (status === 'ok') return 'text-success';
-  if (status === 'error') return 'text-danger';
-  return 'text-text-muted';
-}
-
-async function saveDocSyncRootPage(scope: string) {
-  const pageId = docSyncRootPages.value[scope]?.trim();
-  if (pageId) {
-    await syncStore.setDocSyncRootPage(scope, pageId);
-  }
-}
-
-function connectionDotClass(connection: string): string {
-  if (connection === 'connected') return 'bg-success animate-pulse';
-  if (connection === 'syncing') return 'bg-warning animate-pulse';
-  if (connection === 'error') return 'bg-danger';
-  return 'bg-text-muted';
-}
-
-function connectionLabel(connection: string): string {
-  if (connection === 'connected') return '已連線';
-  if (connection === 'syncing') return '同步中...';
-  if (connection === 'error') return '錯誤';
-  return '未連線';
-}
-
-async function toggleAutoSync(enabled: boolean) {
-  if (enabled) {
-    await syncStore.startScheduler(autoSyncIntervalMs.value);
-    await settingsStore.update('autoSyncEnabled', 'true', 'sync');
-    await settingsStore.update('autoSyncInterval', String(autoSyncIntervalMs.value), 'sync');
-  } else {
-    await syncStore.stopScheduler();
-    await settingsStore.update('autoSyncEnabled', 'false', 'sync');
-  }
-}
-
-async function changeAutoSyncInterval(ms: number) {
-  autoSyncIntervalMs.value = ms;
-  if (syncStore.schedulerEnabled) {
-    // 重新啟動排程以套用新間隔
-    await syncStore.startScheduler(ms);
-  }
-  await settingsStore.update('autoSyncInterval', String(ms), 'sync');
-}
 </script>
 
 <template>
-  <div>
-    <!-- Horizontal tab bar -->
-    <div class="mb-6 flex items-center gap-1 border-b border-border-default">
+  <div class="settings-view">
+    <!-- Horizontal tab navigation -->
+    <div class="settings-tab-nav">
       <button
         v-for="tab in tabs"
         :key="tab.key"
-        class="cursor-pointer border-b-2 px-4 py-2.5 text-sm font-medium transition-all"
-        :class="
-          activeTab === tab.key
-            ? 'border-accent text-accent-light'
-            : 'border-transparent text-text-secondary hover:text-text-primary'
-        "
+        class="settings-tab-btn"
+        :class="{ 'is-active': activeTab === tab.key }"
         @click="activeTab = tab.key"
       >
         {{ tab.label }}
       </button>
     </div>
 
-    <!-- Content -->
-    <div class="max-w-[640px]">
-      <div class="rounded-xl border border-border-default bg-bg-card p-6">
-        <!-- Account -->
-        <div v-show="activeTab === 'account'" class="space-y-5">
-          <h3 class="text-sm font-semibold">帳號連結</h3>
-          <p class="text-xs text-text-muted">管理第三方服務的連結與授權。</p>
+    <!-- Content area -->
+    <div class="settings-content">
 
-          <div class="rounded-xl border border-border-default bg-bg-primary p-5">
-            <!-- Header -->
-            <div class="mb-4 flex items-center gap-2 text-sm font-semibold">
-              <svg class="h-5 w-5" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-              GitHub
-            </div>
+      <!-- ── Tab: 一般 ── -->
+      <div v-show="activeTab === 'general'" class="settings-tab-panel">
+        <!-- Main card -->
+        <div class="settings-card">
+          <p class="settings-section-title">一般設定</p>
 
-            <!-- 已連線 -->
-            <div v-if="authStore.isAuthenticated" class="space-y-4">
-              <div class="flex items-center gap-4">
-                <img :src="authStore.user?.avatarUrl" class="h-14 w-14 rounded-full" />
-                <div class="flex-1">
-                  <div class="text-base font-semibold">{{ authStore.user?.login }}</div>
-                  <div class="text-xs text-text-muted">{{ authStore.user?.email || '—' }}</div>
-                  <div class="mt-1.5 flex items-center gap-3">
-                    <span class="flex items-center gap-1 text-xs text-success">
-                      <span class="inline-block h-1.5 w-1.5 rounded-full bg-success"></span>
-                      已連線
-                    </span>
-                    <span class="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-[10px] text-text-muted">repo</span>
-                    <span class="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-[10px] text-text-muted">read:user</span>
-                  </div>
-                </div>
-                <BaseButton
-                  variant="ghost"
-                  size="sm"
-                  class="!text-danger"
-                  :loading="authStore.loading"
-                  @click="authStore.logout()"
-                >
-                  登出
-                </BaseButton>
-              </div>
-
-              <div
-                class="flex items-center gap-2 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-[11px] text-text-muted"
-              >
-                <span>&#128274;</span>
-                <span>Token 已透過 Electron safeStorage 加密儲存。</span>
-              </div>
-            </div>
-
-            <!-- 未連線 -->
-            <div v-else class="py-4 text-center">
-              <p class="mb-4 text-sm text-text-secondary">連結 GitHub 帳號以啟用：</p>
-              <div class="mx-auto mb-5 max-w-[280px] space-y-2 text-left">
-                <div class="flex items-center gap-2.5 text-xs text-text-secondary">
-                  <span class="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-[10px] text-accent-light">&#8593;</span>
-                  Git push / pull 認證
-                </div>
-                <div class="flex items-center gap-2.5 text-xs text-text-secondary">
-                  <span class="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-[10px] text-accent-light">&#8644;</span>
-                  建立 Pull Request
-                </div>
-                <div class="flex items-center gap-2.5 text-xs text-text-secondary">
-                  <span class="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-[10px] text-accent-light">&#9888;</span>
-                  建立 Issue
-                </div>
-                <div class="flex items-center gap-2.5 text-xs text-text-secondary">
-                  <span class="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-[10px] text-accent-light">&#128193;</span>
-                  存取私有 Repository
-                </div>
-              </div>
-              <button
-                class="inline-flex items-center gap-2.5 rounded-lg bg-[#24292f] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#32383f]"
-                :disabled="authStore.loading"
-                @click="authStore.login()"
-              >
-                <svg class="h-5 w-5" viewBox="0 0 16 16" fill="white">
-                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                </svg>
-                {{ authStore.loading ? '連線中...' : '以 GitHub 登入' }}
-              </button>
-              <p v-if="authStore.error" class="mt-3 text-xs text-danger">{{ authStore.error }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sync -->
-        <div v-show="activeTab === 'sync'" class="space-y-5">
-          <h3 class="text-sm font-semibold">雲端同步</h3>
-          <p class="text-xs text-text-muted">使用 Notion 作為雲端後端，實現跨裝置同步專案資料。</p>
-
-          <!-- 未連線狀態 -->
-          <div v-if="!syncStore.isConnected" class="rounded-xl border border-dashed border-border-default p-8 text-center">
-            <div class="mb-3 text-4xl opacity-40">&#9729;</div>
-            <div class="mb-1.5 text-sm font-semibold">尚未設定雲端同步</div>
-            <div class="mb-5 text-xs leading-relaxed text-text-muted">
-              連結 Notion 後可以：<br />
-              跨裝置同步專案資料 &middot; 雲端備份 &middot; 團隊協作共享
-            </div>
-            <button
-              class="inline-flex items-center gap-2.5 rounded-lg bg-[#000000] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a]"
-              :disabled="syncStore.loading"
-              @click="syncStore.login()"
-            >
-              <span class="text-base">&#9729;</span>
-              {{ syncStore.loading ? '連線中...' : '以 Notion 連結' }}
-            </button>
-            <p v-if="syncStore.error" class="mt-3 text-xs text-danger">{{ syncStore.error }}</p>
-          </div>
-
-          <!-- 已連線狀態 -->
-          <template v-else>
-            <!-- 1. 連線資訊 -->
-            <div class="space-y-4">
-              <div class="text-xs font-semibold">連線設定</div>
-
-              <div class="flex items-center justify-between border-b border-border-default py-3.5">
-                <div class="flex-1">
-                  <div class="text-sm font-medium">Notion Workspace</div>
-                  <div class="text-xs text-text-muted">{{ syncStore.status.workspaceName || '—' }}</div>
-                </div>
-                <div class="flex gap-2">
-                  <BaseButton variant="ghost" size="sm" :loading="syncStore.loading" @click="syncStore.verify()">
-                    驗證
-                  </BaseButton>
-                  <BaseButton
-                    variant="ghost"
-                    size="sm"
-                    class="!text-danger"
-                    :loading="syncStore.loading"
-                    @click="syncStore.disconnect()"
-                  >
-                    斷開
-                  </BaseButton>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between border-b border-border-default py-3.5">
-                <div class="flex-1">
-                  <div class="text-sm font-medium">Notion 父頁面 ID</div>
-                  <div class="text-xs text-text-muted">所有 Database 將建立在此頁面下</div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <input
-                    v-model="parentPageInput"
-                    type="text"
-                    placeholder="a1b2c3d4-e5f6-7890-abcd"
-                    class="w-[220px] rounded-lg border border-border-default bg-bg-primary px-3 py-1.5 font-mono text-[11px] text-text-primary outline-none focus:border-accent"
-                  />
-                  <BaseButton variant="ghost" size="sm" @click="saveParentPage">儲存</BaseButton>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. 同步狀態卡片 -->
-            <div class="my-1 h-px bg-border-default"></div>
-            <div class="text-xs font-semibold">同步狀態</div>
-
-            <div class="rounded-xl border border-border-default bg-bg-card p-5">
-              <div class="mb-4 flex items-center gap-2.5">
-                <span class="inline-block h-2.5 w-2.5 rounded-full" :class="connectionDotClass(syncStore.status.connection)"></span>
-                <span class="text-sm font-semibold">{{ connectionLabel(syncStore.status.connection) }}</span>
-                <span class="ml-auto text-[11px] text-text-muted">
-                  {{ formatSyncTime(syncStore.status.lastSyncAt) }}
-                </span>
-              </div>
-
-              <div class="mb-4 grid grid-cols-2 gap-3">
-                <div class="rounded-lg bg-bg-secondary p-3 text-center">
-                  <div class="text-2xl font-bold text-success">{{ syncStore.status.pendingPush }}</div>
-                  <div class="text-[11px] text-text-muted">&#8593; 待推送</div>
-                </div>
-                <div class="rounded-lg bg-bg-secondary p-3 text-center">
-                  <div class="text-2xl font-bold text-info">{{ syncStore.status.pendingPull }}</div>
-                  <div class="text-[11px] text-text-muted">&#8595; 待拉取</div>
-                </div>
-              </div>
-
-              <!-- 進度條 -->
-              <div class="mb-4">
-                <div class="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-hover">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-accent to-cyan-400 transition-all duration-300"
-                    :style="{ width: `${syncStore.syncing ? syncProgressPct : 0}%` }"
-                  ></div>
-                </div>
-                <div class="flex justify-between text-[11px] text-text-muted">
-                  <span>{{ syncStore.syncing ? syncProgressText : '就緒' }}</span>
-                  <span>{{ syncStore.syncing ? `${syncProgressPct}%` : '—' }}</span>
-                </div>
-              </div>
-
-              <!-- 立即同步按鈕 -->
-              <button
-                class="w-full rounded-lg border border-border-default bg-bg-primary py-2 text-sm transition-colors hover:bg-bg-hover"
-                :class="syncStore.syncing ? 'text-text-muted' : 'text-text-primary'"
-                :disabled="syncStore.syncing"
-                @click="syncStore.syncAll()"
-              >
-                <template v-if="syncStore.syncing">
-                  <span class="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-text-muted border-t-transparent align-middle"></span>
-                  同步中...
-                </template>
-                <template v-else>
-                  &#8635; 立即同步
-                </template>
-              </button>
-            </div>
-
-            <!-- 3. Notion 資料庫 -->
-            <div class="my-1 h-px bg-border-default"></div>
-            <div class="mb-1.5 text-xs font-semibold">Notion 資料庫</div>
-            <div class="mb-3 text-[11px] text-text-muted">18 個 Database 對應本地 SQLite 表。</div>
-
-            <div class="mb-4 grid grid-cols-2 gap-2">
-              <div
-                v-for="db in syncStore.status.databases"
-                :key="db.tableName"
-                class="flex items-center gap-2 rounded-lg border border-border-default bg-bg-card px-3 py-2 text-xs"
-              >
-                <span class="flex-shrink-0 text-sm" :class="dbStatusColor(db.status)">{{ dbStatusIcon(db.status) }}</span>
-                <span class="flex-1 truncate">{{ db.displayName }}</span>
-                <span class="font-mono text-[10px] text-text-muted">{{ db.localRowCount }}</span>
-              </div>
-            </div>
-
-            <button
-              class="w-full rounded-lg border border-border-default bg-bg-primary py-2 text-sm transition-colors hover:bg-bg-hover"
-              :disabled="syncStore.loading"
-              @click="handleInitDatabases"
-            >
-              {{ syncStore.loading ? '初始化中...' : '&#128736; 初始化 Notion Database' }}
-            </button>
-            <div class="mt-1.5 text-center text-[11px] text-text-muted">
-              首次使用時建立 18 個 Database（約需 6 秒）
-            </div>
-            <p v-if="initMessage" class="mt-2 text-center text-xs text-success">{{ initMessage }}</p>
-            <p v-if="syncStore.error && !initMessage" class="mt-2 text-center text-xs text-danger">{{ syncStore.error }}</p>
-
-            <!-- 4. 知識庫/文件同步（6D） -->
-            <div class="my-1 h-px bg-border-default"></div>
-            <div class="mb-1.5 text-xs font-semibold">知識庫/文件同步</div>
-            <div class="mb-3 text-[11px] text-text-muted">
-              將 Markdown 檔案同步到 Notion 頁面，支援雙向同步。
-            </div>
-
-            <div class="space-y-3">
-              <div
-                v-for="ds in syncStore.docSyncStatuses"
-                :key="ds.scope"
-                class="rounded-lg border border-border-default bg-bg-primary p-4"
-              >
-                <div class="mb-2 flex items-center justify-between">
-                  <div class="text-sm font-medium">{{ ds.label }}</div>
-                  <div class="text-[11px] text-text-muted">
-                    {{ ds.totalFiles }} 檔案 | 已同步: {{ ds.synced }} | 待推送: {{ ds.pendingPush }}
-                  </div>
-                </div>
-
-                <div class="mb-3 flex items-center gap-2">
-                  <input
-                    v-model="docSyncRootPages[ds.scope]"
-                    type="text"
-                    :placeholder="ds.rootPageId || 'Notion 根頁面 ID'"
-                    class="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-1.5 font-mono text-[11px] text-text-primary outline-none focus:border-accent"
-                  />
-                  <BaseButton variant="ghost" size="sm" @click="saveDocSyncRootPage(ds.scope)">
-                    設定
-                  </BaseButton>
-                </div>
-
-                <div class="flex gap-2">
-                  <button
-                    class="flex-1 rounded-lg border border-border-default bg-bg-secondary py-1.5 text-xs transition-colors hover:bg-bg-hover"
-                    :disabled="syncStore.docSyncing || !ds.rootPageId"
-                    :class="!ds.rootPageId ? 'opacity-40' : ''"
-                    @click="syncStore.pushDocSync(ds.scope)"
-                  >
-                    &#8593; 推送
-                  </button>
-                  <button
-                    class="flex-1 rounded-lg border border-border-default bg-bg-secondary py-1.5 text-xs transition-colors hover:bg-bg-hover"
-                    :disabled="syncStore.docSyncing || !ds.rootPageId"
-                    :class="!ds.rootPageId ? 'opacity-40' : ''"
-                    @click="syncStore.pullDocSync(ds.scope, docConflictStrategy)"
-                  >
-                    &#8595; 拉取
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-3 flex items-center justify-between">
-              <div class="flex items-center gap-2 text-xs">
-                <span class="text-text-secondary">衝突策略:</span>
-                <select
-                  v-model="docConflictStrategy"
-                  class="rounded-lg border border-border-default bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none"
-                >
-                  <option value="local-wins">本地優先</option>
-                  <option value="notion-wins">Notion 優先</option>
-                  <option value="skip">跳過衝突</option>
-                </select>
-              </div>
-              <button
-                class="rounded-lg border border-border-default bg-bg-primary px-4 py-1.5 text-xs transition-colors hover:bg-bg-hover"
-                :disabled="syncStore.docSyncing"
-                @click="syncStore.syncAllDocs(docConflictStrategy)"
-              >
-                <template v-if="syncStore.docSyncing">
-                  <span class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-text-muted border-t-transparent align-middle"></span>
-                  同步中...
-                </template>
-                <template v-else>
-                  &#8635; 同步全部
-                </template>
-              </button>
-            </div>
-
-            <p v-if="syncStore.docSyncError" class="mt-2 text-xs text-danger">{{ syncStore.docSyncError }}</p>
-
-            <!-- 5. 自動同步設定 -->
-            <div class="my-1 h-px bg-border-default"></div>
-            <div class="mb-3 text-xs font-semibold">自動同步</div>
-
-            <div>
-              <div class="flex items-center justify-between border-b border-border-default py-3.5">
-                <div>
-                  <div class="text-sm font-medium">啟用自動同步</div>
-                  <div class="text-xs text-text-muted">定期自動同步本地變更到 Notion</div>
-                </div>
-                <BaseToggle
-                  :model-value="syncStore.schedulerEnabled"
-                  @update:model-value="toggleAutoSync"
-                />
-              </div>
-
-              <div class="flex items-center justify-between border-b border-border-default py-3.5">
-                <div>
-                  <div class="text-sm font-medium">同步間隔</div>
-                  <div class="text-xs text-text-muted">自動同步的時間間隔</div>
-                </div>
-                <select
-                  :value="autoSyncIntervalMs"
-                  class="rounded-lg border border-border-default bg-bg-primary px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
-                  @change="changeAutoSyncInterval(Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option :value="1 * 60 * 1000">1 分鐘</option>
-                  <option :value="5 * 60 * 1000">5 分鐘</option>
-                  <option :value="15 * 60 * 1000">15 分鐘</option>
-                  <option :value="30 * 60 * 1000">30 分鐘</option>
-                  <option :value="60 * 60 * 1000">60 分鐘</option>
-                </select>
-              </div>
-
-              <div class="flex items-center justify-between py-3.5">
-                <div>
-                  <div class="text-sm font-medium">衝突策略</div>
-                  <div class="text-xs text-text-muted">當本地與雲端資料衝突時的處理方式</div>
-                </div>
-                <select
-                  class="rounded-lg border border-border-default bg-bg-primary px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
-                >
-                  <option value="lww">Last-Write-Wins</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- 離線佇列回放 -->
-            <div class="mt-2 flex items-center justify-between rounded-lg border border-border-default bg-bg-primary px-4 py-3">
-              <div>
-                <div class="text-sm font-medium">離線佇列回放</div>
-                <div class="text-xs text-text-muted">
-                  回放所有待同步的離線操作（{{ syncStore.status.pendingPush }} 筆待推送）
-                </div>
-              </div>
-              <BaseButton
-                variant="ghost"
-                size="sm"
-                :loading="syncStore.syncing"
-                :disabled="syncStore.status.pendingPush === 0"
-                @click="syncStore.flushQueue()"
-              >
-                立即回放
-              </BaseButton>
-            </div>
-
-            <!-- 5. 資訊框 -->
-            <div class="mt-4 flex items-start gap-2 rounded-lg border border-border-default bg-bg-secondary px-3.5 py-3 text-[11px] leading-relaxed text-text-muted">
-              <span class="mt-0.5 flex-shrink-0 text-sm">&#9432;</span>
-              <div>
-                <strong>離線模式</strong><br />
-                無網路時本地 SQLite 正常運作，所有變更會記錄到 sync_queue。恢復連線後自動推送待同步資料。<br /><br />
-                <strong>Rate Limit</strong><br />
-                Notion API 限制 3 req/s，批次操作已內建佇列與自動重試。
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- General -->
-        <div v-show="activeTab === 'general'" class="space-y-5">
-          <h3 class="text-sm font-semibold">一般設定</h3>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">語言</label>
-            <select
-              v-model="form.language"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-            >
+          <div class="form-field">
+            <label class="field-label">語言</label>
+            <select v-model="form.language" class="field-select">
               <option value="zh-TW">繁體中文</option>
               <option value="en">English</option>
             </select>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">專案根目錄</label>
+
+          <div class="form-field">
+            <label class="field-label">專案根目錄</label>
             <input
               v-model="form.projectRoot"
               type="text"
               placeholder="C:\projects"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--full"
             />
-          </div>
-
-          <!-- Danger Zone -->
-          <div class="rounded-xl border border-danger/40 bg-danger/5 p-5">
-            <div class="mb-1 text-sm font-semibold text-danger">危險區域</div>
-            <p class="mb-4 text-xs leading-relaxed text-text-muted">
-              以下操作具有不可復原的風險，請謹慎使用。資料庫結構（schema_migrations）將保留，應用程式不會損壞。
-            </p>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-sm font-medium">清除所有資料</div>
-                <div class="text-xs text-text-muted">刪除所有專案、任務、衝刺、工作階段等業務資料</div>
-              </div>
-              <button
-                class="rounded-lg border border-danger bg-danger/10 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="clearing"
-                @click="handleClearDatabase"
-              >
-                <template v-if="clearing">
-                  <span class="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent align-middle"></span>
-                  清除中...
-                </template>
-                <template v-else>
-                  清除所有資料
-                </template>
-              </button>
-            </div>
-            <p v-if="clearMessage" class="mt-3 text-xs text-success">{{ clearMessage }}</p>
-            <p v-if="clearError" class="mt-3 text-xs text-danger">{{ clearError }}</p>
+            <p class="field-hint">所有子專案的預設存放路徑</p>
           </div>
         </div>
 
-        <!-- Claude Code -->
-        <div v-show="activeTab === 'claude'" class="space-y-5">
-          <h3 class="text-sm font-semibold">Claude 命令列設定</h3>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">CLI 路徑</label>
+        <!-- Danger zone -->
+        <div class="danger-zone">
+          <div class="danger-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            危險區域
+          </div>
+          <p class="danger-desc">以下操作具有不可復原的風險，請謹慎操作。</p>
+          <div class="danger-row">
+            <div class="danger-row-info">
+              <div class="danger-row-label">清除所有資料</div>
+              <div class="danger-row-desc">刪除所有專案、任務、工作階段記錄與設定</div>
+            </div>
+            <BaseButton
+              variant="danger"
+              size="sm"
+              :loading="clearing"
+              @click="handleClearDatabase"
+            >
+              {{ clearing ? '清除中...' : '清除所有資料' }}
+            </BaseButton>
+          </div>
+          <p v-if="clearMessage" class="feedback-success">{{ clearMessage }}</p>
+          <p v-if="clearError" class="feedback-danger">{{ clearError }}</p>
+        </div>
+
+        <!-- Save row -->
+        <div class="save-row">
+          <BaseButton variant="ghost" @click="save">儲存設定</BaseButton>
+          <span v-if="saveMessage" class="save-success-msg">
+            <span class="save-dot" aria-hidden="true"></span>
+            {{ saveMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Tab: Claude 命令列 ── -->
+      <div v-show="activeTab === 'claude'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">Claude 命令列設定</p>
+
+          <div class="form-field">
+            <label class="field-label">CLI 路徑</label>
             <input
               v-model="form.cliPath"
               type="text"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--full"
             />
+            <p class="field-hint">Claude CLI 可執行檔路徑或指令名稱</p>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">預設 Model</label>
-            <select
-              v-model="form.defaultModel"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-            >
+
+          <div class="form-field">
+            <label class="field-label">預設 Model</label>
+            <select v-model="form.defaultModel" class="field-select">
               <option v-for="m in models" :key="m.value" :value="m.value">{{ m.label }}</option>
             </select>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">最大回合數</label>
+
+          <div class="form-field">
+            <label class="field-label">最大回合數</label>
             <input
               v-model="form.maxTurns"
               type="number"
               min="1"
               max="100"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--narrow"
             />
+            <p class="field-hint">每個工作階段最多允許的對話回合數（1–100）</p>
           </div>
         </div>
 
-        <!-- Session -->
-        <div v-show="activeTab === 'session'" class="space-y-5">
-          <h3 class="text-sm font-semibold">工作階段設定</h3>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium">自動儲存</div>
-              <div class="text-xs text-text-muted">Session 結束後自動儲存記錄</div>
+        <div class="save-row">
+          <BaseButton variant="ghost" @click="save">儲存設定</BaseButton>
+          <span v-if="saveMessage" class="save-success-msg">
+            <span class="save-dot" aria-hidden="true"></span>
+            {{ saveMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Tab: 工作階段 ── -->
+      <div v-show="activeTab === 'session'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">工作階段設定</p>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">自動儲存</div>
+              <div class="toggle-desc">Session 結束後自動儲存記錄</div>
             </div>
             <BaseToggle
               :model-value="form.autoSave === 'true'"
               @update:model-value="form.autoSave = $event ? 'true' : 'false'"
             />
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">終端字體大小</label>
+
+          <div class="form-field form-field--mt">
+            <label class="field-label">終端字體大小</label>
             <input
               v-model="form.terminalFontSize"
               type="number"
               min="10"
               max="24"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--narrow"
             />
+            <p class="field-hint">終端機輸出的字體大小（px）</p>
           </div>
         </div>
 
-        <!-- Budget -->
-        <div v-show="activeTab === 'budget'" class="space-y-5">
-          <h3 class="text-sm font-semibold">預算設定</h3>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">每日 Token 限額</label>
+        <div class="save-row">
+          <BaseButton variant="ghost" @click="save">儲存設定</BaseButton>
+          <span v-if="saveMessage" class="save-success-msg">
+            <span class="save-dot" aria-hidden="true"></span>
+            {{ saveMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Tab: 預算 ── -->
+      <div v-show="activeTab === 'budget'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">預算設定</p>
+
+          <div class="form-field">
+            <label class="field-label">每日 Token 限額</label>
             <input
               v-model="form.dailyTokenLimit"
               type="number"
               min="0"
               step="50000"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--wide"
             />
+            <p class="field-hint">每天最多消耗的 token 數量</p>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">總 Token 限額</label>
+
+          <div class="form-field">
+            <label class="field-label">總 Token 限額</label>
             <input
               v-model="form.totalTokenLimit"
               type="number"
               min="0"
               step="1000000"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--wide"
             />
+            <p class="field-hint">累計最多消耗的 token 數量</p>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs text-text-secondary">警示閾值 (%)</label>
+
+          <div class="form-field">
+            <label class="field-label">警示閾值 (%)</label>
             <input
               v-model="form.alertThreshold"
               type="number"
               min="50"
               max="100"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              class="field-input field-input--narrow"
             />
+            <p class="field-hint">超過此百分比時觸發預算警告通知</p>
           </div>
         </div>
 
-        <!-- Notification -->
-        <div v-show="activeTab === 'notification'" class="space-y-5">
-          <h3 class="text-sm font-semibold">通知設定</h3>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium">工作階段完成</div>
-              <div class="text-xs text-text-muted">代理人完成任務時通知</div>
+        <div class="save-row">
+          <BaseButton variant="ghost" @click="save">儲存設定</BaseButton>
+          <span v-if="saveMessage" class="save-success-msg">
+            <span class="save-dot" aria-hidden="true"></span>
+            {{ saveMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Tab: 通知 ── -->
+      <div v-show="activeTab === 'notification'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">通知設定</p>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">工作階段完成</div>
+              <div class="toggle-desc">代理人完成任務時通知</div>
             </div>
             <BaseToggle
               :model-value="form.notifySessionComplete === 'true'"
               @update:model-value="form.notifySessionComplete = $event ? 'true' : 'false'"
             />
           </div>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium">工作階段失敗</div>
-              <div class="text-xs text-text-muted">代理人執行失敗時通知</div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">工作階段失敗</div>
+              <div class="toggle-desc">代理人執行失敗時通知</div>
             </div>
             <BaseToggle
               :model-value="form.notifySessionFailed === 'true'"
               @update:model-value="form.notifySessionFailed = $event ? 'true' : 'false'"
             />
           </div>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium">預算警告</div>
-              <div class="text-xs text-text-muted">預算超過閾值時通知</div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">預算警告</div>
+              <div class="toggle-desc">預算超過閾值時通知</div>
             </div>
             <BaseToggle
               :model-value="form.notifyBudgetWarning === 'true'"
               @update:model-value="form.notifyBudgetWarning = $event ? 'true' : 'false'"
             />
           </div>
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium">關卡提交</div>
-              <div class="text-xs text-text-muted">審核關卡提交時通知</div>
+
+          <div class="toggle-row toggle-row--last">
+            <div class="toggle-info">
+              <div class="toggle-title">關卡提交</div>
+              <div class="toggle-desc">審核關卡提交時通知</div>
             </div>
             <BaseToggle
               :model-value="form.notifyGateSubmit === 'true'"
@@ -923,104 +441,110 @@ async function changeAutoSyncInterval(ms: number) {
           </div>
         </div>
 
-        <!-- Shortcuts -->
-        <div v-show="activeTab === 'shortcuts'" class="space-y-5">
-          <h3 class="text-sm font-semibold">全域快捷鍵</h3>
-          <div class="space-y-3">
-            <div class="flex items-center justify-between rounded-lg border border-border-default bg-bg-primary px-4 py-3">
-              <div>
-                <div class="text-sm font-medium">顯示/隱藏視窗</div>
-                <div class="text-xs text-text-muted">在任何地方切換 Maestro 視窗</div>
-              </div>
-              <kbd class="rounded border border-border-light bg-bg-hover px-2.5 py-1 font-mono text-xs text-text-secondary">
-                Ctrl+Shift+M
-              </kbd>
+        <div class="save-row">
+          <BaseButton variant="ghost" @click="save">儲存設定</BaseButton>
+          <span v-if="saveMessage" class="save-success-msg">
+            <span class="save-dot" aria-hidden="true"></span>
+            {{ saveMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Tab: 快捷鍵 ── -->
+      <div v-show="activeTab === 'shortcuts'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">全域快捷鍵</p>
+
+          <div class="shortcut-row">
+            <div class="shortcut-info">
+              <div class="shortcut-name">顯示/隱藏視窗</div>
+              <div class="shortcut-desc">在任何地方切換 Maestro 視窗</div>
             </div>
-            <div class="flex items-center justify-between rounded-lg border border-border-default bg-bg-primary px-4 py-3">
-              <div>
-                <div class="text-sm font-medium">命令面板</div>
-                <div class="text-xs text-text-muted">搜尋並執行快速命令</div>
-              </div>
-              <kbd class="rounded border border-border-light bg-bg-hover px-2.5 py-1 font-mono text-xs text-text-secondary">
-                Ctrl+K
-              </kbd>
+            <kbd>Ctrl+Shift+M</kbd>
+          </div>
+
+          <div class="shortcut-row">
+            <div class="shortcut-info">
+              <div class="shortcut-name">命令面板</div>
+              <div class="shortcut-desc">搜尋並執行快速命令</div>
             </div>
-            <div class="flex items-center justify-between rounded-lg border border-border-default bg-bg-primary px-4 py-3">
-              <div>
-                <div class="text-sm font-medium">新增工作階段</div>
-                <div class="text-xs text-text-muted">快速啟動新的工作階段</div>
-              </div>
-              <kbd class="rounded border border-border-light bg-bg-hover px-2.5 py-1 font-mono text-xs text-text-secondary">
-                Ctrl+N
-              </kbd>
+            <kbd>Ctrl+K</kbd>
+          </div>
+
+          <div class="shortcut-row shortcut-row--last">
+            <div class="shortcut-info">
+              <div class="shortcut-name">新增工作階段</div>
+              <div class="shortcut-desc">快速啟動新的工作階段</div>
             </div>
+            <kbd>Ctrl+N</kbd>
           </div>
         </div>
+      </div>
 
-        <!-- ===== Permissions tab ===== -->
-        <div v-show="activeTab === 'permissions'" class="space-y-5">
-          <h3 class="text-sm font-semibold">自動審核規則</h3>
-          <p class="text-xs text-text-muted">
-            符合規則的 Gate 將自動通過審核，無需人工介入。
-          </p>
+      <!-- ── Tab: 權限 ── -->
+      <div v-show="activeTab === 'permissions'" class="settings-tab-panel">
+        <div class="settings-card">
+          <p class="settings-section-title">自動審核規則</p>
+          <p class="permissions-desc">符合規則的 Gate 將自動通過審核，無需人工介入。</p>
 
           <!-- Rules list -->
-          <div v-if="autoApproveRules.length > 0" class="space-y-2">
+          <div v-if="autoApproveRules.length > 0" class="rules-list">
             <div
               v-for="rule in autoApproveRules"
               :key="rule.id"
-              class="flex items-center gap-3 rounded-lg border border-border-default bg-bg-primary px-4 py-3"
+              class="rule-card"
             >
-              <BaseToggle :model-value="rule.enabled" @update:model-value="toggleRuleEnabled(rule)" />
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium">{{ rule.name }}</div>
-                <div class="text-xs text-text-muted">
-                  適用：{{ rule.gateTypes.join(', ') }}
-                </div>
+              <div class="rule-header">
+                <BaseToggle :model-value="rule.enabled" @update:model-value="toggleRuleEnabled(rule)" />
+                <div class="rule-name">{{ rule.name }}</div>
               </div>
-              <button
-                class="cursor-pointer border-none bg-transparent text-xs text-danger hover:underline"
-                @click="deleteRule(rule.id)"
-              >
-                刪除
-              </button>
+              <div class="rule-scope">
+                適用：
+                <span v-for="gt in rule.gateTypes" :key="gt" class="rule-gate-tag">{{ gt }}</span>
+              </div>
+              <div class="rule-footer">
+                <button class="rule-delete-btn" @click="deleteRule(rule.id)">刪除</button>
+              </div>
             </div>
           </div>
-          <div v-else class="rounded-lg border border-border-default bg-bg-primary px-4 py-6 text-center text-xs text-text-muted">
+
+          <!-- Empty state -->
+          <div v-else class="rules-empty">
             尚無自動審核規則
           </div>
 
           <!-- New rule form -->
-          <div v-if="showNewRuleForm" class="space-y-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
-            <div>
-              <label class="mb-1 block text-xs font-medium text-text-muted">規則名稱</label>
+          <div v-if="showNewRuleForm" class="new-rule-form">
+            <div class="form-field">
+              <label class="field-label">規則名稱</label>
               <input
                 v-model="newRuleName"
                 type="text"
-                class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+                class="field-input field-input--full"
                 placeholder="例如：自動通過需求確認"
               />
             </div>
-            <div>
-              <label class="mb-1 block text-xs font-medium text-text-muted">適用 Gate 類型</label>
-              <div class="flex flex-wrap gap-2">
+            <div class="form-field">
+              <label class="field-label">適用 Gate 類型</label>
+              <div class="gate-type-list">
                 <button
                   v-for="gt in availableGateTypes"
                   :key="gt"
-                  class="cursor-pointer rounded-md border px-3 py-1 text-xs font-medium transition-colors"
-                  :class="
-                    newRuleGateTypes.includes(gt)
-                      ? 'border-accent bg-accent/15 text-accent-light'
-                      : 'border-border-default bg-bg-primary text-text-muted hover:border-accent/40'
-                  "
+                  class="gate-type-btn"
+                  :class="{ 'is-selected': newRuleGateTypes.includes(gt) }"
                   @click="toggleGateType(gt)"
                 >
                   {{ gt }}
                 </button>
               </div>
             </div>
-            <div class="flex gap-2">
-              <BaseButton variant="primary" size="sm" :disabled="!newRuleName.trim() || newRuleGateTypes.length === 0" @click="addAutoApproveRule">
+            <div class="new-rule-actions">
+              <BaseButton
+                variant="primary"
+                size="sm"
+                :disabled="!newRuleName.trim() || newRuleGateTypes.length === 0"
+                @click="addAutoApproveRule"
+              >
                 儲存規則
               </BaseButton>
               <BaseButton variant="ghost" size="sm" @click="showNewRuleForm = false">
@@ -1029,24 +553,487 @@ async function changeAutoSyncInterval(ms: number) {
             </div>
           </div>
 
-          <BaseButton v-if="!showNewRuleForm" variant="secondary" size="sm" @click="showNewRuleForm = true">
+          <BaseButton
+            v-if="!showNewRuleForm"
+            variant="secondary"
+            size="sm"
+            class="add-rule-btn"
+            @click="showNewRuleForm = true"
+          >
             + 新增規則
           </BaseButton>
-
-          <!-- G4/G5 warning -->
-          <div class="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
-            <p class="text-xs font-medium text-warning">
-              G5（部署就緒）和 G6（正式發佈）始終需要手動審核，無法設定自動通過。
-            </p>
-          </div>
         </div>
 
-        <!-- Save button -->
-        <div v-if="activeTab !== 'sync' && activeTab !== 'permissions'" class="mt-6 flex items-center gap-3 border-t border-border-default pt-4">
-          <BaseButton @click="save">儲存設定</BaseButton>
-          <span v-if="saveMessage" class="text-xs text-success">{{ saveMessage }}</span>
+        <!-- Warning banner -->
+        <div class="warning-banner">
+          <svg class="warning-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>G5（部署就緒）和 G6（正式發佈）始終需要手動審核，無法設定自動通過。</span>
         </div>
       </div>
+
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ── Layout ── */
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Tab navigation ── */
+.settings-tab-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  overflow-x: auto;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+.settings-tab-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tab-btn {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.settings-tab-btn:hover {
+  color: var(--color-text-primary);
+}
+.settings-tab-btn.is-active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-light);
+  font-weight: 600;
+}
+
+/* ── Content area ── */
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0 40px;
+}
+.settings-content::-webkit-scrollbar {
+  width: 6px;
+}
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-content::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 3px;
+}
+
+.settings-tab-panel {
+  max-width: 640px;
+}
+
+/* ── Settings card ── */
+.settings-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.settings-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+}
+
+/* ── Form fields ── */
+.form-field {
+  margin-bottom: 20px;
+}
+.form-field:last-child {
+  margin-bottom: 0;
+}
+.form-field--mt {
+  margin-top: 20px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.field-input {
+  padding: 9px 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+}
+.field-input:focus {
+  border-color: var(--color-accent);
+}
+.field-input--full {
+  width: 100%;
+}
+.field-input--narrow {
+  width: 120px;
+}
+.field-input--wide {
+  width: 180px;
+}
+
+.field-select {
+  width: 100%;
+  padding: 9px 36px 9px 12px;
+  background: var(--color-bg-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8da3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  cursor: pointer;
+}
+.field-select:focus {
+  border-color: var(--color-accent);
+}
+
+/* ── Toggle rows ── */
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+.toggle-row:first-of-type {
+  padding-top: 0;
+}
+.toggle-row--last {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.toggle-info {
+  flex: 1;
+}
+.toggle-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.toggle-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ── Shortcuts ── */
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+.shortcut-row:first-of-type {
+  padding-top: 0;
+}
+.shortcut-row--last {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.shortcut-info {
+  flex: 1;
+}
+.shortcut-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.shortcut-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-hover);
+  font-family: 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Danger zone ── */
+.danger-zone {
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.danger-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-danger);
+  margin-bottom: 8px;
+}
+
+.danger-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+.danger-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.danger-row-info {
+  flex: 1;
+}
+.danger-row-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.danger-row-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.feedback-success {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-success);
+}
+.feedback-danger {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+/* ── Save row ── */
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.save-success-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-success);
+}
+
+.save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+/* ── Permissions ── */
+.permissions-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 20px;
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.rule-card {
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.rule-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.rule-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.rule-scope {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.rule-gate-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--color-bg-active);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.rule-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.rule-delete-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--color-danger);
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.rule-delete-btn:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+}
+
+.rules-empty {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+.new-rule-form {
+  background: rgba(108, 92, 231, 0.05);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.new-rule-form .form-field:last-of-type {
+  margin-bottom: 16px;
+}
+
+.gate-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gate-type-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.gate-type-btn:hover {
+  border-color: rgba(108, 92, 231, 0.4);
+}
+.gate-type-btn.is-selected {
+  border-color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.15);
+  color: var(--color-accent-light);
+}
+
+.new-rule-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.add-rule-btn {
+  margin-top: 4px;
+}
+
+/* ── Warning banner ── */
+.warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(255, 170, 0, 0.3);
+  background: rgba(255, 170, 0, 0.05);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--color-warning);
+  line-height: 1.5;
+}
+.warning-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+</style>

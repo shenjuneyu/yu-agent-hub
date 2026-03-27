@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentHub — Sessions Mockup</title>
+  <style>
+    :root {
+      --color-bg-primary: #0f1117;
+      --color-bg-secondary: #161822;
+      --color-bg-card: #1c1e2e;
+      --color-bg-hover: #252840;
+      --color-bg-active: #2a2d45;
+      --color-border-default: #2e3148;
+      --color-border-light: #3a3d56;
+      --color-text-primary: #e4e4f0;
+      --color-text-secondary: #8b8da3;
+      --color-text-muted: #5c5e72;
+      --color-accent: #6c5ce7;
+      --color-accent-light: #a29bfe;
+      --color-success: #00d68f;
+      --color-success-dim: #00d68f33;
+      --color-warning: #ffaa00;
+      --color-warning-dim: #ffaa0033;
+      --color-danger: #ff6b6b;
+      --color-danger-dim: #ff6b6b33;
+      --color-info: #339af0;
+      --color-info-dim: #339af033;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── State Switcher (demo control) ── */
+    .state-switcher {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      gap: 6px;
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      padding: 6px;
+    }
+    .state-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      border: 1px solid var(--color-border-default);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .state-btn:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+    .state-btn.active {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      color: #fff;
+    }
+
+    /* ── App Shell ── */
+    .app-shell {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 52px;
+      min-width: 52px;
+      background: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-default);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 4px;
+    }
+
+    .sidebar-brand {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-divider {
+      width: 28px;
+      height: 1px;
+      background: var(--color-border-default);
+      margin: 6px 0;
+    }
+
+    .nav-item {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      color: var(--color-text-muted);
+    }
+    .nav-item:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-secondary);
+    }
+    .nav-item.active {
+      background: var(--color-bg-active);
+      color: var(--color-accent-light);
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      background: var(--color-accent);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--color-bg-primary);
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      padding: 16px 24px 0 24px;
+      border-bottom: 1px solid var(--color-border-default);
+      background: var(--color-bg-primary);
+      flex-shrink: 0;
+    }
+
+    .page-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .page-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Pills group */
+    .pill-group {
+      display: flex;
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .pill-item {
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .pill-item:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-hover);
+    }
+    .pill-item.active {
+      background: var(--color-accent);
+      color: #fff;
+    }
+    .pill-badge {
+      background: rgba(255,255,255,0.25);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    /* Tabs row */
+    .tabs-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Primary button */
+    .btn-primary {
+      padding: 7px 14px;
+      background: var(--color-accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary:hover {
+      background: #7d6ff0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(108,92,231,0.4);
+    }
+    .btn-ghost {
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border-default);
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-ghost:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+      border-color: var(--color-border-light);
+    }
+    .btn-danger-ghost {
+      padding: 4px 10px;
+      background: transparent;
+      color: var(--color-danger);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-danger-ghost:hover {
+      background: var(--color-danger-dim);
+      border-color: var(--color-danger);
+    }
+
+    /* ── Layout icon-buttons ── */
+    .layout-group {
+      display: flex;
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .layout-btn {
+      width: 28px;
+      height: 26px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      transition: all 0.15s;
+      border: none;
+      background: transparent;
+    }
+    .layout-btn:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-secondary);
+    }
+    .layout-btn.active {
+      background: var(--color-bg-active);
+      color: var(--color-accent-light);
+    }
+
+    /* ── Page Body ── */
+    .page-body {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Sessions View ── */
+    .sessions-view {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Session List Panel ── */
+    .session-list-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+    }
+    .session-list-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    .session-list-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .session-list-panel::-webkit-scrollbar-thumb {
+      background: var(--color-border-default);
+      border-radius: 2px;
+    }
+
+    /* ── Layout: List (default) ── */
+    .session-list-panel.layout-list .session-rows-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .session-list-panel.layout-list .session-card { display: none; }
+    .session-list-panel.layout-list .session-row { display: flex; }
+
+    /* ── Layout: Single ── */
+    .session-list-panel.layout-single .session-rows-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .session-list-panel.layout-single .session-row { display: none; }
+    .session-list-panel.layout-single .session-card { display: flex; flex-direction: column; }
+    .session-list-panel.layout-single .session-card-terminal { height: 200px; }
+
+    /* ── Layout: Dual ── */
+    .session-list-panel.layout-dual .session-rows-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .session-list-panel.layout-dual .session-row { display: none; }
+    .session-list-panel.layout-dual .session-card { display: flex; flex-direction: column; }
+    .session-list-panel.layout-dual .session-card-terminal { height: 150px; }
+
+    /* ── Layout: Triple ── */
+    .session-list-panel.layout-triple .session-rows-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+    .session-list-panel.layout-triple .session-row { display: none; }
+    .session-list-panel.layout-triple .session-card { display: flex; flex-direction: column; }
+    .session-list-panel.layout-triple .session-card-terminal { height: 120px; }
+
+    /* ── Grouping containers ── */
+    .group-container { display: none; }
+    .group-container.active { display: block; }
+
+    /* List section header */
+    .list-section-header {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 6px 14px 4px;
+    }
+
+    /* ── Session Row (list mode) ── */
+    .session-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--color-bg-card);
+    }
+    .session-row:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-light);
+    }
+    .session-row.selected {
+      background: var(--color-bg-active);
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 1px rgba(108,92,231,0.2), 0 2px 8px rgba(108,92,231,0.1);
+    }
+
+    /* Status dot */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.running {
+      background: var(--color-success);
+      box-shadow: 0 0 6px var(--color-success);
+    }
+    .status-dot.thinking {
+      background: var(--color-accent);
+      box-shadow: 0 0 6px var(--color-accent);
+      animation: pulse 1.4s infinite;
+    }
+    .status-dot.executing_tool {
+      background: var(--color-accent-light);
+      box-shadow: 0 0 6px var(--color-accent-light);
+    }
+    .status-dot.awaiting_approval {
+      background: var(--color-warning);
+      box-shadow: 0 0 6px var(--color-warning);
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .session-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .session-agent {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 2px;
+    }
+    .session-task {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Model tag */
+    .model-tag {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .model-tag.haiku {
+      background: var(--color-success-dim);
+      color: var(--color-success);
+    }
+    .model-tag.sonnet {
+      background: var(--color-info-dim);
+      color: var(--color-info);
+    }
+    .model-tag.opus {
+      background: var(--color-warning-dim);
+      color: var(--color-warning);
+    }
+
+    .session-stats {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    /* Status label */
+    .status-label {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .status-label.running {
+      background: var(--color-success-dim);
+      color: var(--color-success);
+    }
+    .status-label.thinking {
+      background: rgba(108,92,231,0.2);
+      color: var(--color-accent-light);
+    }
+    .status-label.executing_tool {
+      background: rgba(162,155,254,0.15);
+      color: var(--color-accent-light);
+    }
+    .status-label.awaiting_approval {
+      background: var(--color-warning-dim);
+      color: var(--color-warning);
+    }
+
+    /* ── Session Card (single / dual / triple modes) ── */
+    .session-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+      cursor: pointer;
+    }
+    .session-card:hover {
+      border-color: var(--color-border-light);
+    }
+    .session-card.selected {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 1px rgba(108,92,231,0.2);
+    }
+    .session-card-header {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .session-card-header-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .session-card-agent {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-card-task {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .session-card-terminal {
+      background: #0a0b0f;
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #c0c0c0;
+      padding: 8px 12px;
+      overflow: hidden;
+    }
+    .session-card-terminal .t-line {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-card-footer {
+      padding: 8px 14px;
+      border-top: 1px solid var(--color-border-default);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--color-text-muted);
+    }
+    .session-card-footer-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .session-card-footer-item span:first-child {
+      opacity: 0.6;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .session-card-footer-item span:last-child {
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    /* ── Session Groups ── */
+    .session-group {
+      margin-bottom: 16px;
+    }
+    .session-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+      color: var(--color-text-primary);
+      border-radius: 6px;
+      transition: background 0.12s;
+    }
+    .session-group-header:hover {
+      background: var(--color-bg-card);
+    }
+    .session-group-arrow {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      transition: transform 0.15s;
+      display: inline-block;
+      width: 12px;
+      flex-shrink: 0;
+    }
+    .session-group-arrow.expanded {
+      transform: rotate(90deg);
+    }
+    .session-group-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .session-group-count {
+      font-size: 10px;
+      background: var(--color-bg-hover);
+      padding: 2px 7px;
+      border-radius: 9999px;
+      color: var(--color-text-muted);
+    }
+    .session-group-body {
+      overflow: hidden;
+      transition: max-height 0.22s ease;
+    }
+    .session-group-body.collapsed {
+      max-height: 0 !important;
+    }
+
+    /* ── Terminal Panel ── */
+    .terminal-panel {
+      width: 480px;
+      min-width: 480px;
+      background: var(--color-bg-secondary);
+      border-left: 1px solid var(--color-border-default);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border-default);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .terminal-agent-info {}
+    .terminal-agent-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .terminal-task {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+    .terminal-close {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: transparent;
+      border: none;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .terminal-close:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .terminal-body {
+      flex: 1;
+      background: #0a0b0f;
+      padding: 14px 16px;
+      overflow-y: auto;
+      font-family: 'Menlo', 'Consolas', 'SF Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .terminal-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .terminal-body::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .t-prompt { color: #00d68f; }
+    .t-cmd    { color: #e4e4f0; }
+    .t-output { color: #8b8da3; }
+    .t-success{ color: #00d68f; }
+    .t-info   { color: #339af0; }
+    .t-warn   { color: #ffaa00; }
+    .t-accent { color: #a29bfe; }
+    .t-dim    { color: #5c5e72; }
+    .t-line   { display: block; }
+    .t-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 13px;
+      background: #e4e4f0;
+      vertical-align: text-bottom;
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .terminal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--color-border-default);
+      flex-shrink: 0;
+    }
+    .terminal-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .terminal-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .terminal-stat-label {
+      font-size: 10px;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .terminal-stat-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    .terminal-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-terminal {
+      flex: 1;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid var(--color-border-light);
+      background: var(--color-bg-hover);
+      color: var(--color-text-secondary);
+      transition: all 0.15s;
+    }
+    .btn-terminal:hover {
+      background: var(--color-bg-active);
+      color: var(--color-text-primary);
+    }
+    .btn-terminal.primary {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      color: #fff;
+    }
+    .btn-terminal.primary:hover {
+      background: #7d6ff0;
+    }
+
+    /* ── History View ── */
+    .history-view {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px;
+    }
+    .history-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .history-list::-webkit-scrollbar-thumb {
+      background: var(--color-border-default);
+      border-radius: 2px;
+    }
+
+    .history-row {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.12s;
+      border: 1px solid transparent;
+    }
+    .history-row:hover {
+      background: var(--color-bg-card);
+      border-color: var(--color-border-default);
+    }
+    .history-row.selected {
+      background: var(--color-bg-active);
+      border-color: var(--color-accent);
+    }
+
+    .history-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .history-status-dot.completed { background: var(--color-success); }
+    .history-status-dot.aborted   { background: var(--color-danger); }
+
+    .history-agent {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      width: 160px;
+      flex-shrink: 0;
+    }
+    .history-task {
+      flex: 1;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .resume-badge {
+      padding: 2px 6px;
+      background: rgba(108,92,231,0.15);
+      border: 1px solid rgba(108,92,231,0.3);
+      color: var(--color-accent-light);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .history-tokens  { font-size: 11px; color: var(--color-text-muted); width: 68px; text-align: right; flex-shrink: 0; }
+    .history-duration{ font-size: 11px; color: var(--color-text-muted); width: 50px; text-align: right; flex-shrink: 0; }
+    .history-model   { width: 52px; flex-shrink: 0; display: flex; justify-content: center; }
+    .history-time    { font-size: 11px; color: var(--color-text-muted); width: 90px; text-align: right; flex-shrink: 0; }
+
+    /* History side panel */
+    .history-side-panel {
+      width: 360px;
+      min-width: 360px;
+      background: var(--color-bg-secondary);
+      border-left: 1px solid var(--color-border-default);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .history-panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+    .history-panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 4px;
+    }
+    .history-panel-subtitle {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+    .history-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .detail-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { font-size: 12px; color: var(--color-text-secondary); }
+    .detail-val { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+
+    .panel-actions {
+      padding: 14px 18px;
+      border-top: 1px solid var(--color-border-default);
+      display: flex;
+      gap: 8px;
+    }
+
+    /* ── Empty State ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 12px;
+      padding: 40px;
+    }
+    .empty-icon { opacity: 0.25; margin-bottom: 4px; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--color-text-secondary); }
+    .empty-subtitle { font-size: 13px; color: var(--color-text-muted); text-align: center; max-width: 280px; line-height: 1.6; }
+    .empty-link {
+      font-size: 13px;
+      color: var(--color-accent-light);
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 3px;
+      transition: color 0.15s;
+    }
+    .empty-link:hover { color: var(--color-accent); }
+
+    /* ── Skeleton Loading ── */
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--color-bg-card) 25%, var(--color-bg-hover) 50%, var(--color-bg-card) 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.6s infinite;
+      border-radius: 5px;
+    }
+    .skeleton-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--color-border-default);
+      background: var(--color-bg-card);
+      margin-bottom: 4px;
+    }
+
+    /* ── Modal Overlay ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-light);
+      border-radius: 12px;
+      width: 520px;
+      padding: 24px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-title-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(108,92,231,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+    .form-select,
+    .form-input,
+    .form-textarea {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-default);
+      border-radius: 7px;
+      color: var(--color-text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+    .form-select:focus,
+    .form-input:focus,
+    .form-textarea:focus {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(108,92,231,0.15);
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Model selector cards */
+    .model-selector { display: flex; gap: 8px; }
+    .model-card {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--color-border-default);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .model-card:hover {
+      border-color: var(--color-border-light);
+      background: var(--color-bg-hover);
+    }
+    .model-card.selected {
+      border-color: var(--color-accent);
+      background: rgba(108,92,231,0.1);
+    }
+    .model-card-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 2px; }
+    .model-card-desc { font-size: 10px; color: var(--color-text-muted); }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border-default);
+    }
+
+    /* ── Tabs ── */
+    .tab-item {
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      margin-bottom: -1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .tab-item:hover { color: var(--color-text-secondary); }
+    .tab-item.active {
+      color: var(--color-accent-light);
+      border-bottom-color: var(--color-accent);
+    }
+    .tab-badge {
+      background: var(--color-accent);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .flex-spacer { flex: 1; }
+
+    /* Hidden/visible */
+    .hidden { display: none !important; }
+
+    /* Status chip */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-chip.running {
+      background: var(--color-success-dim);
+      color: var(--color-success);
+    }
+    .status-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 1.4s infinite;
+    }
+
+    /* ── Global scrollbar ── */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-default) transparent;
+    }
+  </style>
+</head>
+<body>
+
+<!-- State Switcher -->
+<div class="state-switcher">
+  <button class="state-btn active" onclick="setState('normal')">正常</button>
+  <button class="state-btn" onclick="setState('empty')">空狀態</button>
+  <button class="state-btn" onclick="setState('loading')">Loading</button>
+  <button class="state-btn" onclick="setState('modal')">Modal</button>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">M</div>
+    <div class="sidebar-divider"></div>
+
+    <div class="nav-item active" title="工作階段">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="2" y="4" width="16" height="12" rx="2"/>
+        <path d="M6 8l2 2-2 2M10 12h4"/>
+      </svg>
+    </div>
+    <div class="nav-item" title="代理人">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="10" cy="7" r="3"/>
+        <path d="M4 17c0-3.314 2.686-6 6-6s6 2.686 6 6"/>
+      </svg>
+    </div>
+    <div class="nav-item" title="任務看板">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="3" y="3" width="6" height="6" rx="1.5"/>
+        <rect x="11" y="3" width="6" height="6" rx="1.5"/>
+        <rect x="3" y="11" width="6" height="6" rx="1.5"/>
+        <rect x="11" y="11" width="6" height="6" rx="1.5"/>
+      </svg>
+    </div>
+    <div class="nav-item" title="知識庫">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M4 4h12v12H4z" rx="1"/>
+        <path d="M7 8h6M7 11h4"/>
+      </svg>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="nav-item" title="設定" style="margin-top:auto;">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="10" cy="10" r="2.5"/>
+        <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.41 1.41M13.54 13.54l1.41 1.41M5.05 14.95l1.41-1.41M13.54 6.46l1.41-1.41"/>
+      </svg>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-top">
+        <h1 class="page-title">工作階段</h1>
+
+        <div class="header-actions">
+          <!-- Grouping pills -->
+          <div class="pill-group" id="groupPills">
+            <div class="pill-item active" onclick="setGroup('none', this)">不分組</div>
+            <div class="pill-item" onclick="setGroup('project', this)">按專案</div>
+            <div class="pill-item" onclick="setGroup('department', this)">按部門</div>
+          </div>
+
+          <!-- Layout buttons -->
+          <div class="layout-group">
+            <button class="layout-btn active" id="layout-btn-list" title="清單" onclick="setLayout('list')">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="1" y="2" width="12" height="2" rx="1"/>
+                <rect x="1" y="6" width="12" height="2" rx="1"/>
+                <rect x="1" y="10" width="12" height="2" rx="1"/>
+              </svg>
+            </button>
+            <button class="layout-btn" id="layout-btn-single" title="單欄" onclick="setLayout('single')">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="1" width="8" height="12" rx="1.5"/>
+              </svg>
+            </button>
+            <button class="layout-btn" id="layout-btn-dual" title="雙欄" onclick="setLayout('dual')">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="1" y="1" width="5" height="12" rx="1"/>
+                <rect x="8" y="1" width="5" height="12" rx="1"/>
+              </svg>
+            </button>
+            <button class="layout-btn" id="layout-btn-triple" title="三欄" onclick="setLayout('triple')">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="0.5" y="1" width="3.5" height="12" rx="1"/>
+                <rect x="5.25" y="1" width="3.5" height="12" rx="1"/>
+                <rect x="10" y="1" width="3.5" height="12" rx="1"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- New Session Button -->
+          <button class="btn-primary" onclick="setState('modal')">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 2v10M2 7h10"/>
+            </svg>
+            新增工作階段
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabs row -->
+      <div class="tabs-row">
+        <div class="tab-item active" onclick="setTab('running', event)">
+          執行中
+          <span class="tab-badge">4</span>
+        </div>
+        <div class="tab-item" onclick="setTab('history', event)">歷史紀錄</div>
+      </div>
+    </div>
+
+    <!-- Page Body -->
+    <div class="page-body">
+
+      <!-- STATE: NORMAL -->
+      <div id="state-normal" class="sessions-view" style="width:100%;">
+
+        <!-- RUNNING TAB -->
+        <div id="tab-running" style="display:flex;flex:1;overflow:hidden;">
+
+          <!-- Session List Panel — layout class applied by JS -->
+          <div class="session-list-panel layout-list" id="sessionListPanel">
+
+            <!-- GROUP: none -->
+            <div class="group-container active" id="group-none">
+              <div class="list-section-header">執行中 — 4 個工作階段</div>
+              <div class="session-rows-wrap" id="rows-none">
+                <!-- sessions injected by JS -->
+              </div>
+            </div>
+
+            <!-- GROUP: project -->
+            <div class="group-container" id="group-project">
+              <!-- ChatPilot -->
+              <div class="session-group" id="grp-proj-chatpilot">
+                <button class="session-group-header" onclick="toggleGroup('grp-proj-chatpilot')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">ChatPilot</span>
+                  <span class="session-group-count">2</span>
+                </button>
+                <div class="session-group-body" id="grp-proj-chatpilot-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-proj-chatpilot"></div>
+                </div>
+              </div>
+              <!-- LexMind -->
+              <div class="session-group" id="grp-proj-lexmind">
+                <button class="session-group-header" onclick="toggleGroup('grp-proj-lexmind')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">LexMind</span>
+                  <span class="session-group-count">1</span>
+                </button>
+                <div class="session-group-body" id="grp-proj-lexmind-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-proj-lexmind"></div>
+                </div>
+              </div>
+              <!-- AgentHub -->
+              <div class="session-group" id="grp-proj-agenthub">
+                <button class="session-group-header" onclick="toggleGroup('grp-proj-agenthub')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">AgentHub</span>
+                  <span class="session-group-count">1</span>
+                </button>
+                <div class="session-group-body" id="grp-proj-agenthub-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-proj-agenthub"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- GROUP: department -->
+            <div class="group-container" id="group-department">
+              <!-- Engineering -->
+              <div class="session-group" id="grp-dept-engineering">
+                <button class="session-group-header" onclick="toggleGroup('grp-dept-engineering')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">Engineering</span>
+                  <span class="session-group-count">2</span>
+                </button>
+                <div class="session-group-body" id="grp-dept-engineering-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-dept-engineering"></div>
+                </div>
+              </div>
+              <!-- Quality -->
+              <div class="session-group" id="grp-dept-quality">
+                <button class="session-group-header" onclick="toggleGroup('grp-dept-quality')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">Quality</span>
+                  <span class="session-group-count">1</span>
+                </button>
+                <div class="session-group-body" id="grp-dept-quality-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-dept-quality"></div>
+                </div>
+              </div>
+              <!-- Design -->
+              <div class="session-group" id="grp-dept-design">
+                <button class="session-group-header" onclick="toggleGroup('grp-dept-design')">
+                  <span class="session-group-arrow expanded">&#9658;</span>
+                  <span class="session-group-name">Design</span>
+                  <span class="session-group-count">1</span>
+                </button>
+                <div class="session-group-body" id="grp-dept-design-body" style="max-height:2000px;">
+                  <div class="session-rows-wrap" id="rows-dept-design"></div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /session-list-panel -->
+
+          <!-- Terminal Panel (list-mode side panel) -->
+          <div class="terminal-panel" id="terminalPanel">
+            <div class="terminal-header">
+              <div class="terminal-agent-info">
+                <div class="terminal-agent-name">
+                  <div class="status-dot running" style="width:9px;height:9px;"></div>
+                  frontend-developer
+                  <span class="status-chip running">
+                    <span class="status-chip-dot"></span>
+                    running
+                  </span>
+                </div>
+                <div class="terminal-task">實作登入頁面 UI — 建立 LoginForm 元件與表單驗證邏輯</div>
+              </div>
+              <button class="terminal-close">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 2l10 10M12 2L2 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="terminal-body">
+              <span class="t-line"><span class="t-dim">AgentHub v2.0.0 — Session #f24a</span></span>
+              <span class="t-line"><span class="t-dim">Agent: frontend-developer | Model: claude-sonnet-4-6</span></span>
+              <span class="t-line"><span class="t-dim">Task: 實作登入頁面 UI</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-prompt">●</span> <span class="t-cmd">Analyzing task requirements...</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Read: src/views/LoginView.vue</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Read: src/components/auth/ (3 files)</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-accent">→ Planning component structure:</span></span>
+              <span class="t-line"><span class="t-output">  LoginForm.vue</span></span>
+              <span class="t-line"><span class="t-output">  ├── EmailInput.vue</span></span>
+              <span class="t-line"><span class="t-output">  ├── PasswordInput.vue</span></span>
+              <span class="t-line"><span class="t-output">  └── SubmitButton.vue</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-prompt">●</span> <span class="t-cmd">Creating LoginForm.vue...</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Write: src/components/auth/LoginForm.vue (+127 lines)</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Write: src/components/auth/EmailInput.vue (+48 lines)</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Write: src/components/auth/PasswordInput.vue (+55 lines)</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-prompt">●</span> <span class="t-cmd">Implementing form validation with Vuelidate...</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Added email format validation</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Added password min-length (8 chars)</span></span>
+              <span class="t-line"><span class="t-warn">⚠</span>  <span class="t-output">Note: password strength indicator optional in spec</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-prompt">●</span> <span class="t-cmd">Running type check...</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">npx vue-tsc --noEmit — 0 errors</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-info">ℹ</span>  <span class="t-output">Applying Tailwind responsive classes (mobile-first)</span></span>
+              <span class="t-line"><span class="t-prompt">●</span> <span class="t-cmd">Integrating with auth store (Pinia)...</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Bound loginAction to form submit</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">Error state handling complete</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">npm run lint -- --fix src/components/auth/</span></span>
+              <span class="t-line"><span class="t-success">✔</span> <span class="t-output">ESLint passed — 3 auto-fixed</span></span>
+              <span class="t-line">&nbsp;</span>
+              <span class="t-line"><span class="t-accent">→ Finalizing dark mode styles...</span> <span class="t-cursor"></span></span>
+            </div>
+
+            <div class="terminal-footer">
+              <div class="terminal-stats">
+                <div class="terminal-stat">
+                  <span class="terminal-stat-label">Tokens</span>
+                  <span class="terminal-stat-value">45,218</span>
+                </div>
+                <div class="terminal-stat">
+                  <span class="terminal-stat-label">Turn</span>
+                  <span class="terminal-stat-value">T12</span>
+                </div>
+                <div class="terminal-stat">
+                  <span class="terminal-stat-label">時長</span>
+                  <span class="terminal-stat-value">8m 32s</span>
+                </div>
+                <div class="terminal-stat">
+                  <span class="terminal-stat-label">工具調用</span>
+                  <span class="terminal-stat-value">24 次</span>
+                </div>
+              </div>
+              <div class="terminal-actions">
+                <button class="btn-terminal">指派任務</button>
+                <button class="btn-terminal primary">傳送指令</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HISTORY TAB -->
+        <div id="tab-history" style="display:none;flex:1;overflow:hidden;">
+          <div class="history-view" style="width:100%;">
+            <div class="history-list">
+              <div class="list-section-header" style="padding:8px 14px 6px;">今天 — 12 筆紀錄</div>
+
+              <div class="history-row selected" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot completed"></div>
+                <div class="history-agent">frontend-developer</div>
+                <span class="resume-badge">可接續</span>
+                <div class="history-task">實作 Dashboard 首頁骨架 — 完成三欄格局與 SessionGrid</div>
+                <div class="history-tokens">112.3K tok</div>
+                <div class="history-duration">23m 41s</div>
+                <div class="history-model"><span class="model-tag sonnet">Sonnet</span></div>
+                <div class="history-time">14:22</div>
+              </div>
+
+              <div class="history-row" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot completed"></div>
+                <div class="history-agent">backend-architect</div>
+                <div class="history-task">建立 SQLite migration 004 — 新增 sessions 資料表</div>
+                <div class="history-tokens">58.7K tok</div>
+                <div class="history-duration">11m 05s</div>
+                <div class="history-model"><span class="model-tag opus">Opus</span></div>
+                <div class="history-time">13:47</div>
+              </div>
+
+              <div class="history-row" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot aborted"></div>
+                <div class="history-agent">test-writer-fixer</div>
+                <div class="history-task">修復 session-manager 單元測試 — 被用戶中止</div>
+                <div class="history-tokens">19.1K tok</div>
+                <div class="history-duration">4m 17s</div>
+                <div class="history-model"><span class="model-tag sonnet">Sonnet</span></div>
+                <div class="history-time">12:58</div>
+              </div>
+
+              <div class="history-row" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot completed"></div>
+                <div class="history-agent">devops-engineer</div>
+                <div class="history-task">設定 GitHub Actions CI 工作流程</div>
+                <div class="history-tokens">34.5K tok</div>
+                <div class="history-duration">9m 22s</div>
+                <div class="history-model"><span class="model-tag haiku">Haiku</span></div>
+                <div class="history-time">11:30</div>
+              </div>
+
+              <div class="list-section-header" style="padding:12px 14px 6px;">昨天 — 8 筆紀錄</div>
+
+              <div class="history-row" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot completed"></div>
+                <div class="history-agent">design-director</div>
+                <span class="resume-badge">可接續</span>
+                <div class="history-task">建立 Sessions 頁面 HTML mockup — 設計系統 v1</div>
+                <div class="history-tokens">89.4K tok</div>
+                <div class="history-duration">18m 03s</div>
+                <div class="history-model"><span class="model-tag opus">Opus</span></div>
+                <div class="history-time">昨天 16:45</div>
+              </div>
+
+              <div class="history-row" onclick="selectHistoryRow(this)">
+                <div class="history-status-dot completed"></div>
+                <div class="history-agent">backend-architect</div>
+                <div class="history-task">重構 IPC handlers — 移除廢棄的 auth / costs 模組</div>
+                <div class="history-tokens">76.2K tok</div>
+                <div class="history-duration">15m 59s</div>
+                <div class="history-model"><span class="model-tag opus">Opus</span></div>
+                <div class="history-time">昨天 14:10</div>
+              </div>
+            </div>
+
+            <!-- History Side Panel -->
+            <div class="history-side-panel">
+              <div class="history-panel-header">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <div class="history-status-dot completed" style="width:9px;height:9px;"></div>
+                  <div class="history-panel-title">frontend-developer</div>
+                </div>
+                <div class="history-panel-subtitle">實作 Dashboard 首頁骨架 — 完成三欄格局與 SessionGrid</div>
+              </div>
+
+              <div class="history-panel-body">
+                <div>
+                  <div class="detail-section-title">工作階段資訊</div>
+                  <div class="detail-row">
+                    <span class="detail-key">Session ID</span>
+                    <span class="detail-val" style="font-family:monospace;font-size:11px;">#a3f8c2d1</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">狀態</span>
+                    <span class="detail-val" style="color:var(--color-success);">已完成</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">模型</span>
+                    <span class="detail-val">claude-sonnet-4-6</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">開始時間</span>
+                    <span class="detail-val">14:22:18</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">結束時間</span>
+                    <span class="detail-val">14:46:59</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">時長</span>
+                    <span class="detail-val">23m 41s</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="detail-section-title">Token 統計</div>
+                  <div class="detail-row">
+                    <span class="detail-key">總計</span>
+                    <span class="detail-val">112,341</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">輸入</span>
+                    <span class="detail-val">98,204</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">輸出</span>
+                    <span class="detail-val">14,137</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">Turn 數</span>
+                    <span class="detail-val">T28</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-key">工具調用</span>
+                    <span class="detail-val">51 次</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="detail-section-title">產出檔案</div>
+                  <div style="display:flex;flex-direction:column;gap:5px;">
+                    <div style="font-size:12px;color:var(--color-text-secondary);font-family:monospace;padding:6px 10px;background:var(--color-bg-primary);border-radius:5px;border:1px solid var(--color-border-default);">src/views/DashboardView.vue</div>
+                    <div style="font-size:12px;color:var(--color-text-secondary);font-family:monospace;padding:6px 10px;background:var(--color-bg-primary);border-radius:5px;border:1px solid var(--color-border-default);">src/components/session/SessionGrid.vue</div>
+                    <div style="font-size:12px;color:var(--color-text-secondary);font-family:monospace;padding:6px 10px;background:var(--color-bg-primary);border-radius:5px;border:1px solid var(--color-border-default);">src/layouts/MainLayout.vue</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel-actions">
+                <button class="btn-ghost" style="flex:1;">查看日誌</button>
+                <button class="btn-primary" style="flex:1;">接續工作階段</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: EMPTY -->
+      <div id="state-empty" class="hidden" style="display:none;flex:1;">
+        <div class="empty-state">
+          <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect x="8" y="14" width="48" height="36" rx="4" stroke="var(--color-text-secondary)" stroke-width="2.5"/>
+            <rect x="8" y="14" width="48" height="10" rx="4" fill="var(--color-bg-card)" stroke="var(--color-text-secondary)" stroke-width="2.5"/>
+            <circle cx="15" cy="19" r="2" fill="var(--color-danger)"/>
+            <circle cx="22" cy="19" r="2" fill="var(--color-warning)"/>
+            <circle cx="29" cy="19" r="2" fill="var(--color-success)"/>
+            <path d="M18 34l4 4 10-10" stroke="var(--color-text-secondary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+          </svg>
+          <div class="empty-title">目前沒有執行中的工作階段</div>
+          <div class="empty-subtitle">啟動一個工作階段，讓 AI 代理人開始工作。你可以指定任何代理人與任務。</div>
+          <span class="empty-link" onclick="setState('modal')">+ 啟動新的工作階段</span>
+        </div>
+      </div>
+
+      <!-- STATE: LOADING -->
+      <div id="state-loading" class="hidden" style="flex:1;padding:12px 16px;display:none;">
+        <div style="padding:6px 0 4px;font-size:10px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">執行中</div>
+        <div class="skeleton-row">
+          <div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="width:160px;height:13px;"></div>
+            <div class="skeleton" style="width:280px;height:11px;"></div>
+          </div>
+          <div class="skeleton" style="width:50px;height:20px;"></div>
+          <div class="skeleton" style="width:60px;height:28px;border-radius:5px;"></div>
+        </div>
+        <div class="skeleton-row">
+          <div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="width:140px;height:13px;"></div>
+            <div class="skeleton" style="width:240px;height:11px;"></div>
+          </div>
+          <div class="skeleton" style="width:50px;height:20px;"></div>
+          <div class="skeleton" style="width:60px;height:28px;border-radius:5px;"></div>
+        </div>
+        <div class="skeleton-row">
+          <div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="width:180px;height:13px;"></div>
+            <div class="skeleton" style="width:200px;height:11px;"></div>
+          </div>
+          <div class="skeleton" style="width:50px;height:20px;"></div>
+          <div class="skeleton" style="width:60px;height:28px;border-radius:5px;"></div>
+        </div>
+        <div class="skeleton-row">
+          <div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="width:120px;height:13px;"></div>
+            <div class="skeleton" style="width:300px;height:11px;"></div>
+          </div>
+          <div class="skeleton" style="width:50px;height:20px;"></div>
+          <div class="skeleton" style="width:60px;height:28px;border-radius:5px;"></div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </main>
+</div><!-- /app-shell -->
+
+<!-- MODAL: SessionLauncher -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="closeModalOnOverlay(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">
+      <div class="modal-title-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--color-accent-light)" stroke-width="2">
+          <path d="M8 2v12M2 8h12"/>
+        </svg>
+      </div>
+      啟動新的工作階段
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Agent 代理人</label>
+      <select class="form-select">
+        <option>frontend-developer</option>
+        <option>backend-architect</option>
+        <option>test-writer-fixer</option>
+        <option>design-director</option>
+        <option>devops-engineer</option>
+        <option>code-reviewer</option>
+        <option>documentation-writer</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">專案</label>
+        <select class="form-select">
+          <option>AgentHub (Maestro v2)</option>
+          <option>ChatPilot</option>
+          <option>LexMind</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">分支</label>
+        <input class="form-input" type="text" value="agent/frontend-dev/2026-03-25" placeholder="分支名稱" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">模型選擇</label>
+      <div class="model-selector">
+        <div class="model-card" onclick="selectModel(this)">
+          <div class="model-card-name" style="color:var(--color-success);">Haiku</div>
+          <div class="model-card-desc">快速 · 低成本</div>
+        </div>
+        <div class="model-card selected" onclick="selectModel(this)">
+          <div class="model-card-name" style="color:var(--color-info);">Sonnet</div>
+          <div class="model-card-desc">均衡 · 推薦</div>
+        </div>
+        <div class="model-card" onclick="selectModel(this)">
+          <div class="model-card-name" style="color:var(--color-warning);">Opus</div>
+          <div class="model-card-desc">強力 · 高成本</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">任務描述</label>
+      <textarea class="form-textarea" placeholder="描述這個工作階段要完成的任務，越具體越好...
+例如：實作 LoginForm 元件，包含 email/password 輸入、表單驗證與錯誤訊息顯示。需符合設計系統規範。"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="setState('normal')">取消</button>
+      <button class="btn-primary" onclick="setState('normal')">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="3,2 11,6.5 3,11"/>
+        </svg>
+        啟動工作階段
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── Session data ───────────────────────────────────────────────────────────
+  const SESSIONS = [
+    {
+      id: 'frontend-developer',
+      agent: 'frontend-developer',
+      task: '實作登入頁面 UI — 建立 LoginForm 元件與表單驗證邏輯',
+      status: 'running',
+      model: 'sonnet',
+      tokens: '45.2K tok',
+      turn: 'T12',
+      statusLabel: null,
+      project: 'chatpilot',
+      dept: 'engineering',
+      termLines: [
+        '<span class="t-dim">Session #f24a | frontend-developer | claude-sonnet-4-6</span>',
+        '&nbsp;',
+        '<span class="t-prompt">●</span> <span class="t-cmd">Analyzing task requirements...</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Read: src/views/LoginView.vue</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Read: src/components/auth/ (3 files)</span>',
+        '<span class="t-accent">→ Planning component structure...</span>',
+        '<span class="t-prompt">●</span> <span class="t-cmd">Creating LoginForm.vue...</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Write: LoginForm.vue (+127 lines)</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Write: EmailInput.vue (+48 lines)</span>',
+        '<span class="t-prompt">$</span> <span class="t-cmd">npm run lint -- --fix src/</span>',
+        '<span class="t-success">✔</span> <span class="t-output">ESLint passed — 3 auto-fixed</span>',
+        '<span class="t-accent">→ Finalizing dark mode styles...</span> <span class="t-cursor"></span>',
+      ]
+    },
+    {
+      id: 'backend-architect',
+      agent: 'backend-architect',
+      task: '設計 API schema — 規劃 RESTful 端點與資料庫關聯',
+      status: 'thinking',
+      model: 'opus',
+      tokens: '128K tok',
+      turn: 'T8',
+      statusLabel: null,
+      project: 'lexmind',
+      dept: 'engineering',
+      termLines: [
+        '<span class="t-dim">Session #b91e | backend-architect | claude-opus-4-5</span>',
+        '&nbsp;',
+        '<span class="t-prompt">●</span> <span class="t-cmd">Reviewing existing schema...</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Read: electron/migrations/ (6 files)</span>',
+        '<span class="t-accent">→ Designing RESTful endpoints...</span>',
+        '<span class="t-output">  POST /api/sessions</span>',
+        '<span class="t-output">  GET  /api/sessions/:id</span>',
+        '<span class="t-output">  PUT  /api/sessions/:id/stop</span>',
+        '<span class="t-prompt">●</span> <span class="t-cmd">Thinking about foreign key constraints...</span> <span class="t-cursor"></span>',
+      ]
+    },
+    {
+      id: 'test-writer-fixer',
+      agent: 'test-writer-fixer',
+      task: '撰寫單元測試 — 執行 Vitest 測試套件驗證',
+      status: 'executing_tool',
+      model: 'sonnet',
+      tokens: '23.1K tok',
+      turn: 'T5',
+      statusLabel: null,
+      project: 'chatpilot',
+      dept: 'quality',
+      termLines: [
+        '<span class="t-dim">Session #c33d | test-writer-fixer | claude-sonnet-4-6</span>',
+        '&nbsp;',
+        '<span class="t-prompt">●</span> <span class="t-cmd">Scanning existing tests...</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Found 12 test files</span>',
+        '<span class="t-prompt">$</span> <span class="t-cmd">npx vitest run --reporter=verbose</span>',
+        '<span class="t-warn">⚠</span>  <span class="t-output">3 tests failing in session-manager.spec.ts</span>',
+        '<span class="t-accent">→ Fixing test assertions...</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Write: session-manager.spec.ts (+22 lines)</span>',
+        '<span class="t-prompt">$</span> <span class="t-cmd">npx vitest run</span> <span class="t-cursor"></span>',
+      ]
+    },
+    {
+      id: 'design-director',
+      agent: 'design-director',
+      task: '審核設計稿 — 等待 Gate G3 視覺審查批准',
+      status: 'awaiting_approval',
+      model: 'opus',
+      tokens: '67K tok',
+      turn: 'T15',
+      statusLabel: '待核准',
+      project: 'agenthub',
+      dept: 'design',
+      termLines: [
+        '<span class="t-dim">Session #d07f | design-director | claude-opus-4-5</span>',
+        '&nbsp;',
+        '<span class="t-success">✔</span> <span class="t-output">Mockup v2 created: docs/design/mockup-sessions.html</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Design tokens documented</span>',
+        '<span class="t-success">✔</span> <span class="t-output">Component spec written</span>',
+        '&nbsp;',
+        '<span class="t-warn">⚠</span>  <span class="t-output">Awaiting Gate G3 approval from boss</span>',
+        '<span class="t-accent">→ Pending visual review sign-off...</span> <span class="t-cursor"></span>',
+      ]
+    },
+  ];
+
+  // ─── State ──────────────────────────────────────────────────────────────────
+  let currentState  = 'normal';
+  let currentTab    = 'running';
+  let currentLayout = 'list';
+  let currentGroup  = 'none';
+
+  // ─── Build a session-row element ────────────────────────────────────────────
+  function buildRow(s) {
+    const el = document.createElement('div');
+    el.className = 'session-row';
+    el.dataset.sessionId = s.id;
+    el.onclick = function() { selectSession(this); };
+
+    const stopBtn = s.statusLabel
+      ? `<span class="status-label ${s.status}">${s.statusLabel}</span>`
+      : `<button class="btn-danger-ghost" onclick="event.stopPropagation()">停止</button>`;
+
+    el.innerHTML = `
+      <div class="status-dot ${s.status}"></div>
+      <div class="session-info">
+        <div class="session-agent">${s.agent}</div>
+        <div class="session-task">${s.task}</div>
+      </div>
+      <div class="session-meta">
+        <span class="model-tag ${s.model}">${capitalize(s.model)}</span>
+        <div class="session-stats">
+          <span>${s.tokens}</span>
+          <span>${s.turn}</span>
+        </div>
+        ${stopBtn}
+      </div>`;
+    return el;
+  }
+
+  // ─── Build a session-card element ───────────────────────────────────────────
+  function buildCard(s) {
+    const el = document.createElement('div');
+    el.className = 'session-card';
+    el.dataset.sessionId = s.id;
+    el.onclick = function() { selectSession(this); };
+
+    const termContent = s.termLines.join('\n');
+    const stopBtn = s.statusLabel
+      ? `<span class="status-label ${s.status}">${s.statusLabel}</span>`
+      : `<button class="btn-danger-ghost" onclick="event.stopPropagation()">停止</button>`;
+
+    el.innerHTML = `
+      <div class="session-card-header">
+        <div class="status-dot ${s.status}"></div>
+        <div class="session-card-header-info">
+          <div class="session-card-agent">${s.agent}</div>
+          <div class="session-card-task">${s.task}</div>
+        </div>
+        <div class="session-card-actions">
+          <span class="model-tag ${s.model}">${capitalize(s.model)}</span>
+          ${stopBtn}
+        </div>
+      </div>
+      <div class="session-card-terminal">
+        ${s.termLines.map(l => `<span class="t-line">${l}</span>`).join('')}
+      </div>
+      <div class="session-card-footer">
+        <div class="session-card-footer-item">
+          <span>Tokens</span>
+          <span>${s.tokens}</span>
+        </div>
+        <div class="session-card-footer-item">
+          <span>Turn</span>
+          <span>${s.turn}</span>
+        </div>
+        <div class="session-card-footer-item">
+          <span>Status</span>
+          <span style="color:var(--color-${statusColor(s.status)});">${statusText(s.status)}</span>
+        </div>
+      </div>`;
+    return el;
+  }
+
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function statusColor(s) {
+    return { running: 'success', thinking: 'accent-light', executing_tool: 'accent-light', awaiting_approval: 'warning' }[s] || 'text-muted';
+  }
+  function statusText(s) {
+    return { running: 'Running', thinking: 'Thinking', executing_tool: 'Exec Tool', awaiting_approval: '待核准' }[s] || s;
+  }
+
+  // ─── Populate all session-rows-wrap containers ───────────────────────────────
+  function populateSessions() {
+    const groupMap = {
+      'rows-none': SESSIONS,
+      'rows-proj-chatpilot':  SESSIONS.filter(s => s.project === 'chatpilot'),
+      'rows-proj-lexmind':    SESSIONS.filter(s => s.project === 'lexmind'),
+      'rows-proj-agenthub':   SESSIONS.filter(s => s.project === 'agenthub'),
+      'rows-dept-engineering':SESSIONS.filter(s => s.dept === 'engineering'),
+      'rows-dept-quality':    SESSIONS.filter(s => s.dept === 'quality'),
+      'rows-dept-design':     SESSIONS.filter(s => s.dept === 'design'),
+    };
+
+    Object.entries(groupMap).forEach(([id, sessions]) => {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      sessions.forEach(s => {
+        wrap.appendChild(buildRow(s));
+        wrap.appendChild(buildCard(s));
+      });
+    });
+
+    // Mark first row in 'rows-none' as selected
+    const firstRow = document.querySelector('#rows-none .session-row');
+    if (firstRow) firstRow.classList.add('selected');
+  }
+
+  // ─── Layout ─────────────────────────────────────────────────────────────────
+  function setLayout(layout) {
+    currentLayout = layout;
+    const panel = document.getElementById('sessionListPanel');
+    panel.classList.remove('layout-list', 'layout-single', 'layout-dual', 'layout-triple');
+    panel.classList.add('layout-' + layout);
+
+    // Terminal panel — only visible in list mode
+    const termPanel = document.getElementById('terminalPanel');
+    termPanel.style.display = layout === 'list' ? 'flex' : 'none';
+
+    // Update button active states
+    ['list', 'single', 'dual', 'triple'].forEach(l => {
+      const btn = document.getElementById('layout-btn-' + l);
+      if (btn) btn.classList.toggle('active', l === layout);
+    });
+  }
+
+  // ─── Grouping ───────────────────────────────────────────────────────────────
+  function setGroup(group, el) {
+    currentGroup = group;
+
+    // Update pill active state
+    document.querySelectorAll('#groupPills .pill-item').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+
+    // Show correct group container
+    document.querySelectorAll('.group-container').forEach(c => c.classList.remove('active'));
+    document.getElementById('group-' + group).classList.add('active');
+  }
+
+  // ─── Group collapse / expand ─────────────────────────────────────────────────
+  function toggleGroup(groupId) {
+    const body  = document.getElementById(groupId + '-body');
+    const arrow = document.querySelector('#' + groupId + ' .session-group-arrow');
+    if (!body) return;
+
+    const isCollapsed = body.classList.contains('collapsed');
+    if (isCollapsed) {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = '2000px';
+      if (arrow) arrow.classList.add('expanded');
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      // Force reflow
+      body.offsetHeight;
+      body.classList.add('collapsed');
+      if (arrow) arrow.classList.remove('expanded');
+    }
+  }
+
+  // ─── Session selection ───────────────────────────────────────────────────────
+  function selectSession(el) {
+    document.querySelectorAll('.session-row, .session-card').forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // ─── Tab ────────────────────────────────────────────────────────────────────
+  function applyTab(tab) {
+    document.getElementById('tab-running').style.display = tab === 'running' ? 'flex' : 'none';
+    document.getElementById('tab-history').style.display = tab === 'history' ? 'flex' : 'none';
+  }
+
+  function setTab(tab, e) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+    if (e && e.currentTarget) e.currentTarget.classList.add('active');
+    applyTab(tab);
+  }
+
+  // ─── App state ───────────────────────────────────────────────────────────────
+  function setState(state) {
+    currentState = state;
+
+    const btnMap = { normal: 0, empty: 1, loading: 2, modal: 3 };
+    document.querySelectorAll('.state-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === btnMap[state]);
+    });
+
+    document.getElementById('state-normal').style.display = 'none';
+    document.getElementById('state-empty').style.display = 'none';
+    document.getElementById('state-loading').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('hidden');
+
+    if (state === 'normal') {
+      document.getElementById('state-normal').style.display = 'flex';
+      applyTab(currentTab);
+    } else if (state === 'empty') {
+      document.getElementById('state-empty').style.display = 'flex';
+    } else if (state === 'loading') {
+      document.getElementById('state-loading').style.display = 'block';
+    } else if (state === 'modal') {
+      document.getElementById('state-normal').style.display = 'flex';
+      document.getElementById('modal-overlay').classList.remove('hidden');
+      // Both 'normal' and 'modal' buttons show active
+      const btns = document.querySelectorAll('.state-btn');
+      btns[0].classList.add('active');
+      btns[3].classList.add('active');
+    }
+  }
+
+  function selectHistoryRow(row) {
+    document.querySelectorAll('.history-row').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+  }
+
+  function selectModel(card) {
+    card.closest('.model-selector').querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+  }
+
+  function closeModalOnOverlay(e) {
+    if (e.target === document.getElementById('modal-overlay')) {
+      setState('normal');
+    }
+  }
+
+  // ─── Init ────────────────────────────────────────────────────────────────────
+  populateSessions();
+  setState('normal');
+  setLayout('list');
+</script>
+</body>
+</html>

@@ -49,10 +49,12 @@ export function registerGateHandlers(): void {
     return gateKeeper.getChecklists();
   });
 
+  // NOTE: initializePipeline is a legacy endpoint — gates are now dynamically
+  // created by project-sync from the dev-plan's "確認的流程".
+  // This endpoint remains for manual fallback / backward compatibility.
   ipcMain.handle(
     IpcChannels.GATE_INIT_PIPELINE,
     (_e, params: { projectId: string; sprintId: string }) => {
-      // 查詢 sprint 類型以建立正確的關卡組合
       const sprint = sprintManager.getById(params.sprintId);
       const sprintType = sprint?.sprintType || 'full';
       const gates = gateKeeper.initializePipeline(params.projectId, params.sprintId, sprintType);

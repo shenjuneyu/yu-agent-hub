@@ -7,7 +7,7 @@
 | Sprint | sprint1 |
 | 指派給 | backend-architect |
 | 優先級 | P0 |
-| 狀態 | created |
+| 狀態 | done |
 | 建立時間 | 2026-03-24T20:00:00.000Z |
 
 ---
@@ -41,3 +41,10 @@
 
 ### 2026-03-24 20:00 — 建立任務
 由 PM 建立，Sprint 1 G0 通過後
+
+### 2026-03-24 — T1 完成
+- 305 檔案、54,612 行程式碼複製完成
+- git init + 初始 commit 2ddd937
+- npm install 成功（400 套件）
+- node-pty 使用 prebuilt binary（無需 electron-rebuild）
+- 已保留 v2 原有的 CLAUDE.md, proposal/, .tasks/, .knowledge/

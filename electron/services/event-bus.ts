@@ -1,6 +1,12 @@
 import { EventEmitter } from 'events';
 import type { SessionEvent, SessionStatus, PtyData } from '../types';
 
+export interface FileSyncedData {
+  projectId: string;
+  type: 'task' | 'gate' | 'full';
+  filePath?: string;
+}
+
 export interface SessionStatusChange {
   sessionId: string;
   status: SessionStatus;
@@ -45,6 +51,14 @@ class MaestroEventBus extends EventEmitter {
 
   onPtyData(handler: (data: PtyData) => void): void {
     this.on('pty:data', handler);
+  }
+
+  emitFileSynced(data: FileSyncedData): void {
+    this.emit('project:file-synced', data);
+  }
+
+  onFileSynced(handler: (data: FileSyncedData) => void): void {
+    this.on('project:file-synced', handler);
   }
 
   /**

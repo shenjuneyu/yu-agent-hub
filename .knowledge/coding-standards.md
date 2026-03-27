@@ -107,3 +107,48 @@ export const useXxxStore = defineStore('xxx', () => {
 - 分支: `feature/sprint1-xxx`, `fix/xxx`, `hotfix/xxx`
 - Commit: `<type>(<scope>): <summary>`
 - 禁止: `--no-verify`, `push --force` to main
+
+---
+
+## 命名規範（AgentHub 強制）
+
+| 層 | 命名風格 | 範例 | 說明 |
+|----|---------|------|------|
+| 資料庫（sql.js） | snake_case | `project_id`, `created_at` | 表名、欄位名全部 snake_case |
+| Electron Main Process | camelCase | `sessionManager`, `hookManager` | 服務、函數、變數 |
+| Vue Renderer TypeScript | camelCase | `activeSession`, `sprintProgress` | 變數、函數、props |
+| Vue 元件檔名 | PascalCase | `SessionTerminal.vue`, `GateChecklist.vue` | 元件檔案名 |
+| TypeScript 型別/類別 | PascalCase | `SessionStatus`, `GateRecord` | 介面、型別、類別 |
+| 一般檔案名 | kebab-case | `hook-manager.ts`, `event-parser.ts` | .ts, .vue 以外用 kebab |
+| CSS | TailwindCSS 4 | `@theme` 定義 token | 避免行內樣式 |
+
+---
+
+## Commit 紀律（強制）
+
+1. **一事一 commit**: 禁止「大雜燴」commit
+2. **commit 前必過 lint + type-check**
+3. **commit message 格式**: `<type>(<scope>): <summary>`，type 限 feat/fix/refactor/test/docs/chore
+4. **lockfile 必須隨 package.json 一起 commit**
+
+---
+
+## 依賴與環境變數變更規則（強制）
+
+修改 `package.json` 的 dependencies / devDependencies 後，**必須**：
+1. 執行 `npm install` 更新 `package-lock.json`
+2. 將 `package-lock.json` 與 `package.json` **一起 commit**
+3. `node-pty` 等原生模組需額外 `npx electron-rebuild -f -w node-pty`
+
+---
+
+## 禁止憑空想像規則（最高強制力）
+
+> **核心原則：不確定就去讀，不要猜。**
+
+| 項目 | 真相來源 | 違反後果 |
+|------|---------|---------|
+| IPC 通道參數/回傳 | `electron/types/ipc.ts` 型別定義 | runtime undefined |
+| DB 表結構 | `electron/services/database.ts` schema | query 失敗 |
+| Pinia store 方法 | 對應 `src/stores/*.ts` | undefined is not a function |
+| 子專案檔案格式 | `.knowledge/` 對應的格式定義文件 | FileWatcher 解析失敗 |

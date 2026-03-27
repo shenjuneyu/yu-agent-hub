@@ -109,11 +109,11 @@ describe('TaskManager', () => {
         .mockReturnValueOnce([updatedRow])
         .mockReturnValueOnce([]);
 
-      const result = taskManager.update('task-1', { title: 'Updated Title', priority: 'high' });
+      const result = taskManager.update('proj-1', 'task-1', { title: 'Updated Title', priority: 'high' });
 
       expect(mockDb.run).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE tasks SET'),
-        expect.arrayContaining(['Updated Title', 'high', 'task-1']),
+        expect.arrayContaining(['Updated Title', 'high', 'proj-1', 'task-1']),
       );
       expect(result?.title).toBe('Updated Title');
     });
@@ -123,7 +123,7 @@ describe('TaskManager', () => {
         .mockReturnValueOnce([makeTaskRow()])
         .mockReturnValueOnce([]);
 
-      const result = taskManager.update('task-1', {});
+      const result = taskManager.update('proj-1', 'task-1', {});
 
       expect(mockDb.run).not.toHaveBeenCalled();
       expect(result?.id).toBe('task-1');
@@ -132,11 +132,11 @@ describe('TaskManager', () => {
 
   describe('delete', () => {
     it('deletes a task by id', () => {
-      taskManager.delete('task-1');
+      taskManager.delete('proj-1', 'task-1');
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        'DELETE FROM tasks WHERE id = ?',
-        ['task-1'],
+        'DELETE FROM tasks WHERE project_id = ? AND id = ?',
+        ['proj-1', 'task-1'],
       );
     });
   });
@@ -157,8 +157,8 @@ describe('TaskManager', () => {
       const result = taskManager.transition({ taskId: 'task-1', toStatus: 'assigned' });
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
-        expect.arrayContaining(['assigned', 'task-1']),
+        'UPDATE tasks SET status = ?, updated_at = ? WHERE project_id = ? AND id = ?',
+        expect.arrayContaining(['assigned', 'proj-1', 'task-1']),
       );
       expect(result.status).toBe('assigned');
     });
@@ -201,7 +201,7 @@ describe('TaskManager', () => {
 
   describe('addDependency', () => {
     it('throws if task depends on itself', () => {
-      expect(() => taskManager.addDependency('task-1', 'task-1')).toThrow(
+      expect(() => taskManager.addDependency('proj-1', 'task-1', 'task-1')).toThrow(
         'Task cannot depend on itself',
       );
     });
@@ -209,7 +209,7 @@ describe('TaskManager', () => {
     it('throws if task is not found', () => {
       mockDb.prepare.mockReturnValueOnce([]);
 
-      expect(() => taskManager.addDependency('task-1', 'task-2')).toThrow(
+      expect(() => taskManager.addDependency('proj-1', 'task-1', 'task-2')).toThrow(
         'Task not found: task-1',
       );
     });
@@ -220,25 +220,25 @@ describe('TaskManager', () => {
         .mockReturnValueOnce([])               // getDependencies for task-1
         .mockReturnValueOnce([]);              // task-2 not found → throws before getDependencies
 
-      expect(() => taskManager.addDependency('task-1', 'task-2')).toThrow(
+      expect(() => taskManager.addDependency('proj-1', 'task-1', 'task-2')).toThrow(
         'Dependency task not found: task-2',
       );
     });
 
     it('inserts dependency when both tasks exist', () => {
-      // getById(task-1) → SELECT returns row, getDependencies → empty
-      // getById(task-2) → SELECT returns row, getDependencies → empty
+      // getById('proj-1', 'task-1') → composite SELECT returns row, getDependencies → empty
+      // getById('proj-1', 'task-2') → composite SELECT returns row, getDependencies → empty
       mockDb.prepare.mockImplementation((sql: string, params?: unknown[]) => {
-        if (sql.includes('FROM tasks WHERE id') && params?.[0] === 'task-1') return [makeTaskRow({ id: 'task-1' })];
-        if (sql.includes('FROM tasks WHERE id') && params?.[0] === 'task-2') return [makeTaskRow({ id: 'task-2' })];
+        if (sql.includes('FROM tasks WHERE project_id') && params?.[1] === 'task-1') return [makeTaskRow({ id: 'task-1' })];
+        if (sql.includes('FROM tasks WHERE project_id') && params?.[1] === 'task-2') return [makeTaskRow({ id: 'task-2' })];
         return [];
       });
 
-      taskManager.addDependency('task-1', 'task-2');
+      taskManager.addDependency('proj-1', 'task-1', 'task-2');
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        'INSERT OR IGNORE INTO task_dependencies (task_id, depends_on) VALUES (?, ?)',
-        ['task-1', 'task-2'],
+        'INSERT OR IGNORE INTO task_dependencies (project_id, task_id, depends_on) VALUES (?, ?, ?)',
+        ['proj-1', 'task-1', 'task-2'],
       );
     });
   });

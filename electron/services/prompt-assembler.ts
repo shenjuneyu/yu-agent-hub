@@ -1,9 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { agentLoader } from './agent-loader';
-import { memoryManager } from './memory-manager';
-import { communicationBus } from './communication-bus';
-import { contextManager } from './context-manager';
 import { database } from './database';
 import { getKnowledgeDir } from '../utils/paths';
 import { logger } from '../utils/logger';
@@ -40,28 +37,15 @@ class PromptAssembler {
       }
     }
 
-    // 3. Memory blocks
-    const memory = memoryManager.getForPrompt(agentId, projectId);
-    if (memory) {
-      sections.push('\n---\n\n' + memory);
+    // 2b. Company manager: inject child project list
+    if (agentId === 'company-manager') {
+      const companyCtx = this.assembleCompanyManagerContext();
+      if (companyCtx) {
+        sections.push(companyCtx);
+      }
     }
 
-    // 4. Communication context
-    const commContext = communicationBus.getContextForAgent(
-      agentId,
-      projectId || undefined,
-    );
-    if (commContext) {
-      sections.push('\n---\n\n' + commContext);
-    }
-
-    // 5. Decisions
-    const decisions = contextManager.getDecisionsForPrompt(projectId || undefined);
-    if (decisions) {
-      sections.push('\n---\n\n' + decisions);
-    }
-
-    // 6. Previous session context (for continuation sessions)
+    // 3. Previous session context (for continuation sessions)
     if (options?.parentSessionId) {
       try {
         const rows = database.prepare(
@@ -125,24 +109,23 @@ class PromptAssembler {
   private getDelegationInstructions(managedAgents: string[]): string {
     return [
       '\n---\n',
-      '## 委派指令格式',
+      '## 任務執行方式',
       '',
-      '當你需要委派任務給下屬 Agent 時，請使用以下格式：',
+      '你是 L1，負責讀取開發計畫書並按順序執行任務。',
       '',
-      '```ai-studio:delegation',
-      JSON.stringify(
-        {
-          targetAgent: '<agent-id>',
-          task: '<具體任務描述>',
-          priority: 'medium',
-          context: '<背景資訊>',
-        },
-        null,
-        2,
-      ),
-      '```',
+      '### 工作流程',
+      '1. 讀取 `proposal/sprint*-dev-plan.md` 了解全局',
+      '2. 執行 `/task-delegation` 建立 `.tasks/` 任務檔案（系統自動追蹤）',
+      '3. 按依賴順序執行任務，可委派給下屬 Agent',
+      '4. 每完成一個任務 → 執行 `/task-done`',
+      '5. 階段完成 → 執行 `/review` → 提交 `/gate-record`',
       '',
-      `可委派的 Agent: ${managedAgents.join(', ')}`,
+      `### 可委派的下屬 Agent`,
+      `${managedAgents.map((a) => `- ${a}`).join('\n')}`,
+      '',
+      '### 委派方式',
+      '直接在任務描述中指明由哪個 Agent 負責，',
+      '系統會透過 Session 機制將指令傳達給對應 Agent。',
       '',
       '你也可以記錄工作記憶：',
       '',
@@ -150,6 +133,53 @@ class PromptAssembler {
       '你想記住的內容',
       '```',
     ].join('\n');
+  }
+
+  /**
+   * Assemble additional context for the company-manager agent.
+   * Injects a list of known child projects with their workDir paths
+   * so the agent can read their .knowledge/ via absolute paths.
+   */
+  assembleCompanyManagerContext(): string {
+    try {
+      const projects = database.prepare(
+        `SELECT id, name, work_dir FROM projects WHERE work_dir IS NOT NULL AND status IN (?, ?)`,
+        ['planning', 'active'],
+      );
+
+      if (!projects || projects.length === 0) {
+        return [
+          '\n---\n',
+          '## 已知子專案',
+          '',
+          '目前沒有已登記工作目錄的子專案。',
+        ].join('\n');
+      }
+
+      const lines = [
+        '\n---\n',
+        '## 已知子專案',
+        '',
+        '以下是目前系統中已知的子專案，可透過絕對路徑讀取其 `.knowledge/` 檔案：',
+        '',
+      ];
+
+      for (const p of projects as any[]) {
+        lines.push(`- **${p.name}** (${p.id})`);
+        lines.push(`  - 工作目錄: \`${p.work_dir}\``);
+        lines.push(`  - 踩坑紀錄: \`${p.work_dir}/.knowledge/postmortem-log.md\``);
+        lines.push(`  - 編碼規範: \`${p.work_dir}/.knowledge/coding-standards.md\``);
+        lines.push(`  - 架構文件: \`${p.work_dir}/.knowledge/architecture.md\``);
+        lines.push('');
+      }
+
+      lines.push('> 注意：只能讀取子專案的 `.knowledge/` 和 `proposal/` 目錄，不得修改子專案的任何檔案。');
+
+      return lines.join('\n');
+    } catch (err) {
+      logger.warn('Failed to assemble company manager context', err);
+      return '';
+    }
   }
 
   private extractKnowledgeRefs(content: string): string[] {

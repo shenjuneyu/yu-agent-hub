@@ -13,7 +13,6 @@ const emit = defineEmits<{
   select: [sessionId: string];
   stop: [sessionId: string];
   remix: [session: ActiveSession];
-  openDiff: [session: ActiveSession];
   navigateToTask: [taskId: string];
   delegation: [session: ActiveSession];
   assignTask: [session: ActiveSession];
@@ -23,26 +22,30 @@ const emit = defineEmits<{
 const gridClass = computed(() => {
   switch (props.layout) {
     case 'single':
-      return 'grid-cols-1';
+      return 'session-grid--single';
     case 'dual':
-      return 'grid-cols-2';
+      return 'session-grid--dual';
     case 'triple':
-      return 'grid-cols-3';
+      return 'session-grid--triple';
     case 'list':
     default:
-      return 'grid-cols-1';
+      return 'session-grid--list';
   }
+});
+
+const gapClass = computed(() => {
+  return props.layout === 'list' ? 'session-grid--gap-list' : 'session-grid--gap-grid';
 });
 
 const isCompact = computed(() => props.layout === 'list');
 </script>
 
 <template>
-  <div v-if="sessions.length === 0" class="rounded-xl border border-border-default bg-bg-card p-8 text-center text-text-muted">
+  <div v-if="sessions.length === 0" class="session-grid__empty">
     尚未有執行中的工作階段
   </div>
 
-  <div v-else class="grid gap-4" :class="gridClass">
+  <div v-else class="session-grid" :class="[gridClass, gapClass]">
     <SessionCard
       v-for="session in sessions"
       :key="session.sessionId"
@@ -52,7 +55,6 @@ const isCompact = computed(() => props.layout === 'list');
       @select="emit('select', $event)"
       @stop="emit('stop', $event)"
       @remix="emit('remix', $event)"
-      @open-diff="emit('openDiff', $event)"
       @navigate-to-task="emit('navigateToTask', $event)"
       @delegation="emit('delegation', $event)"
       @assign-task="emit('assignTask', $event)"
@@ -60,3 +62,42 @@ const isCompact = computed(() => props.layout === 'list');
     />
   </div>
 </template>
+
+<style scoped>
+.session-grid__empty {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-card);
+  padding: 32px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.session-grid {
+  display: grid;
+}
+
+.session-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.session-grid--dual {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.session-grid--triple {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.session-grid--list {
+  grid-template-columns: 1fr;
+}
+
+.session-grid--gap-list {
+  gap: 4px;
+}
+
+.session-grid--gap-grid {
+  gap: 12px;
+}
+</style>

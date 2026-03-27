@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agents Mockup — AgentHub</title>
+<style>
+  :root {
+    --color-bg-primary: #0f1117;
+    --color-bg-secondary: #161822;
+    --color-bg-card: #1c1e2e;
+    --color-bg-hover: #252840;
+    --color-bg-active: #2a2d45;
+    --color-border-default: #2e3148;
+    --color-border-light: #3a3d56;
+    --color-text-primary: #e4e4f0;
+    --color-text-secondary: #8b8da3;
+    --color-text-muted: #5c5e72;
+    --color-accent: #6c5ce7;
+    --color-accent-light: #a29bfe;
+    --color-success: #00d68f;
+    --color-success-dim: #00d68f33;
+    --color-warning: #ffaa00;
+    --color-warning-dim: #ffaa0033;
+    --color-danger: #ff6b6b;
+    --color-danger-dim: #ff6b6b33;
+    --color-info: #339af0;
+    --color-info-dim: #339af033;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── State Switcher ── */
+  .state-switcher {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    border-radius: 10px;
+    padding: 5px;
+    z-index: 9999;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .state-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .state-btn:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+  .state-btn.active { background: var(--color-accent); color: #fff; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 52px;
+    min-width: 52px;
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-default);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+    z-index: 10;
+  }
+  .sidebar-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .sidebar-divider {
+    width: 28px;
+    height: 1px;
+    background: var(--color-border-default);
+    margin: 6px 0;
+  }
+  .nav-item {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--color-text-muted);
+    font-size: 16px;
+    position: relative;
+    border: none;
+    background: transparent;
+  }
+  .nav-item:hover { background: var(--color-bg-hover); color: var(--color-text-secondary); }
+  .nav-item.active {
+    background: var(--color-bg-active);
+    color: var(--color-accent-light);
+    box-shadow: inset 3px 0 0 var(--color-accent);
+    border-radius: 0 8px 8px 0;
+    width: 44px;
+    margin-left: -8px;
+    padding-left: 8px;
+  }
+
+  /* ── Main Content ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 44px;
+  }
+
+  /* ── Page Header ── */
+  .page-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--color-border-default);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .page-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: -0.3px;
+  }
+  .count-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .header-spacer { flex: 1; }
+
+  .search-input {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 10px 6px 30px;
+    border-radius: 8px;
+    outline: none;
+    width: 180px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c5e72' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    transition: border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--color-text-muted); }
+  .search-input:focus { border-color: var(--color-accent); }
+
+  .filter-select {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    padding-right: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235c5e72' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .filter-select:focus { border-color: var(--color-accent); }
+
+  /* ── Content Scroll ── */
+  .content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  .content-scroll::-webkit-scrollbar { width: 4px; }
+  .content-scroll::-webkit-scrollbar-thumb { background: var(--color-border-light); border-radius: 2px; }
+
+  /* ── Department Section ── */
+  .dept-section {
+    margin-bottom: 24px;
+  }
+  .dept-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    gap: 10px;
+    color: var(--color-text-primary);
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.15s;
+    margin-bottom: 12px;
+  }
+  .dept-header:hover { background: var(--color-bg-card); }
+
+  .dept-emoji {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+  }
+  .dept-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: -0.2px;
+  }
+  .dept-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--color-bg-hover);
+    border: 1px solid var(--color-border-default);
+    padding: 1px 7px;
+    border-radius: 10px;
+  }
+  .dept-spacer { flex: 1; }
+  .dept-toggle {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+  }
+  .dept-toggle svg { transition: transform 0.2s; }
+  .dept-header.collapsed .dept-toggle svg { transform: rotate(-90deg); }
+  .dept-header.collapsed + .dept-grid { display: none; }
+
+  /* ── Agent Grid ── */
+  .dept-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  /* ── Agent Card ── */
+  .agent-card {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .agent-card:hover {
+    background: var(--color-bg-card);
+    border-color: var(--color-border-light);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .agent-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .agent-emoji {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .agent-name-block {
+    flex: 1;
+    min-width: 0;
+  }
+  .agent-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .agent-id {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .agent-row2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 7px;
+  }
+  .tag-sm {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
+  .tag-level-l1 { color: #c084fc; background: rgba(192,132,252,0.15); }
+  .tag-level-l2 { color: var(--color-info); background: var(--color-info-dim); }
+  .tag-model-opus    { color: var(--color-warning); background: var(--color-warning-dim); }
+  .tag-model-sonnet  { color: var(--color-info); background: var(--color-info-dim); }
+  .tag-model-haiku   { color: var(--color-success); background: var(--color-success-dim); }
+
+  .agent-row3 {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── Empty State ── */
+  .empty-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 32px;
+    gap: 12px;
+    text-align: center;
+  }
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .empty-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .empty-sub {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    max-width: 280px;
+    line-height: 1.6;
+  }
+
+  /* ── Skeleton ── */
+  @keyframes shimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-bg-card) 25%, var(--color-bg-hover) 50%, var(--color-bg-card) 75%);
+    background-size: 1200px 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 4px;
+  }
+  .sk-card {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sk-row { display: flex; gap: 6px; align-items: center; }
+  .sk-circle { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; }
+  .sk-block { border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- State Switcher -->
+<div class="state-switcher">
+  <button class="state-btn active" onclick="setState('normal', this)">正常</button>
+  <button class="state-btn" onclick="setState('empty', this)">空狀態</button>
+  <button class="state-btn" onclick="setState('loading', this)">Loading</button>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">M</div>
+  <div class="nav-item" title="Dashboard">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+  </div>
+  <div class="nav-item" title="Sessions">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+  </div>
+  <div class="nav-item" title="TaskBoard">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+  </div>
+  <div class="nav-item" title="Gates">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-item active" title="Agents">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+  </div>
+  <div class="nav-item" title="Knowledge">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-item" title="Settings" style="margin-top:auto;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+  <!-- Header -->
+  <div class="page-header">
+    <span class="page-title">Agent 團隊</span>
+    <span class="count-badge" id="count-badge">共 28 位</span>
+    <div class="header-spacer"></div>
+    <input class="search-input" type="text" placeholder="搜尋 Agent..." id="search-input" oninput="handleSearch(this.value)">
+    <select class="filter-select" id="dept-filter" onchange="handleFilter()">
+      <option value="">全部部門</option>
+      <option value="Engineering">Engineering</option>
+      <option value="Product">Product</option>
+      <option value="Design">Design</option>
+      <option value="Marketing">Marketing</option>
+      <option value="Operations">Operations</option>
+    </select>
+    <select class="filter-select" id="level-filter" onchange="handleFilter()">
+      <option value="">全部等級</option>
+      <option value="L1">L1</option>
+      <option value="L2">L2</option>
+    </select>
+  </div>
+
+  <!-- Content -->
+  <div class="content-scroll" id="content-scroll">
+    <div id="agents-list"></div>
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5c5e72" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      </div>
+      <div class="empty-title">找不到符合條件的 Agent</div>
+      <div class="empty-sub">嘗試調整篩選條件或清除搜尋關鍵字</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const departments = [
+    {
+      name: 'Engineering',
+      emoji: '',
+      count: 12,
+      agents: [
+        { emoji: '', name: 'Frontend Developer', id: 'frontend-developer', level: 'L2', model: 'sonnet', desc: '專注 Vue 3 與 React，實作高品質 UI 元件與頁面，確保跨瀏覽器相容性' },
+        { emoji: '', name: 'Backend Architect', id: 'backend-architect', level: 'L2', model: 'opus', desc: '設計可擴展 API 服務，負責資料庫架構與後端業務邏輯實作' },
+        { emoji: '', name: 'Mobile App Builder', id: 'mobile-app-builder', level: 'L2', model: 'sonnet', desc: '使用 React Native 或 Flutter 建立跨平台行動應用程式' },
+        { emoji: '', name: 'DevOps Automator', id: 'devops-automator', level: 'L1', model: 'haiku', desc: '自動化 CI/CD 管線，管理容器化部署與雲端基礎設施' },
+        { emoji: '', name: 'Infrastructure Maintainer', id: 'infrastructure-maintainer', level: 'L1', model: 'haiku', desc: '維護伺服器健康狀態，監控系統效能與資源使用率' },
+        { emoji: '', name: 'Test Writer & Fixer', id: 'test-writer-fixer', level: 'L1', model: 'haiku', desc: '撰寫單元測試與整合測試，確保程式碼覆蓋率達標' },
+        { emoji: '', name: 'Security Auditor', id: 'security-auditor', level: 'L2', model: 'sonnet', desc: '稽核程式碼安全漏洞，確保 OWASP Top 10 合規性' },
+        { emoji: '', name: 'Performance Engineer', id: 'performance-engineer', level: 'L2', model: 'sonnet', desc: '分析效能瓶頸，優化資料庫查詢與前端載入速度' },
+        { emoji: '', name: 'API Integrator', id: 'api-integrator', level: 'L1', model: 'haiku', desc: '整合第三方 API 服務，處理 Webhook 與資料同步邏輯' },
+        { emoji: '', name: 'Database Optimizer', id: 'database-optimizer', level: 'L2', model: 'sonnet', desc: '設計資料庫索引策略，優化查詢效能與資料遷移' },
+        { emoji: '', name: 'Code Reviewer', id: 'code-reviewer', level: 'L2', model: 'opus', desc: '深度審查程式碼品質，識別設計模式問題與技術債務' },
+        { emoji: '', name: 'Documentation Writer', id: 'documentation-writer', level: 'L1', model: 'haiku', desc: '撰寫技術文件、API 文件與開發者指南' }
+      ]
+    },
+    {
+      name: 'Product',
+      emoji: '',
+      count: 5,
+      agents: [
+        { emoji: '', name: 'Sprint Prioritizer', id: 'sprint-prioritizer', level: 'L2', model: 'opus', desc: '分析需求優先級，規劃 Sprint 範疇並維護產品路線圖' },
+        { emoji: '', name: 'UX Researcher', id: 'ux-researcher', level: 'L2', model: 'sonnet', desc: '進行用戶訪談與可用性測試，轉化洞察為產品改善方向' },
+        { emoji: '', name: 'Rapid Prototyper', id: 'rapid-prototyper', level: 'L2', model: 'sonnet', desc: '快速建立互動原型，驗證設計假設並收集早期反饋' },
+        { emoji: '', name: 'Requirements Analyst', id: 'requirements-analyst', level: 'L1', model: 'sonnet', desc: '收集並整理業務需求，撰寫清晰的功能規格文件' },
+        { emoji: '', name: 'Metrics Tracker', id: 'metrics-tracker', level: 'L1', model: 'haiku', desc: '追蹤產品 KPI 與用戶行為數據，生成週期性報告' }
+      ]
+    },
+    {
+      name: 'Design',
+      emoji: '',
+      count: 5,
+      agents: [
+        { emoji: '', name: 'UI Designer', id: 'ui-designer', level: 'L2', model: 'opus', desc: '設計高保真介面原型，建立設計系統與元件庫' },
+        { emoji: '', name: 'Brand Guardian', id: 'brand-guardian', level: 'L2', model: 'sonnet', desc: '維護品牌視覺一致性，審核所有對外設計物料' },
+        { emoji: '', name: 'Visual Storyteller', id: 'visual-storyteller', level: 'L2', model: 'sonnet', desc: '創作引人入勝的視覺內容，提升品牌故事敘述力' },
+        { emoji: '', name: 'Whimsy Injector', id: 'whimsy-injector', level: 'L1', model: 'sonnet', desc: '為產品注入趣味細節與驚喜互動，提升情感連結' },
+        { emoji: '', name: 'Motion Designer', id: 'motion-designer', level: 'L2', model: 'sonnet', desc: '設計流暢的動效與轉場，提升介面感知品質' }
+      ]
+    },
+    {
+      name: 'Marketing',
+      emoji: '',
+      count: 4,
+      agents: [
+        { emoji: '', name: 'Growth Hacker', id: 'growth-hacker', level: 'L2', model: 'sonnet', desc: '設計成長實驗，優化用戶獲取管道與轉換漏斗' },
+        { emoji: '', name: 'Content Creator', id: 'content-creator', level: 'L1', model: 'haiku', desc: '產出高質量部落格文章、社群貼文與電子報內容' },
+        { emoji: '', name: 'TikTok Strategist', id: 'tiktok-strategist', level: 'L2', model: 'sonnet', desc: '規劃短影音內容策略，提升品牌在 Z 世代的曝光度' },
+        { emoji: '', name: 'SEO Optimizer', id: 'seo-optimizer', level: 'L1', model: 'haiku', desc: '優化網站 SEO 結構，提升搜尋引擎排名與自然流量' }
+      ]
+    },
+    {
+      name: 'Operations',
+      emoji: '',
+      count: 2,
+      agents: [
+        { emoji: '', name: 'Studio Producer', id: 'studio-producer', level: 'L2', model: 'opus', desc: '協調跨部門工作流程，確保 Sprint 準時交付與品質達標' },
+        { emoji: '', name: 'Finance Tracker', id: 'finance-tracker', level: 'L1', model: 'haiku', desc: '追蹤專案預算與 API 成本，生成財務摘要報告' }
+      ]
+    }
+  ];
+
+  let collapsedDepts = new Set();
+  let currentState = 'normal';
+  let searchQuery = '';
+  let deptFilter = '';
+  let levelFilter = '';
+
+  function makeAgentCard(agent) {
+    return `
+    <div class="agent-card">
+      <div class="agent-row1">
+        <span class="agent-emoji">${agent.emoji}</span>
+        <div class="agent-name-block">
+          <div class="agent-name">${agent.name}</div>
+          <div class="agent-id">${agent.id}</div>
+        </div>
+      </div>
+      <div class="agent-row2">
+        <span class="tag-sm tag-level-${agent.level.toLowerCase()}">${agent.level}</span>
+        <span class="tag-sm tag-model-${agent.model}">${agent.model}</span>
+      </div>
+      <div class="agent-row3">${agent.desc}</div>
+    </div>`;
+  }
+
+  function makeDeptSection(dept, filteredAgents) {
+    if (filteredAgents.length === 0) return '';
+    const collapsed = collapsedDepts.has(dept.name) ? 'collapsed' : '';
+    const toggleLabel = collapsed ? '展開' : '收合';
+    const grid = filteredAgents.map(makeAgentCard).join('');
+    return `
+    <div class="dept-section">
+      <button class="dept-header ${collapsed}" onclick="toggleDept('${dept.name}', this)">
+        <span class="dept-emoji">${dept.emoji}</span>
+        <span class="dept-name">${dept.name}</span>
+        <span class="dept-badge">${filteredAgents.length}</span>
+        <span class="dept-spacer"></span>
+        <span class="dept-toggle">
+          ${toggleLabel}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+        </span>
+      </button>
+      <div class="dept-grid">${grid}</div>
+    </div>`;
+  }
+
+  function toggleDept(name, btn) {
+    if (collapsedDepts.has(name)) {
+      collapsedDepts.delete(name);
+      btn.classList.remove('collapsed');
+      btn.querySelector('.dept-toggle').innerHTML = '收合 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>';
+    } else {
+      collapsedDepts.add(name);
+      btn.classList.add('collapsed');
+      btn.querySelector('.dept-toggle').innerHTML = '展開 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>';
+    }
+    const grid = btn.nextElementSibling;
+    grid.style.display = collapsedDepts.has(name) ? 'none' : '';
+  }
+
+  function filterAgents() {
+    let totalVisible = 0;
+    const sections = departments.map(dept => {
+      if (deptFilter && dept.name !== deptFilter) return '';
+      const filtered = dept.agents.filter(a => {
+        const matchSearch = !searchQuery ||
+          a.name.toLowerCase().includes(searchQuery) ||
+          a.id.toLowerCase().includes(searchQuery) ||
+          a.desc.toLowerCase().includes(searchQuery);
+        const matchLevel = !levelFilter || a.level === levelFilter;
+        return matchSearch && matchLevel;
+      });
+      totalVisible += filtered.length;
+      return makeDeptSection(dept, filtered);
+    });
+    return { html: sections.join(''), total: totalVisible };
+  }
+
+  function renderNormal() {
+    const { html, total } = filterAgents();
+    const list = document.getElementById('agents-list');
+    const empty = document.getElementById('empty-state');
+    if (total === 0) {
+      list.innerHTML = '';
+      empty.style.display = 'flex';
+    } else {
+      list.innerHTML = html;
+      empty.style.display = 'none';
+    }
+    document.getElementById('count-badge').textContent = `共 ${total} 位`;
+  }
+
+  function renderLoading() {
+    const skCard = `
+    <div class="sk-card">
+      <div class="sk-row">
+        <div class="skeleton sk-circle"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+          <div class="skeleton sk-block" style="height:11px;width:70%"></div>
+          <div class="skeleton sk-block" style="height:9px;width:50%"></div>
+        </div>
+      </div>
+      <div class="sk-row" style="gap:5px">
+        <div class="skeleton sk-block" style="height:18px;width:28px"></div>
+        <div class="skeleton sk-block" style="height:18px;width:44px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="skeleton sk-block" style="height:9px;width:100%"></div>
+        <div class="skeleton sk-block" style="height:9px;width:75%"></div>
+      </div>
+    </div>`;
+    const deptSkel = (n) => `
+    <div class="dept-section">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:12px">
+        <div class="skeleton sk-block" style="width:20px;height:20px;border-radius:4px"></div>
+        <div class="skeleton sk-block" style="width:120px;height:14px"></div>
+      </div>
+      <div class="dept-grid">${Array(n).fill(skCard).join('')}</div>
+    </div>`;
+    document.getElementById('agents-list').innerHTML = deptSkel(3) + deptSkel(2) + deptSkel(3);
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('count-badge').textContent = '載入中...';
+  }
+
+  function setState(state, btn) {
+    document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentState = state;
+    if (state === 'normal') renderNormal();
+    else if (state === 'empty') {
+      document.getElementById('agents-list').innerHTML = '';
+      document.getElementById('empty-state').style.display = 'flex';
+      document.getElementById('count-badge').textContent = '共 0 位';
+    } else if (state === 'loading') renderLoading();
+  }
+
+  function handleSearch(value) {
+    searchQuery = value.toLowerCase().trim();
+    if (currentState === 'normal') renderNormal();
+  }
+
+  function handleFilter() {
+    deptFilter = document.getElementById('dept-filter').value;
+    levelFilter = document.getElementById('level-filter').value;
+    if (currentState === 'normal') renderNormal();
+  }
+
+  // Initial render
+  renderNormal();
+</script>
+</body>
+</html>

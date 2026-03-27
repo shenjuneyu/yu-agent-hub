@@ -62,3 +62,23 @@ v2: Harness（Skill + Hook + FileWatcher）驅動一切 → GUI 只做監控
 | LexMind | AI 法律平台 | 開發中 |
 | VideoBrief | 影片轉文章 | 開發中 |
 | ChatPilot | LINE 聊天 AI | 開發中 |
+
+---
+
+## 技術棧
+
+| 類型 | 技術 | 版本 |
+|------|------|------|
+| 桌面框架 | Electron | 35+ |
+| 前端 | Vue 3 + Vite + TypeScript | |
+| UI | TailwindCSS | 4 |
+| 終端 | xterm.js + node-pty | |
+| 狀態管理 | Pinia | |
+| 資料庫 | sql.js (WASM SQLite) | |
+| 檔案監控 | chokidar | |
+| Markdown | marked + gray-matter | |
+| 測試 | Vitest + @vue/test-utils + happy-dom | |
+| E2E | Playwright | |
+| 打包 | electron-builder | |
+
+> 已移除：monaco-editor, @notionhq/client, simple-git

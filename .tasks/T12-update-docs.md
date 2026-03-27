@@ -7,7 +7,7 @@
 | Sprint | sprint1 |
 | 指派給 | tech-lead |
 | 優先級 | P1 |
-| 狀態 | created |
+| 狀態 | done |
 | 建立時間 | 2026-03-24T20:00:00.000Z |
 
 ---

@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgentHub — Settings Mockup</title>
+<style>
+  :root {
+    --color-bg-primary: #0f1117;
+    --color-bg-secondary: #161822;
+    --color-bg-card: #1c1e2e;
+    --color-bg-hover: #252840;
+    --color-bg-active: #2a2d45;
+    --color-border-default: #2e3148;
+    --color-border-light: #3a3d56;
+    --color-text-primary: #e4e4f0;
+    --color-text-secondary: #8b8da3;
+    --color-text-muted: #5c5e72;
+    --color-accent: #6c5ce7;
+    --color-accent-light: #a29bfe;
+    --color-success: #00d68f;
+    --color-success-dim: #00d68f33;
+    --color-warning: #ffaa00;
+    --color-warning-dim: #ffaa0033;
+    --color-danger: #ff6b6b;
+    --color-danger-dim: #ff6b6b33;
+    --color-info: #339af0;
+    --color-info-dim: #339af033;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── State switcher ── */
+  .state-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-default);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+  .state-switcher span { margin-right: 4px; }
+  .state-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-default);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .state-btn:hover { border-color: var(--color-border-light); color: var(--color-text-primary); }
+  .state-btn.active {
+    background: var(--color-bg-active);
+    border-color: var(--color-accent);
+    color: var(--color-accent-light);
+  }
+
+  /* ── App shell ── */
+  .app-shell {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 52px;
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-default);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .brand-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+
+  .nav-item {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 15px;
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+  }
+  .nav-item:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+  }
+  .nav-item.active {
+    background: var(--color-bg-active);
+    color: var(--color-accent-light);
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: var(--color-accent);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .nav-divider {
+    width: 24px;
+    height: 1px;
+    background: var(--color-border-default);
+    margin: 6px 0;
+  }
+
+  /* ── Main content ── */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .page-header {
+    padding: 20px 28px 0;
+    flex-shrink: 0;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: 16px;
+  }
+
+  /* ── Tab navigation ── */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-border-default);
+    overflow-x: auto;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--color-text-primary); }
+  .tab-btn.active {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-accent-light);
+    font-weight: 600;
+  }
+
+  /* ── Content area ── */
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px 40px;
+  }
+  .content-area::-webkit-scrollbar { width: 6px; }
+  .content-area::-webkit-scrollbar-track { background: transparent; }
+  .content-area::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 3px; }
+
+  .tab-content {
+    display: none;
+    max-width: 640px;
+  }
+  .tab-content.active { display: block; }
+
+  /* ── Settings card ── */
+  .settings-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .settings-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+    margin-bottom: 20px;
+  }
+
+  /* ── Form elements ── */
+  .form-field {
+    margin-bottom: 20px;
+  }
+  .form-field:last-child { margin-bottom: 0; }
+
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+  }
+  .field-hint {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  .field-input:focus { border-color: var(--color-accent); }
+  .field-input[type="number"] { width: 120px; }
+
+  select.field-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8da3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  /* ── Toggle ── */
+  .toggle-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .toggle-row:first-child { padding-top: 0; }
+
+  .toggle-info { flex: 1; }
+  .toggle-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+  }
+  .toggle-desc {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  .toggle {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 11px;
+    background: var(--color-border-default);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--color-accent); }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+  /* ── Danger zone ── */
+  .danger-zone {
+    border: 1px solid rgba(255, 107, 107, 0.35);
+    background: rgba(255, 107, 107, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 8px;
+  }
+  .danger-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-danger);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .danger-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .danger-row-info { flex: 1; }
+  .danger-row-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+  }
+  .danger-row-desc {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--color-border-light);
+    color: var(--color-text-secondary);
+  }
+  .btn-ghost:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+  .btn-danger {
+    background: transparent;
+    border-color: rgba(255, 107, 107, 0.5);
+    color: var(--color-danger);
+  }
+  .btn-danger:hover { background: var(--color-danger-dim); }
+
+  .btn-secondary {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+  .btn-secondary:hover { background: var(--color-bg-active); }
+
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* ── Save row ── */
+  .save-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border-default);
+    margin-top: 4px;
+  }
+  .save-success {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--color-success);
+  }
+  .save-success.visible { display: flex; }
+  .save-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+  }
+
+  /* ── Kbd ── */
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-light);
+    background: var(--color-bg-hover);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .shortcut-row:last-child { border-bottom: none; }
+  .shortcut-info { flex: 1; }
+  .shortcut-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+  }
+  .shortcut-desc {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  /* ── Permission rules ── */
+  .rule-card {
+    background: var(--color-bg-hover);
+    border: 1px solid var(--color-border-default);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .rule-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .rule-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  .rule-scope {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+  .rule-scope span {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--color-bg-active);
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    margin-left: 4px;
+  }
+  .rule-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .warning-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    background: rgba(255, 170, 0, 0.05);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--color-warning);
+    line-height: 1.5;
+  }
+  .warning-icon { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Skeleton ── */
+  @keyframes shimmer {
+    0% { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg,
+      var(--color-bg-hover) 25%,
+      var(--color-bg-active) 50%,
+      var(--color-bg-hover) 75%);
+    background-size: 1200px 100%;
+    animation: shimmer 1.6s infinite linear;
+    border-radius: 6px;
+  }
+  .sk-line {
+    height: 13px;
+    margin-bottom: 10px;
+  }
+  .sk-line.short { width: 40%; }
+  .sk-line.medium { width: 65%; }
+  .sk-line.full { width: 100%; }
+  .sk-input {
+    height: 36px;
+    width: 100%;
+    margin-bottom: 20px;
+    border-radius: 8px;
+  }
+  .sk-input.half { width: 120px; }
+  .sk-toggle {
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+  }
+
+  /* ── Loading overlay ── */
+  .loading-skeleton { display: none; }
+  body.state-loading .settings-form-content { display: none; }
+  body.state-loading .loading-skeleton { display: block; }
+
+  /* ── Empty state ── */
+  body.state-empty .settings-form-content .field-input { color: var(--color-text-muted); }
+
+  /* ── Scrollbar ── */
+  body::-webkit-scrollbar { width: 6px; }
+  body::-webkit-scrollbar-track { background: transparent; }
+  body::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- State switcher -->
+<div class="state-switcher">
+  <span>狀態：</span>
+  <button class="state-btn active" onclick="setState('normal')">正常</button>
+  <button class="state-btn" onclick="setState('empty')">空狀態</button>
+  <button class="state-btn" onclick="setState('loading')">Loading</button>
+</div>
+
+<!-- App shell -->
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="brand-logo">M</div>
+
+    <div class="nav-item" title="儀表板">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </div>
+
+    <div class="nav-item" title="工作階段">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-item" title="專案">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </div>
+
+    <div class="nav-item" title="任務">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </div>
+
+    <div class="nav-item" title="關卡">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>
+    </div>
+
+    <div class="nav-item" title="團隊">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+
+    <div class="nav-item" title="知識庫">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <div class="nav-item active" title="設定">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">設定</h1>
+
+      <!-- Tab navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('general')">一般</button>
+        <button class="tab-btn" onclick="switchTab('claude')">Claude 命令列</button>
+        <button class="tab-btn" onclick="switchTab('sessions')">工作階段</button>
+        <button class="tab-btn" onclick="switchTab('budget')">預算</button>
+        <button class="tab-btn" onclick="switchTab('notifications')">通知</button>
+        <button class="tab-btn" onclick="switchTab('shortcuts')">快捷鍵</button>
+        <button class="tab-btn" onclick="switchTab('permissions')">權限</button>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="content-area">
+
+      <!-- ── Tab 1: 一般 ── -->
+      <div id="tab-general" class="tab-content active">
+        <div class="settings-card">
+          <p class="settings-section-title">一般設定</p>
+
+          <!-- Loading skeleton -->
+          <div class="loading-skeleton">
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton"></div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton"></div>
+          </div>
+
+          <!-- Form content -->
+          <div class="settings-form-content">
+            <div class="form-field">
+              <label class="field-label">語言</label>
+              <select class="field-input" id="lang-select">
+                <option>繁體中文</option>
+                <option>English</option>
+                <option>日本語</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">專案根目錄</label>
+              <input type="text" class="field-input" id="project-root" value="C:\projects" placeholder="輸入專案根目錄路徑" />
+              <p class="field-hint">所有子專案的預設存放路徑</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="danger-zone">
+          <div class="danger-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            危險區域
+          </div>
+
+          <!-- Loading skeleton -->
+          <div class="loading-skeleton">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;">
+              <div style="flex:1">
+                <div class="sk-line medium skeleton" style="margin-bottom:6px;"></div>
+                <div class="sk-line short skeleton" style="margin-bottom:0;"></div>
+              </div>
+              <div class="sk-input skeleton" style="width:100px;height:32px;margin-bottom:0;"></div>
+            </div>
+          </div>
+
+          <div class="settings-form-content">
+            <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:16px;">以下操作具有不可復原的風險，請謹慎操作。</p>
+            <div class="danger-row">
+              <div class="danger-row-info">
+                <div class="danger-row-label">清除所有資料</div>
+                <div class="danger-row-desc">刪除所有專案、任務、工作階段記錄與設定</div>
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="confirmDanger()">清除所有資料</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 2: Claude 命令列 ── -->
+      <div id="tab-claude" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">Claude 命令列設定</p>
+
+          <div class="loading-skeleton">
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton"></div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton"></div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton" style="width:120px;"></div>
+          </div>
+
+          <div class="settings-form-content">
+            <div class="form-field">
+              <label class="field-label">CLI 路徑</label>
+              <input type="text" class="field-input" id="cli-path" value="claude" placeholder="claude" />
+              <p class="field-hint">Claude CLI 可執行檔路徑或指令名稱</p>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">預設 Model</label>
+              <select class="field-input" id="default-model">
+                <option>Claude Opus</option>
+                <option selected>Claude Sonnet</option>
+                <option>Claude Haiku</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">最大回合數</label>
+              <input type="number" class="field-input" id="max-turns" value="25" min="1" max="100" />
+              <p class="field-hint">每個工作階段最多允許的對話回合數（1–100）</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 3: 工作階段 ── -->
+      <div id="tab-sessions" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">工作階段設定</p>
+
+          <div class="loading-skeleton">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;">
+              <div style="flex:1">
+                <div class="sk-line medium skeleton" style="margin-bottom:6px;"></div>
+                <div class="sk-line short skeleton" style="margin-bottom:0;"></div>
+              </div>
+              <div class="sk-toggle skeleton"></div>
+            </div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;margin-top:14px;"></div>
+            <div class="sk-input skeleton" style="width:120px;"></div>
+          </div>
+
+          <div class="settings-form-content">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">自動儲存</div>
+                <div class="toggle-desc">Session 結束後自動儲存記錄</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="auto-save" checked onchange="syncThumb(this)" />
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+
+            <div class="form-field" style="margin-top:20px;">
+              <label class="field-label">終端字體大小</label>
+              <input type="number" class="field-input" id="font-size" value="13" min="8" max="24" />
+              <p class="field-hint">終端機輸出的字體大小（px）</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 4: 預算 ── -->
+      <div id="tab-budget" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">預算設定</p>
+
+          <div class="loading-skeleton">
+            <div class="sk-line short skeleton" style="margin-bottom:14px;"></div>
+            <div class="sk-input skeleton" style="width:180px;"></div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;margin-top:4px;"></div>
+            <div class="sk-input skeleton" style="width:180px;"></div>
+            <div class="sk-line short skeleton" style="margin-bottom:14px;margin-top:4px;"></div>
+            <div class="sk-input skeleton" style="width:120px;"></div>
+          </div>
+
+          <div class="settings-form-content">
+            <div class="form-field">
+              <label class="field-label">每日 Token 限額</label>
+              <input type="number" class="field-input" id="daily-limit" value="500000" style="width:180px;" />
+              <p class="field-hint">每天最多消耗的 token 數量</p>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">總 Token 限額</label>
+              <input type="number" class="field-input" id="total-limit" value="10000000" style="width:180px;" />
+              <p class="field-hint">累計最多消耗的 token 數量</p>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">警示閾值 (%)</label>
+              <input type="number" class="field-input" id="warn-threshold" value="80" min="1" max="100" />
+              <p class="field-hint">超過此百分比時觸發預算警告通知</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 5: 通知 ── -->
+      <div id="tab-notifications" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">通知設定</p>
+
+          <div class="loading-skeleton">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-border-default)">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-toggle skeleton"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-border-default)">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-toggle skeleton"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-border-default)">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-toggle skeleton"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-toggle skeleton"></div>
+            </div>
+          </div>
+
+          <div class="settings-form-content">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">工作階段完成</div>
+                <div class="toggle-desc">代理人完成任務時通知</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" checked onchange="syncThumb(this)" />
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">工作階段失敗</div>
+                <div class="toggle-desc">代理人執行失敗時通知</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" checked onchange="syncThumb(this)" />
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">預算警告</div>
+                <div class="toggle-desc">預算超過閾值時通知</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" checked onchange="syncThumb(this)" />
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">關卡提交</div>
+                <div class="toggle-desc">審核關卡提交時通知</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" onchange="syncThumb(this)" />
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 6: 快捷鍵 ── -->
+      <div id="tab-shortcuts" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">快捷鍵</p>
+
+          <div class="loading-skeleton">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-border-default)">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-input skeleton" style="width:110px;height:28px;margin-bottom:0;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--color-border-default)">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-input skeleton" style="width:80px;height:28px;margin-bottom:0;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;">
+              <div style="flex:1"><div class="sk-line medium skeleton" style="margin-bottom:6px;"></div><div class="sk-line short skeleton" style="margin-bottom:0;"></div></div>
+              <div class="sk-input skeleton" style="width:80px;height:28px;margin-bottom:0;"></div>
+            </div>
+          </div>
+
+          <div class="settings-form-content">
+            <div class="shortcut-row">
+              <div class="shortcut-info">
+                <div class="shortcut-name">顯示/隱藏視窗</div>
+                <div class="shortcut-desc">在任何地方切換 Maestro 視窗</div>
+              </div>
+              <kbd>Ctrl+Shift+M</kbd>
+            </div>
+
+            <div class="shortcut-row">
+              <div class="shortcut-info">
+                <div class="shortcut-name">命令面板</div>
+                <div class="shortcut-desc">搜尋並執行快速命令</div>
+              </div>
+              <kbd>Ctrl+K</kbd>
+            </div>
+
+            <div class="shortcut-row">
+              <div class="shortcut-info">
+                <div class="shortcut-name">新增工作階段</div>
+                <div class="shortcut-desc">快速啟動新的工作階段</div>
+              </div>
+              <kbd>Ctrl+N</kbd>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row settings-form-content">
+          <button class="btn btn-ghost" onclick="showSaved(this)">儲存設定</button>
+          <div class="save-success">
+            <div class="save-dot"></div>
+            設定已儲存
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 7: 權限 ── -->
+      <div id="tab-permissions" class="tab-content">
+        <div class="settings-card">
+          <p class="settings-section-title">自動審核規則</p>
+          <p style="font-size:12px;color:var(--color-text-muted);margin-top:-12px;margin-bottom:20px;">
+            符合規則的 Gate 將自動通過審核，無需人工介入。
+          </p>
+
+          <!-- Loading skeleton -->
+          <div class="loading-skeleton">
+            <div class="rule-card" style="margin-bottom:10px;">
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+                <div class="sk-toggle skeleton"></div>
+                <div class="sk-line medium skeleton" style="flex:1;margin-bottom:0;"></div>
+              </div>
+              <div class="sk-line short skeleton"></div>
+              <div style="display:flex;justify-content:flex-end;padding-top:10px;"><div class="sk-input skeleton" style="width:60px;height:28px;margin-bottom:0;"></div></div>
+            </div>
+            <div class="rule-card">
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+                <div class="sk-toggle skeleton"></div>
+                <div class="sk-line medium skeleton" style="flex:1;margin-bottom:0;"></div>
+              </div>
+              <div class="sk-line short skeleton"></div>
+              <div style="display:flex;justify-content:flex-end;padding-top:10px;"><div class="sk-input skeleton" style="width:60px;height:28px;margin-bottom:0;"></div></div>
+            </div>
+          </div>
+
+          <div id="permission-rules" class="settings-form-content">
+            <!-- Rule 1 -->
+            <div class="rule-card" id="rule-1">
+              <div class="rule-header">
+                <label class="toggle">
+                  <input type="checkbox" checked onchange="syncThumb(this)" />
+                  <div class="toggle-track"></div>
+                  <div class="toggle-thumb"></div>
+                </label>
+                <span class="rule-name">自動通過需求確認</span>
+              </div>
+              <div class="rule-scope">
+                適用：<span>G0</span><span>G1</span>
+              </div>
+              <div class="rule-footer">
+                <button class="btn btn-danger btn-sm" onclick="deleteRule('rule-1')">刪除</button>
+              </div>
+            </div>
+
+            <!-- Rule 2 -->
+            <div class="rule-card" id="rule-2">
+              <div class="rule-header">
+                <label class="toggle">
+                  <input type="checkbox" onchange="syncThumb(this)" />
+                  <div class="toggle-track"></div>
+                  <div class="toggle-thumb"></div>
+                </label>
+                <span class="rule-name">測試環境自動放行</span>
+              </div>
+              <div class="rule-scope">
+                適用：<span>G2</span><span>G3</span>
+              </div>
+              <div class="rule-footer">
+                <button class="btn btn-danger btn-sm" onclick="deleteRule('rule-2')">刪除</button>
+              </div>
+            </div>
+
+            <!-- Empty state for permissions -->
+            <div id="permissions-empty" style="display:none;text-align:center;padding:32px 0;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 10px;display:block;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <p style="font-size:13px;color:var(--color-text-muted);">尚無自動審核規則</p>
+              <p style="font-size:12px;color:var(--color-text-muted);margin-top:4px;">新增規則以啟用自動審核流程</p>
+            </div>
+          </div>
+
+          <div class="settings-form-content" style="margin-top:12px;">
+            <button class="btn btn-secondary btn-sm" onclick="addRule()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              新增規則
+            </button>
+          </div>
+        </div>
+
+        <div class="warning-banner settings-form-content">
+          <svg class="warning-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          G5（部署就緒）和 G6（正式發佈）始終需要手動審核，無法設為自動通過。
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </main>
+</div><!-- /app-shell -->
+
+<script>
+  // ── Tab switching ──────────────────────────────────────────
+  const TAB_IDS = ['general', 'claude', 'sessions', 'budget', 'notifications', 'shortcuts', 'permissions'];
+
+  function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    const content = document.getElementById('tab-' + id);
+    if (content) content.classList.add('active');
+
+    const btns = document.querySelectorAll('.tab-btn');
+    const idx = TAB_IDS.indexOf(id);
+    if (btns[idx]) btns[idx].classList.add('active');
+  }
+
+  // ── State switching ────────────────────────────────────────
+  const NORMAL_VALUES = {
+    'lang-select': '繁體中文',
+    'project-root': 'C:\\projects',
+    'cli-path': 'claude',
+    'default-model': 'Claude Sonnet',
+    'max-turns': '25',
+    'font-size': '13',
+    'daily-limit': '500000',
+    'total-limit': '10000000',
+    'warn-threshold': '80',
+    'auto-save': true,
+  };
+
+  const EMPTY_VALUES = {
+    'lang-select': '繁體中文',
+    'project-root': '',
+    'cli-path': '',
+    'default-model': 'Claude Sonnet',
+    'max-turns': '',
+    'font-size': '',
+    'daily-limit': '',
+    'total-limit': '',
+    'warn-threshold': '',
+    'auto-save': false,
+  };
+
+  function setState(state) {
+    document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.state-btn').forEach(b => {
+      if (b.textContent.trim() === (state === 'normal' ? '正常' : state === 'empty' ? '空狀態' : 'Loading'))
+        b.classList.add('active');
+    });
+
+    document.body.classList.remove('state-loading', 'state-empty');
+
+    if (state === 'loading') {
+      document.body.classList.add('state-loading');
+      return;
+    }
+
+    const vals = state === 'empty' ? EMPTY_VALUES : NORMAL_VALUES;
+
+    // Text / number inputs
+    ['project-root', 'cli-path', 'max-turns', 'font-size', 'daily-limit', 'total-limit', 'warn-threshold'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = vals[id] || '';
+    });
+
+    // Select
+    ['lang-select', 'default-model'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        for (let i = 0; i < el.options.length; i++) {
+          if (el.options[i].text === vals[id]) { el.selectedIndex = i; break; }
+        }
+      }
+    });
+
+    // Auto-save toggle
+    const autoSave = document.getElementById('auto-save');
+    if (autoSave) {
+      autoSave.checked = vals['auto-save'];
+      syncThumb(autoSave);
+    }
+
+    // Notification toggles: ON for normal, OFF for empty
+    document.querySelectorAll('#tab-notifications input[type=checkbox]').forEach((cb, i) => {
+      cb.checked = state === 'normal' ? (i < 3) : false;
+      syncThumb(cb);
+    });
+
+    // Permission tab rules visibility
+    const rule1 = document.getElementById('rule-1');
+    const rule2 = document.getElementById('rule-2');
+    const emptyMsg = document.getElementById('permissions-empty');
+
+    if (state === 'empty') {
+      if (rule1) rule1.style.display = 'none';
+      if (rule2) rule2.style.display = 'none';
+      if (emptyMsg) emptyMsg.style.display = 'block';
+    } else {
+      if (rule1) rule1.style.display = 'block';
+      if (rule2) rule2.style.display = 'block';
+      if (emptyMsg) emptyMsg.style.display = 'none';
+    }
+
+    // Hide all save success messages
+    document.querySelectorAll('.save-success').forEach(el => el.classList.remove('visible'));
+  }
+
+  // ── Toggle thumb sync ──────────────────────────────────────
+  // The CSS :checked selector handles the track color and thumb position,
+  // but we keep this helper for programmatic state changes too.
+  function syncThumb(checkbox) {
+    // CSS already handles it via :checked, nothing extra needed
+    // This function exists as a hook for future JS-driven animations
+  }
+
+  // ── Save feedback ──────────────────────────────────────────
+  function showSaved(btn) {
+    const row = btn.closest('.save-row');
+    const msg = row.querySelector('.save-success');
+    if (!msg) return;
+
+    msg.classList.add('visible');
+    setTimeout(() => msg.classList.remove('visible'), 2400);
+  }
+
+  // ── Danger confirm ─────────────────────────────────────────
+  function confirmDanger() {
+    const confirmed = window.confirm('確定要清除所有資料嗎？\n此操作無法復原。');
+    if (confirmed) {
+      alert('（Mockup）資料清除動作已觸發。');
+    }
+  }
+
+  // ── Delete permission rule ─────────────────────────────────
+  let ruleCounter = 2;
+
+  function deleteRule(ruleId) {
+    const el = document.getElementById(ruleId);
+    if (el) {
+      el.style.transition = 'opacity 0.2s, transform 0.2s';
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(-8px)';
+      setTimeout(() => {
+        el.remove();
+        checkRulesEmpty();
+      }, 200);
+    }
+  }
+
+  function checkRulesEmpty() {
+    const rules = document.querySelectorAll('#permission-rules .rule-card');
+    const emptyMsg = document.getElementById('permissions-empty');
+    if (emptyMsg) emptyMsg.style.display = rules.length === 0 ? 'block' : 'none';
+  }
+
+  function addRule() {
+    ruleCounter++;
+    const id = 'rule-' + ruleCounter;
+    const emptyMsg = document.getElementById('permissions-empty');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    const card = document.createElement('div');
+    card.className = 'rule-card';
+    card.id = id;
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(8px)';
+    card.style.transition = 'opacity 0.2s, transform 0.2s';
+    card.innerHTML = `
+      <div class="rule-header">
+        <label class="toggle">
+          <input type="checkbox" checked onchange="syncThumb(this)" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+        <span class="rule-name">新規則 ${ruleCounter}</span>
+      </div>
+      <div class="rule-scope">適用：<span>—</span></div>
+      <div class="rule-footer">
+        <button class="btn btn-danger btn-sm" onclick="deleteRule('${id}')">刪除</button>
+      </div>
+    `;
+
+    const rulesContainer = document.getElementById('permission-rules');
+    rulesContainer.insertBefore(card, document.getElementById('permissions-empty'));
+
+    requestAnimationFrame(() => {
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    });
+  }
+</script>
+</body>
+</html>

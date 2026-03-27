@@ -1,17 +1,16 @@
 import * as pty from 'node-pty';
 import { randomUUID } from 'crypto';
-import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
+import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { join } from 'path';
-import { tmpdir } from 'os';
 import { execSync } from 'child_process';
 import { agentLoader } from './agent-loader';
 import { promptAssembler } from './prompt-assembler';
-import { memoryManager } from './memory-manager';
 import { gitManager } from './git-manager';
 import { EventParser, type ParsedEvent } from './event-parser';
 import { eventBus } from './event-bus';
 import { database } from './database';
 import { logger } from '../utils/logger';
+import { hookManager } from './hook-manager';
 import { getSessionLogsDir, getClaudeConversationsDir } from '../utils/paths';
 
 /**
@@ -57,6 +56,7 @@ import type {
   SessionEvent,
   DelegationRequest,
   SendDelegationParams,
+  ResumableSession,
 } from '../types';
 
 interface CompletionCallback {
@@ -102,7 +102,6 @@ const CHECKPOINT_THRESHOLD = 200 * 1024; // 200KB
 /** How long (ms) to wait after last PTY output before considering interactive session idle */
 const INTERACTIVE_IDLE_MS = 3000;
 
-const SUMMARY_PROMPT = '請用繁體中文整理這次工作階段的完整摘要，包含：1) 問題背景與目標 2) 分析過程與方案選擇 3) 已完成的工作 4) 遇到的問題 5) 待辦事項與建議';
 
 /**
  * Strip all terminal escape sequences and Claude Code TUI artifacts from raw
@@ -257,9 +256,10 @@ class SessionManager {
     }
 
     const isResume = !!params.resumeSessionId;
+    const isDirectResume = !!params.resumeConversationId;
 
-    const agent = isResume ? null : agentLoader.getById(params.agentId);
-    if (!isResume && !agent) {
+    const agent = (isResume || isDirectResume) ? null : agentLoader.getById(params.agentId);
+    if (!isResume && !isDirectResume && !agent) {
       throw new Error(`Agent not found: ${params.agentId}`);
     }
 
@@ -274,7 +274,11 @@ class SessionManager {
     let tmpFile: string | null = null;
     let args: string[];
 
-    if (isResume) {
+    if (isDirectResume) {
+      // Direct resume by conversation ID (from file-system scan)
+      args = ['--resume', params.resumeConversationId!];
+      logger.info(`Direct resume conversation ${params.resumeConversationId} as new session ${sessionId}`);
+    } else if (isResume) {
       // Look up the Claude conversation ID from the original session
       let claudeConvId: string | null = null;
       try {
@@ -387,10 +391,32 @@ class SessionManager {
 
     logger.info(`Spawning session ${sessionId} for agent ${params.agentId}`, { model, maxTurns, isResume });
 
+    // For resume, look up original session info from DB (must happen before spawnCwd resolution)
+    let resumeInfo: { agent_id?: string; task?: string; task_id?: string; project_id?: string } = {};
+    if (isResume) {
+      try {
+        const rows = database.prepare(
+          'SELECT agent_id, task, task_id, project_id FROM claude_sessions WHERE id = ?',
+          [params.resumeSessionId],
+        );
+        if (rows.length > 0) resumeInfo = rows[0];
+      } catch (err) {
+        logger.warn('Failed to look up original session for resume', err);
+      }
+    }
+
     // Resolve working directory: prefer project's workDir, fallback to process.cwd()
+    // Exception: company-manager always uses AgentHub (process.cwd()) as workDir
+    const effectiveAgentId = isResume ? (resumeInfo.agent_id || params.agentId) : params.agentId;
     let spawnCwd = process.cwd();
+
+    // Direct resume: use the provided projectPath directly
+    if (isDirectResume && params.projectPath) {
+      spawnCwd = params.projectPath;
+    }
+
     const projectId = isResume ? (resumeInfo.project_id || null) : (params.projectId || null);
-    if (projectId) {
+    if (!isDirectResume && projectId && effectiveAgentId !== 'company-manager') {
       try {
         const projRows = database.prepare(
           'SELECT work_dir FROM projects WHERE id = ?',
@@ -410,6 +436,9 @@ class SessionManager {
     }
 
     logger.info(`Session ${sessionId} working directory: ${spawnCwd}`);
+
+    // Inject hooks into child project (skills already deployed via PROJECT_CREATE → .claude/commands/)
+    hookManager.tryInjectHooks(spawnCwd);
 
     // Spawn PTY
     // On Windows: use cmd /s /c with bare 'claude' command (let PATH resolve).
@@ -442,9 +471,6 @@ class SessionManager {
         : ['-c', `${cmdName} ${argsStr}`];
     }
 
-    // 9F: Write .claude/settings.json with browse MCP config if browse-server is running
-    this.tryWriteBrowseMcpConfig(spawnCwd);
-
     // Remove CLAUDECODE env var to allow spawning Claude CLI from within a Claude Code session
     const spawnEnv = { ...process.env } as Record<string, string>;
     delete spawnEnv.CLAUDECODE;
@@ -460,23 +486,15 @@ class SessionManager {
     // Create event parser
     const eventParser = new EventParser();
 
-    // For resume, look up original session info from DB
-    let resumeInfo: { agent_id?: string; task?: string; task_id?: string; project_id?: string } = {};
-    if (isResume) {
-      try {
-        const rows = database.prepare(
-          'SELECT agent_id, task, task_id, project_id FROM claude_sessions WHERE id = ?',
-          [params.resumeSessionId],
-        );
-        if (rows.length > 0) resumeInfo = rows[0];
-      } catch (err) {
-        logger.warn('Failed to look up original session for resume', err);
-      }
-    }
-
-    const agentId = isResume ? (resumeInfo.agent_id || params.agentId) : params.agentId;
-    const agentName = isResume ? (resumeInfo.agent_id || params.agentId) : (agent?.name || params.agentId);
-    const taskText = isResume ? (resumeInfo.task || '(resumed)') : params.task;
+    const agentId = isDirectResume
+      ? (params.agentId || '(resumed)')
+      : isResume ? (resumeInfo.agent_id || params.agentId) : params.agentId;
+    const agentName = isDirectResume
+      ? (params.agentId || '(resumed)')
+      : isResume ? (resumeInfo.agent_id || params.agentId) : (agent?.name || params.agentId);
+    const taskText = isDirectResume
+      ? (params.task || '(resumed)')
+      : isResume ? (resumeInfo.task || '(resumed)') : params.task;
 
     // Create managed session
     const session: ManagedSession = {
@@ -512,7 +530,7 @@ class SessionManager {
 
     // Insert DB record
     try {
-      const parentId = isResume ? params.resumeSessionId! : (params.parentSessionId || null);
+      const parentId = isDirectResume ? null : isResume ? params.resumeSessionId! : (params.parentSessionId || null);
       database.run(
         `INSERT INTO claude_sessions (id, agent_id, task, task_id, project_id, model, status, started_at, parent_session_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -658,42 +676,11 @@ class SessionManager {
       return;
     }
 
-    // Graceful stop: ask Agent for summary first
-    logger.info(`Graceful stopping session ${sessionId} (requesting summary)`);
-    this.updateStatus(sessionId, 'summarizing');
-    const bufferLenBefore = session.outputBuffer.length;
-
-    try {
-      ptyWriteAndSubmit(session.ptyProcess, SUMMARY_PROMPT);
-    } catch {
-      this.gracefulFinalize(sessionId, bufferLenBefore);
-      return;
-    }
-
-    // Wait for response: 10s idle or 90s total timeout
-    let lastLen = session.outputBuffer.length;
-    let idleTicks = 0;
-    let totalTicks = 0;
-
-    session.summaryTimer = setInterval(() => {
-      totalTicks++;
-      const currentLen = session.outputBuffer.length;
-
-      if (currentLen > lastLen) {
-        idleTicks = 0;
-        lastLen = currentLen;
-      } else if (currentLen > bufferLenBefore) {
-        // Agent has started replying but is now idle
-        idleTicks++;
-      }
-
-      // 10 seconds idle after response started, or 90 seconds total
-      if (idleTicks >= 10 || totalTicks >= 90) {
-        clearInterval(session.summaryTimer!);
-        session.summaryTimer = null;
-        this.gracefulFinalize(sessionId, bufferLenBefore);
-      }
-    }, 1000);
+    // Graceful stop: directly kill without requesting summary
+    // (user can use /resume to review session history)
+    logger.info(`Graceful stopping session ${sessionId}`);
+    try { session.ptyProcess.kill(); } catch { /* ignore */ }
+    this.finalizeSession(sessionId, 'stopped');
   }
 
   /**
@@ -732,7 +719,7 @@ class SessionManager {
     ptyWriteAndSubmit(session.ptyProcess, message);
 
     logger.info(`Task ${taskId} assigned to session ${sessionId}`);
-    eventBus.emitSessionStatus(sessionId, session.status);
+    eventBus.emitSessionStatus({ sessionId, status: session.status, agentId: session.agentId });
   }
 
   /**
@@ -1059,7 +1046,7 @@ class SessionManager {
    */
   /**
    * Trigger a session summary with rate limiting (min 5 min interval).
-   * Stores summary in memory_blocks via memoryManager.
+   * Returns the summary string, or null if the interval has not elapsed.
    */
   triggerSummary(sessionId: string): string | null {
     const last = this.lastSummaryAt.get(sessionId) || 0;
@@ -1084,19 +1071,6 @@ class SessionManager {
       : '';
     const summary = rolePrefix + outputSummary;
 
-    // Save to memory_blocks
-    try {
-      memoryManager.save(
-        session.agentId,
-        summary,
-        'summary',
-        session.projectId || undefined,
-        sessionId,
-      );
-      logger.info(`Summary saved for session ${sessionId}`);
-    } catch (err) {
-      logger.warn('Failed to save session summary', err);
-    }
 
     return summary;
   }
@@ -1253,17 +1227,6 @@ class SessionManager {
     const endedAt = new Date().toISOString();
     const durationMs = Date.now() - new Date(session.startedAt).getTime();
 
-    // Extract memory blocks from session output
-    if (session.outputBuffer) {
-      try {
-        memoryManager.extractFromSession(
-          session.outputBuffer, session.agentId, session.projectId, sessionId,
-        );
-      } catch (err) {
-        logger.warn('Failed to extract memory blocks from session', err);
-      }
-    }
-
     // Auto-commit changes if session completed successfully
     if (status === 'completed' && session.workDir) {
       this.tryAutoCommit(sessionId, session.workDir, session.agentId, session.task);
@@ -1354,48 +1317,6 @@ class SessionManager {
   /**
    * Finalize a graceful stop: extract summary from output, save to DB, then kill.
    */
-  private gracefulFinalize(sessionId: string, bufferLenBefore: number): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    // Extract and clean the raw output added after we injected the prompt
-    const rawSummary = session.outputBuffer.slice(bufferLenBefore);
-    let summary = stripTerminalOutput(rawSummary);
-
-    // The cleaned output still contains prompt echoes and TUI residue before
-    // the Agent's actual response. We detect the response start by looking
-    // for a distinctive keyword that appears at the start of the summary
-    // the Agent produces (e.g. "工作階段摘要", "問題背景", numbered headings).
-    // If found, drop everything before it.
-    const responseMarkers = [
-      '工作階段摘要', '工作階段完整摘要', '完整摘要',
-      '問題背景', '# ', '## ', '### ',
-      '1.', '1)', '**1', '**問題',
-    ];
-    for (const marker of responseMarkers) {
-      const idx = summary.indexOf(marker);
-      if (idx > 0) {
-        summary = summary.slice(idx);
-        break;
-      }
-    }
-    summary = summary.trim();
-
-    if (summary) {
-      try {
-        database.run(
-          'UPDATE claude_sessions SET result_summary = ? WHERE id = ?',
-          [summary, sessionId],
-        );
-        logger.info(`Saved result_summary (${summary.length} chars) for session ${sessionId}`);
-      } catch (err) {
-        logger.warn('Failed to save result_summary', err);
-      }
-    }
-
-    try { session.ptyProcess.kill(); } catch { /* ignore */ }
-    this.finalizeSession(sessionId, 'stopped');
-  }
 
   /**
    * Request a checkpoint from the agent (inject prompt to produce structured summary).
@@ -1606,49 +1527,105 @@ class SessionManager {
   }
 
   /**
-   * 9F: Write browse MCP server config into .claude/settings.json if browse-server is running.
+   * Scan all registered project work directories for resumable Claude Code conversations.
+   * Returns conversations sorted by last modified time (most recent first).
    */
-  private tryWriteBrowseMcpConfig(cwd: string): void {
+  scanResumableSessions(limit = 50): ResumableSession[] {
+    const results: ResumableSession[] = [];
+
+    // Collect work directories: AgentHub itself + all projects with work_dir
+    const dirs: { path: string; name: string }[] = [
+      { path: process.cwd(), name: 'AgentHub' },
+    ];
+
     try {
-      const browseServer = require('./browse-server') as {
-        getStatus: () => { running: boolean; port: number };
-      };
-      const status = browseServer.getStatus();
-      if (!status.running) return;
-
-      const claudeDir = join(cwd, '.claude');
-      if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
-
-      const settingsPath = join(claudeDir, 'settings.json');
-      let settings: Record<string, unknown> = {};
-      if (existsSync(settingsPath)) {
-        try {
-          settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-        } catch { /* reset if corrupt */ }
+      const projects = database.prepare(
+        "SELECT id, name, work_dir FROM projects WHERE work_dir IS NOT NULL AND work_dir != ''",
+      );
+      for (const p of projects) {
+        if (p.work_dir) {
+          dirs.push({ path: p.work_dir, name: p.name || p.id });
+        }
       }
-
-      // Add or update MCP server config
-      if (!settings.mcpServers || typeof settings.mcpServers !== 'object') {
-        settings.mcpServers = {};
-      }
-
-      const mcpServers = settings.mcpServers as Record<string, unknown>;
-      mcpServers['browse'] = {
-        command: 'node',
-        args: [
-          join(__dirname, '../mcp/browse-mcp-server.js'),
-          String(status.port),
-          // Token is read from browse-server at runtime
-        ],
-        env: {},
-      };
-
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
-      logger.debug(`Browse MCP config written to ${settingsPath}`);
-    } catch (err) {
-      logger.warn('Failed to write browse MCP config (non-fatal)', err);
+    } catch {
+      // DB may not be ready
     }
+
+    for (const dir of dirs) {
+      const convDir = getClaudeConversationsDir(dir.path);
+      if (!existsSync(convDir)) continue;
+
+      let files: string[];
+      try {
+        files = readdirSync(convDir).filter((f) => f.endsWith('.jsonl'));
+      } catch {
+        continue;
+      }
+
+      for (const file of files) {
+        const filePath = join(convDir, file);
+        try {
+          const stat = statSync(filePath);
+          const conversationId = file.replace('.jsonl', '');
+
+          // Read first few lines to extract first user message
+          const firstMessage = this.extractFirstUserMessage(filePath);
+
+          results.push({
+            conversationId,
+            projectPath: dir.path,
+            projectName: dir.name,
+            firstMessage: firstMessage || '(no message)',
+            lastModified: stat.mtime.toISOString(),
+            fileSize: stat.size,
+          });
+        } catch {
+          // Skip unreadable files
+        }
+      }
+    }
+
+    // Sort by lastModified descending, take limit
+    results.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+    return results.slice(0, limit);
   }
+
+  /**
+   * Read the first user message from a Claude Code conversation .jsonl file.
+   * Each line is a JSON object. We look for the first line with type 'human' or role 'user'.
+   */
+  private extractFirstUserMessage(filePath: string): string | null {
+    try {
+      const fd = openSync(filePath, 'r');
+      const buf = Buffer.alloc(4096); // Read first 4KB — enough for first message
+      const bytesRead = readSync(fd, buf, 0, 4096, 0);
+      closeSync(fd);
+
+      const text = buf.toString('utf-8', 0, bytesRead);
+      const lines = text.split('\n').filter(Boolean);
+
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          // Claude Code format: type 'human' with message content
+          if (obj.type === 'human' && obj.message) {
+            const content = typeof obj.message === 'string'
+              ? obj.message
+              : Array.isArray(obj.message)
+                ? obj.message.find((m: { type: string; text?: string }) => m.type === 'text')?.text || ''
+                : '';
+            return content.slice(0, 200); // Truncate to 200 chars
+          }
+        } catch {
+          // Skip malformed lines
+        }
+      }
+    } catch {
+      // File read error
+    }
+    return null;
+  }
+
 }
 
 export const sessionManager = new SessionManager();

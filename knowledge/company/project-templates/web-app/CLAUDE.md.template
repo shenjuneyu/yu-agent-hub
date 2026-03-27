@@ -1,533 +1,115 @@
 # {專案名稱} — Agent 指南
 
-> 本文件為專案最高規範。所有 Agent 執行任務前必須先閱讀本文件，再依索引查閱對應文件。
-> **本文件只放規範類內容**，參考資訊一律建立索引指向對應文件。
+> 本文件為專案索引導航，所有 Agent 執行任務前必須先閱讀本文件，再依任務需求查閱對應文件。
 
 ---
 
 ## 專案簡介
 
 - **專案名稱**: {名稱}
-- **類型**: {Web 應用 / SaaS 平台 / ...}
+- **類型**: {Web 應用 / SaaS 平台}
 - **核心價值**: {一句話描述}
 - **目標用戶**: {描述}
 - **開發平台**: Windows
 
----
+## 共用開發規則
 
-## 開發規則
+> 以下 2 份文件包含所有 Agent 必須遵循的共用規則，執行任務前**必須先閱讀**。
 
-### 文件治理（最高原則）
+| 文件 | 內容 |
+|------|------|
+| `.knowledge/company-rules.md` | 文件治理、文件層級、禁止憑空想像、命名骨架、Commit 紀律、依賴/環境變數規則 |
+| `.knowledge/team-workflow.md` | 團隊架構、指揮鏈、Sprint 流程、Gate、Review、上線/回滾 |
 
-1. **文件就是法律**: 程式碼必須與規範文件一致。發現不一致時，**以規範文件為準修正程式碼**；若規範文件本身有誤，須先提案修改文件，經 PM 或老闆確認後才能改程式碼。**任何情況下不得跳過文件直接改 code。**
-2. **原子性**: 每個 PR / commit 必須同時包含「程式碼變更」與「對應文件更新」。只改 code 不改文件 = 未完成。只改文件不改 code = 未完成。兩者必須在同一次變更中一起完成。
-3. **文件同步維護**: 任何功能新增、修改、刪除，必須同步更新對應的 `.knowledge/` 文件與本索引。程式碼與文件不一致視為未完成。
-4. **索引完整性**: 所有 `.knowledge/` 文件都必須在本文件的「專案文件索引」中登記。新增文件但未更新索引 = 未完成。
-5. **先確認再開發**: 功能需求確認 → UI/UX 設計確認 → 老闆核可 → 才進入開發。未經確認不得直接實作。
-6. **遵循公司規範**: 所有開發須遵循下方「公司知識庫」所列的規範與 SOP。
-7. **公司規範本地化**: 引用公司規範（`company://`）時，若本地 `.knowledge/` 尚無對應文件，**必須先建立一份本地副本再使用**。未用到的規範不需複製，用到時才建立，以便專案內迭代更新。
-8. **需求備忘統一入口**: 老闆提出的額外需求、想法、未來功能構想，統一記錄到 `proposal/product-roadmap-draft.md` 的「未排期 Backlog」。PM 負責分類與評估，正式納入開發前須寫入對應 Sprint 提案書經 G0 審核。避免需求散落在對話中遺漏。
+## 命名規範差異（覆蓋共用骨架）
 
-### 命名規範（強制）
-
-| 層 | 命名風格 | 範例 | 說明 |
-|----|---------|------|------|
-| 資料庫 | snake_case | `shop_id`, `created_at` | 表名、欄位名全部 snake_case |
-| API 回應 JSON（含信封層） | snake_case | `trace_id`, `total_elements` | 所有 API 輸出一律 snake_case |
-| API 請求 Body / Query | snake_case | `customer_name`, `start_date` | 請求參數用 snake_case |
-| 前端 TypeScript 型別 | camelCase | `shopId`, `createdAt` | 前端型別定義用 camelCase（經 `snakeToCamel` 轉換後使用） |
-| 前端 → 後端轉換 | 自動 | `camelToSnake()` | `services/api.ts` 統一處理 |
-| 後端 → 前端轉換 | 自動 | `snakeToCamel()` | `services/api.ts` 統一處理 |
-
-### 禁止憑空想像規則（最高強制力）
-
-> **核心原則：不確定就去讀，不要猜。** Agent 不得憑空想像任何資料結構、API 回傳格式、型別定義。所有實作必須有明確的「真相來源」(Source of Truth)。
-
-#### 🔴 絕對禁止想像的項目
-
-| 項目 | 真相來源 | 驗證方式 | 違反後果 |
-|------|---------|---------|---------|
-| **API Response 結構** | 後端路由檔案的實際回傳 | 讀對應的路由原始碼確認 | 前端顯示全壞（undefined） |
-| **API Request 參數** | 後端路由的驗證 schema | 讀對應的驗證定義 | 400 / 422 錯誤 |
-| **前端型別定義** | 後端回傳結構 + snakeToCamel 轉換結果 | snake_case → camelCase 逐欄位對照 | TypeScript 編譯過但運行時炸 |
-| **資料庫欄位名** | ORM schema / migration 實際定義 | 讀 schema 檔案 | 查詢失敗 |
-
-#### 🔴 前端 Agent 串接 API 的強制流程
-
-1. **先讀後端路由原始碼**：找到對應端點，看實際回傳什麼
-2. **確認信封層**：確認 API 回傳是否有統一信封格式，前端取哪部分
-3. **逐欄位對照**：後端 `snake_case` → 前端 `camelCase`，逐欄位寫型別定義，不得自行新增欄位
-4. **不確定就問**：如果 api-design.md 與後端程式碼不一致，以**後端程式碼為準**（因為那是實際跑的），同時回報 PM 要求文件同步
-
-### 禁止指令（強制）
-
-- ❌ **禁止使用殺死所有 port 的指令**（如 `npx kill-port`、`taskkill /F /IM node.exe`、`Stop-Process -Name node` 等）。本機同時運行多個專案，批量殺 port 會影響其他專案。如需重啟本專案服務，只能針對本專案的特定 process 操作。
-
-### 依賴與環境變數變更規則（強制）
-
-> **核心原則：改了設定檔就要跑對應的同步指令，commit 前必須本地驗證。**
-
-#### 🔴 依賴變更
-
-修改任何 `package.json` 的 dependencies / devDependencies 後，**必須**：
-1. 執行套件管理器安裝更新 lockfile
-2. 將 lockfile 與 `package.json` **一起 commit**
-
-#### 🔴 環境變數變更
-
-新增或修改環境變數時，**必須逐一對照以下位置**，全部一致才能 commit：
-
-| # | 位置 | 用途 |
-|---|------|------|
-| 1 | **程式碼** | 實際讀取的變數名 |
-| 2 | **CI workflow** | 建置時注入 |
-| 3 | **`.env.example`** | 文件記錄 |
-| 4 | **部署設定** | 容器 / 雲端注入 |
-
-> ⚠️ **變數名不一致 = 程式讀不到值 = 運行時才爆炸**
-
-#### 🔴 Commit 前必做檢查清單
-
-- [ ] 依賴改了 → lockfile 已同步更新？
-- [ ] 環境變數名稱：程式碼 / CI / .env.example 一致？
-- [ ] 資料庫 schema 有改 → migration 已生成並 commit？
-- [ ] 本地啟動驗證通過？
-
-### 平行 Session 的強制規則
-
-1. **每個 Session 完成後必須列出修改的共用檔案**：routes、shared types、config 等
-2. **不得假設其他 Session 的實作內容**：如果依賴其他 Session 的產出，必須讀取該檔案確認
-3. **共用檔案衝突風險**：多個 Agent 同時修改同一檔案時，必須標記並通知 L1
-
-### Commit 紀律（強制）
-
-1. **一事一 commit**: 每個 commit 只做一件事（一個功能、一個修復、一個重構）。禁止「大雜燴」commit。
-2. **commit 前必過 CI 檢查**: lint + type-check + test 全部通過後才能 commit。CI 紅燈 = 阻塞。
-3. **commit message 格式**: `<type>(<scope>): <summary>`，type 限 feat/fix/refactor/test/docs/chore。
-4. **禁止 force push 到共用分支**: main / develop / release 分支禁止 `--force`。個人分支可用。
-5. **WIP commit 禁止合併**: 含 `WIP` / `TODO` / `FIXME` 的 commit 不得出現在合併請求中。
-6. **lockfile 必須隨依賴定義一起 commit**: 修改依賴後 lockfile / requirements.txt 未更新 = 未完成。
-
-### Commit 前必做檢查清單（強制）
-
-涉及 CI/CD、Docker、部署的改動，push 前**必須確認**：
-
-- [ ] CI 檢查通過？（lint + type-check + test，或專案定義的 `make ci` 等效指令）
-- [ ] 依賴改了 → lockfile / requirements.txt 已同步？
-- [ ] 環境變數新增 → 程式碼 / `.env.example` / CI workflow / docker-compose 一致？
-- [ ] DB schema 有改 → migration 已生成並 commit？
-- [ ] Docker 相關改動 → `docker compose -f docker-compose.prod.yml config` 無語法錯誤？
-
----
+| 層 | 風格 | 範例 |
+|----|------|------|
+| API JSON | snake_case | `trace_id`, `total_elements` |
+| 前端 TS 型別 | camelCase | `shopId`, `createdAt`（經 `snakeToCamel` 轉換） |
+| 轉換 | 自動 | `services/api.ts` 統一 `camelToSnake()` / `snakeToCamel()` |
 
 ## 技術棧
 
 | 類型 | 技術 |
 |------|------|
 | 前端 | {Vue 3 / React / Next.js} |
-| CSS | {TailwindCSS / CSS Modules} |
-| 狀態管理 | {Pinia / Redux / Zustand} |
-| 後端 | {Node.js + Fastify / Express / Python + FastAPI} |
+| 後端 | {Fastify / Express / FastAPI} |
 | 資料庫 | {PostgreSQL / MongoDB / SQLite} |
-| ORM | {Prisma / Drizzle / TypeORM} |
-| 認證 | {JWT / OAuth / Session} |
 | 測試 | {Vitest / Playwright} |
-| 套件管理 | {pnpm / npm} |
 | 部署 | {Docker / Vercel} |
 
-## 目錄結構
+## 前端 API 串接強制流程
 
-```
-{workDir}/
-├── {前端目錄}/          # 前端（components → views → stores → services）
-├── {後端目錄}/          # 後端（routes → controllers → services → ORM）
-├── e2e/                 # E2E 測試
-├── proposal/            # 提案書、開發計畫書
-├── docs/design/         # 設計稿 (mockup-*.html + 截圖)
-├── .knowledge/          # 專案技術文件
-└── ...
-```
+1. **先讀後端路由原始碼**：找到對應端點，看實際回傳什麼
+2. **確認信封層**：確認 API 回傳是否有統一信封格式
+3. **逐欄位對照**：後端 `snake_case` → 前端 `camelCase`，不得自行新增欄位
+4. **不確定就問**：api-design.md 與後端不一致，以**後端程式碼為準**，同時回報 PM
 
----
+## 設計稿合規規則（強制）
 
-## 團隊管理架構（強制）
+> 前端 UI 必須按設計稿開發，UI 不一致 = Blocker。
 
-> **核心原則：老闆只對接 L1 部門領導，L1 負責管理旗下 L2 Agent。指揮鏈不可跳級。**
+1. **先讀設計稿**：`docs/design/mockup-*.html`
+2. **識別所有狀態**：設計稿每個 UI 狀態都要實作
+3. **對照動畫/色彩/響應式**：時長、easing、色系、桌面版/手機版
+4. **不確定就問**：回報 L1 → 協調 Design Director
 
-### 🔴 指揮鏈
+設計稿 HTML 給開發人員、截圖（JPG/PNG）給 Agent 視覺比對。
 
-```
-老闆（最終決策者）
- │
- ├── product-manager (PM)     → trend-researcher, feedback-synthesizer, sprint-prioritizer
- ├── tech-lead                → backend-architect, frontend-developer, devops-automator,
- │                              ai-engineer, mobile-app-builder, rapid-prototyper, test-writer-fixer
- ├── design-director          → ui-designer, ux-researcher, brand-guardian, visual-storyteller, whimsy-injector
- ├── qa-lead                  → api-tester, performance-benchmarker, test-results-analyzer,
- │                              tool-evaluator, workflow-optimizer
- ├── project-lead             → studio-producer, project-shipper, experiment-tracker
- ├── operations-lead          → infrastructure-maintainer, finance-tracker, analytics-reporter,
- │                              legal-compliance-checker, support-responder, context-manager
- └── marketing-lead           → content-creator, growth-hacker, tiktok-strategist, instagram-curator,
-                                twitter-engager, reddit-community-builder, app-store-optimizer
-```
-
-### 🔴 L1 部門領導收到任務的強制流程
-
-L1 Agent 收到老闆或 PM 指派的任務後，**必須先進入 Plan Mode 規劃再執行**，不得直接動手：
-
-1. **進入 Plan Mode**：分析任務需求，制定執行計畫
-2. **規劃內容必須包含**：
-   - 子任務拆解與分配對象（指派給哪個 L2）
-   - 涉及的規範文件清單（須讀取哪些 `.knowledge/` 文件）
-   - 需要修改的檔案清單（預判影響範圍）
-   - 驗收標準（怎樣算完成）
-   - 跨部門依賴（是否需要其他 L1 協作）
-3. **規劃確認後退出 Plan Mode**，開始分派 L2 執行
-4. **L1 負責驗收 L2 產出**，確保符合規範後才回報完成
-
-> ⚠️ **L2 不得直接接受老闆指令**。所有任務必須經過 L1 分派。L2 完成後回報 L1，由 L1 統整後回報老闆或 PM。
-
-### 🔴 跨部門協作規則
-
-- L1 之間可直接溝通協調（例如 tech-lead 與 design-director 確認設計稿）
-- 跨部門的 L2 不得直接對接，須透過各自 L1 協調
-- 有衝突或資源爭議時，上報 PM 或老闆決策
-
----
-
-## Sprint 規劃流程（強制）
-
-> **遵循公司 SOP v4.0（動態流程模型）。**
-> 每個 Sprint 的步驟和關卡由 G0 審核時勾選決定，不預設固定模板。
-> 完整 SOP: `company://sop/sprint-planning.md`（v4.0）
-
-### 🔴 Gate 定義
-
-| Gate | 名稱 | 用途 | 何時需要 |
-|------|------|------|---------|
-| G0 | 需求確認 | 需求文件、任務拆解 | 必選 |
-| G1 | 圖稿審核 | HTML mockup 審核 | 有 UI 變更時 |
-| G2 | 程式碼審查 | 功能實作、程式碼品質、規範一致性、技術債 | 有程式碼變更時 |
-| G3 | 測試驗收 | 單元/整合/效能測試、無重大 Bug | 有程式碼變更時 |
-| G4 | 文件審查 | 規範文件與程式碼一致 | 有文件變更時 |
-| G5 | 部署就緒 | CI/CD 通過、環境就緒、回滾計畫 | 需上線時 |
-| G6 | 正式發佈 | 安全審核、上線確認、正式核准 | 需發佈時 |
-
-> Gate 是串行的：勾選的 Gate 按順序依次通過。前一個沒過不能提交下一個。
-
-### 🔴 Sprint 流程概覽
-
-```
-提案書 → G0 老闆勾選步驟和關卡（決定本次流程）
-  → L1 撰寫開發計畫書
-  → 執行 → 逐步 Review → 逐關 Gate
-  → 所有勾選關卡通過 → Sprint 完成 → 回顧
-```
-
-> 提案書模板: `company://templates/sprint-proposal.md.template`
-> 開發計畫書模板: `company://templates/dev-plan.md.template`
-
-### 🔴 步驟與關卡對照
-
-| 步驟 | 說明 | 對應關卡 | 何時勾選 |
-|------|------|---------|---------|
-| 需求分析 | 需求文件、任務拆解 | G0（必選） | 每次都需要 |
-| 設計 | 架構/API 設計 | — | 有技術複雜度時 |
-| UI 圖稿 | HTML mockup | G1: 圖稿審核 | 有 UI 變更時 |
-| 實作 | 程式碼開發 | G2: 程式碼審查 | 有程式碼變更時 |
-| 測試 | 單元/E2E 測試 | G3: 測試驗收 | 有程式碼變更時 |
-| 文件 | 文件更新 | G4: 文件審查 | 有文件變更時 |
-| 部署 | 環境配置、CI/CD | G5: 部署就緒 | 需上線時 |
-| 發佈 | 正式對外發佈 | G6: 正式發佈 | 需發佈時 |
-
-#### 常見組合範例
-
-| 場景 | 勾選的步驟 | 產生的關卡 |
-|------|----------|-----------|
-| 全新大功能 | 需求 + 設計 + UI 圖稿 + 實作 + 測試 + 文件 + 部署 | G0→G1→G2→G3→G4→G5 |
-| 一般功能 | 需求 + 實作 + 測試 + 文件 | G0→G2→G3→G4 |
-| 純後端 | 需求 + 設計 + 實作 + 測試 | G0→G2→G3 |
-| 修 Bug | 需求 + 實作 + 測試 | G0→G2→G3 |
-| 緊急 Hotfix | 需求 + 實作 | G0→G2 |
-| 純文件 | 需求 + 文件 | G0→G4 |
-| 上線發佈 | 需求 + 部署 + 發佈 | G0→G5→G6 |
-
----
-
-### 一、提案階段（PM 負責）
-
-**第一步：Sprint 提案**（`proposal/sprint{N}-proposal.md`）
-
-依照 `company://templates/sprint-proposal.md.template` 模板，核心內容：
-- 目標與範圍定義（做 / 不做）
-- 功能清單與優先級（P0 / P1 / P2）
-- **流程決策（第 3 節）**：勾選步驟、關卡、阻斷規則
-- 團隊分配（L1/L2 指派）
-- 風險評估與驗收標準
-
-**第二步：G0 審核 — 老闆確認勾選**
-
-老闆審核提案書第 3 節勾選表，確認後續要走哪些步驟和關卡。G0 通過後流程才正式確定。
-
-**第三步：規範文件更新 + 開發計畫書**（G0 通過後，可平行）
-
-- PM 更新對應的 `.knowledge/` 文件
-- L1 撰寫開發計畫書（`proposal/sprint{N}-dev-plan.md`，依照 `company://templates/dev-plan.md.template`）
-- 開發計畫書包含：任務定義（T1/T2/T3...）、負責 Agent、依賴關係、驗收標準、DelegationCommand 格式指令
-
-> ⚠️ 規範文件更新完成後，才能進入開發。這是「文件就是法律」原則的具體實踐。
-
-**第四步：分派給 L1 執行**
-
-- 老闆透過 PM 產生任務指令，手動建立任務，轉達給負責 Agent
-- L1 進入 Plan Mode 規劃細部執行（見上方「L1 強制流程」）
-- L1 分派 L2 開發
-- L1 驗收 L2 產出後回報 PM
-
----
-
-### 二、開發階段（L1 負責）— Review 機制
-
-> **原則**: 每個 G0 勾選的步驟完成後，L1 必須執行內部 Review，通過後才提交對應 Gate。半成品不得送審。
-
-#### Review 四種類型
-
-| Review 類型 | 檢查對象 | 核心問題 |
-|------------|---------|---------|
-| **對程式碼** | 程式碼品質、邏輯正確性、coding standards | 有沒有 bug？程式碼品質合格嗎？ |
-| **對規範** | 實作 vs `api-design.md`、`data-model.md`、`feature-spec.md` | 實作跟規範文件一致嗎？ |
-| **對設計稿** | 實際 UI vs `docs/design/mockup-*.html` | 畫面跟設計稿長一樣嗎？ |
-| **對功能** | 端到端功能、效能指標、驗收標準 | 功能跑得通嗎？效能達標嗎？ |
-
-#### 步驟 vs Review 類型對應
-
-| 步驟 | 適用 Review 組合 |
-|------|-----------------|
-| 設計 | ✅ 對規範 |
-| UI 圖稿 | ✅ 對設計稿（品牌一致性、響應式） |
-| 實作（後端） | ✅ 對程式碼 + ✅ 對規範 |
-| 實作（前端） | ✅ 對程式碼 + ✅ 對設計稿 + ✅ 對規範 |
-| 測試 | ✅ 對功能 + ✅ 對規範（最終一致性） |
-| 文件 | ✅ 對規範（文件與程式碼一致） |
-
-> **注意**: 以上是通用對應，具體組合在開發計畫書中根據 G0 勾選的步驟調整。
-
-#### 設計稿比對清單（「對設計稿」Review 時使用）
-
-| 比對項 | 說明 |
-|--------|------|
-| 佈局結構 | 元件位置、大小、間距與設計稿一致 |
-| 色彩 | 使用設計稿定義的色系，不可自行選色 |
-| 動畫 | 時長、easing 與設計稿規格一致 |
-| 狀態切換 | 設計稿定義的每個 UI 狀態都要實作並比對 |
-| 響應式 | 桌面版和手機版都與設計稿一致 |
-| 文案 | 按鈕文字、placeholder、空狀態文案與設計稿一致 |
-
-**L1 比對方式**：同時開啟設計稿 HTML 和實際畫面（或截圖），逐項確認。UI 不一致 = Blocker。
-
-#### Review 通過標準
-
-- 0 🔴 Blocker + 0 🟠 Major → **通過**，提交對應 Gate
-- 有 Blocker / Major → **不通過**，修正後重新 Review
-- 🟡 Minor → 記錄，可在後續步驟或下個 Sprint 處理
-
----
-
-### 三、驗收階段（PM 審核 → 老闆決策）
-
-#### PM 審核 Gate 回報（L1 提交後、老闆審核前）
-
-L1 提交 Gate 回報後，PM 必須先審核再呈報老闆。PM 審核 checklist：
-
-| # | 檢查項 | 說明 |
-|---|--------|------|
-| 1 | 交付物完整性 | Gate 要求的所有交付物是否齊全（程式碼/測試報告/文件等） |
-| 2 | 數據正確性 | 報告中的數字是否與實際一致（通過率、cases 數、覆蓋範圍） |
-| 3 | 驗收標準對照 | 逐項比對提案書/計畫書的驗收標準，是否全部達成 |
-| 4 | 流程合規 | 阻斷規則是否遵守、前置 Gate 是否已通過 |
-| 5 | 計畫書紀錄 | 開發計畫書第 10 節（任務完成/Review/Gate 紀錄）是否已填寫 |
-| 6 | 附帶問題 | 過程中發現的問題是否已記錄（文件差異、踩坑等），是否需要後續處理 |
-
-PM 審核通過後，整理摘要報告呈報老闆，含 PM 建議（通過/駁回/附條件通過）。
-
-#### 老闆審核 Gate
-
-| Gate | 檢查項 | 老闆決策 |
-|------|--------|---------|
-| G1 圖稿審核 | 設計稿符合需求、品牌一致 | 通過 / 駁回 |
-| G2 程式碼審查 | 程式碼品質、邏輯正確、規範一致 | 通過 / 駁回 |
-| G3 測試驗收 | 功能正確、效能達標、測試報告 | 通過 / 駁回 |
-| G4 文件審查 | 規範文件與程式碼一致、文件已同步更新 | 通過 / 駁回 |
-| G5 部署就緒 | CI 全通過、環境就緒 | 通過 / 駁回 |
-| G6 正式發佈 | 上線後驗證通過、老闆確認 | 通過 / 駁回 |
-
-> ⚠️ 只有 G0 勾選的關卡才需要走。Gate 按勾選順序串行：前一個沒過不能提交下一個。
-
-#### Gate 結果記錄
-
-老闆決策後，PM 須**當下**將結果記錄到開發計畫書第 10 節 Gate 紀錄表（日期 + 決策 + 審核意見），不可等到收尾才補。
-
-> **核心邏輯**：L1 提交 → PM 過濾（6 項 checklist）→ PM 整理摘要 + 建議 → 老闆決策 → PM 當下記錄。避免半成品直接到老闆面前，也確保稽核軌跡即時留存。
-
----
-
-### 四、上線階段（僅勾選「部署」步驟時）
-
-#### 🔴 上線前必做檢查
-
-| # | 檢查項 | 說明 |
-|---|--------|------|
-| 1 | CI 全通過 | lint + type-check + test 全綠 |
-| 2 | Production Build 成功 | 前後端 build 無錯誤 |
-| 3 | 健康檢查通過 | 服務啟動後回傳 healthy |
-
-#### 🔴 上線後驗證
-
-| # | 驗證項 | 說明 |
-|---|--------|------|
-| 1 | 健康檢查 | API 回傳 healthy |
-| 2 | 核心功能 smoke test | 主要使用者流程各跑一次 |
-| 3 | 新功能驗證 | 本 Sprint 新增功能逐一手動驗證 |
-| 4 | 錯誤日誌 | 無異常錯誤 |
-
-#### 🔴 回滾機制
-
-| 問題嚴重度 | 處理方式 |
-|-----------|---------|
-| 🔴 服務不可用 | 立即回滾到上一版本，通知老闆 |
-| 🟠 功能異常 | 開 hotfix 分支修復，走緊急 Hotfix 流程（G0→G2） |
-| 🟡 UI 瑕疵 | 記錄，下個 Sprint 修正 |
-
----
-
-### 五、收尾
-
-- **Sprint 回顧**（Retrospective）：做得好的 / 需改善的 / 行動項目
-- **踩坑紀錄更新**：新發現的問題同步到 `.knowledge/postmortem-log.md`
-- **CLAUDE.md 索引更新**：新增的文件、變更的規範版本
-- **稽核軌跡**：確認開發計畫書第 10 節（任務完成、Review、Gate 紀錄）已完整填寫
-
----
-
-### 🔴 文件產出 Checklist
-
-每個 Sprint 開始前，PM 必須確認以下文件已就位：
-
-- [ ] `proposal/sprint{N}-proposal.md` — 老闆已 G0 審核通過（含勾選的步驟和關卡）
-- [ ] `docs/design/mockup-*.html` — 設計稿已交付，**老闆已 G1 審核通過**（僅勾選「UI 圖稿」時）
-- [ ] `.knowledge/` 規範文件 — 已根據新功能需求更新
-- [ ] `proposal/sprint{N}-dev-plan.md` — 開發計畫書已完成（含任務定義、Review 機制）
-- [ ] 本文件（`CLAUDE.md`）索引已更新
-
----
-
-### 設計稿合規規則（強制）
-
-> **核心原則：前端 UI 必須按設計稿開發，UI 不一致視為 Blocker。**
-
-#### 🔴 前端 Agent 實作 UI 的強制流程
-
-1. **先讀設計稿**：找到對應的 `docs/design/mockup-*.html`，瀏覽器打開看實際效果
-2. **識別所有狀態**：設計稿中定義的每個 UI 狀態都要實作，不可遺漏
-3. **對照動畫規格**：設計稿中的動畫時長、easing 必須一致
-4. **對照色彩**：使用設計稿定義的色系，不可自行選色
-5. **對照響應式**：桌面版和手機版都要與設計稿一致
-6. **不確定就問**：設計稿有疑義，回報 L1 → 由 L1 協調 Design Director 確認
-
-#### 設計稿位置與格式
-
-所有設計稿存放在 `docs/design/` 目錄。
-
-**每份設計稿必須同時提供截圖**（`.jpg` / `.png`），存放在同目錄。
-- **HTML**：給開發人員看互動細節、CSS 數值、動畫規格
-- **JPG**：給 Agent 做「對設計稿」Review 時的視覺比對（Agent 能讀圖片但無法渲染 HTML）
-
-#### 🔴 設計稿審核規則
-
-**必須走設計稿流程的情況**：
-- 新增 UI 元件
-- 修改現有頁面 layout
-- 新增互動狀態（動畫、狀態切換）
-- 新增頁面或頁面重大改版
-
-**不需要設計稿的情況**：
-- 純後端 API 開發
-- 文字修改（文案微調）
-- CSS 變數補齊等技術債
-- Bug 修復（還原到設計稿原本樣子）
-
----
-
-## 常見踩坑紀錄
+## 踩坑紀錄
 
 | 問題 | 原因 | 正確做法 |
 |------|------|---------|
 | {問題描述} | {根因} | {解決方案} |
 
-> 完整歷史踩坑紀錄：[.knowledge/postmortem-log.md](.knowledge/postmortem-log.md)
+## 可用指令（Slash Commands）
 
----
+> 以下指令已部署到 `.claude/commands/`。
+> **使用方式**：讀取對應的 `.claude/commands/{指令名}.md` 檔案，依照其中的步驟執行。
+> 例如：需要撰寫開發計畫書時，先 `Read .claude/commands/dev-plan.md`，然後按照文件中的步驟操作。
 
-## 文件層級
-
-> **所有 Agent 必須理解以下層級，層級越高強制力越強。程式碼與文件衝突時，以文件為準。**
-
-| 層級 | 強制力 | 說明 | 文件 |
-|------|--------|------|------|
-| 🔴 規範 | **必須遵循** | 開發時嚴格依照，不得自行偏離。違反視為 bug。 | `coding-standards`, `api-design`, `data-model` |
-| 🟡 規格 | **開發依據** | 功能實作的需求來源，有疑義找 PM 確認 | `feature-spec`, `acceptance-criteria` |
-| 🔵 參考 | **輔助理解** | 幫助理解背景與方向，不作為實作強制依據 | `project-overview`, `tech-stack`, `architecture` |
-
-**重點規則**：
-- API 回傳 JSON，**必須與 `api-design.md` 完全一致**（snake_case）
-- 前端 TypeScript 型別使用 camelCase（經轉換後使用）
-- 資料庫 schema 變更，**必須與 `data-model.md` 一致**，不得自行加欄位
-- 若需要變更規範文件，須提出修改理由，經 PM 或 Tech Lead 確認後才能更新
-- **新增文件檢查**：每次 PR 必須確認是否需要更新 `.knowledge/` 文件及本索引
-
----
+| 指令 | 用途 | 使用時機 |
+|------|------|---------|
+| `/project-kickoff` | 初始化專案結構 | 專案建立後第一件事 |
+| `/product-diagnosis` | 產品六問診斷（G0 前置） | 提案前驗證產品方向 |
+| `/sprint-proposal` | 產出 Sprint 提案書 | Sprint 規劃階段 |
+| `/dev-plan` | 產出開發計畫書 | G0 通過後展開任務 |
+| `/task-dispatch` | 老闆派工，建立 .tasks/ 檔案 | 老闆分配任務時 |
+| `/task-delegation` | 拆解任務到計畫書第 6 節 | L1 拆解子任務時 |
+| `/task-status` | 更新任務狀態 | 任務進行中回報 |
+| `/task-done` | 標記任務完成 | 任務交付時 |
+| `/review` | L1 內部 Code Review | 程式碼完成後送審 |
+| `/pm-review` | PM 審核 Gate 提交 | L1 提交 Gate 後 |
+| `/gate-record` | 記錄 Gate 審查決策 | Gate 審查結果出爐時 |
+| `/pre-deploy` | 上線前檢查清單（G5） | 部署前最後確認 |
+| `/pitfall-record` | 記錄踩坑經驗 | 發現問題時立即記錄 |
+| `/pitfall-resolve` | 標記踩坑已解決 | 問題修復後 |
+| `/sprint-retro` | Sprint 回顧報告 | Sprint 結束時 |
+| `/harness-audit` | Harness 健康度稽核 | 定期檢查 |
 
 ## 專案文件索引
 
-### 提案與規劃
-
 | 文件 | 說明 |
 |------|------|
-| `proposal/` | 提案書、開發計畫書 |
-
-### 技術規範（.knowledge/）
-
-| 文件 | 層級 | 說明 |
-|------|------|------|
-| `.knowledge/project-overview.md` | 🔵 參考 | 專案概述 |
-| `.knowledge/tech-stack.md` | 🔵 參考 | 技術棧 |
-| `.knowledge/coding-standards.md` | 🔴 規範 | 開發規範 |
-| `.knowledge/architecture.md` | 🔵 參考 | 架構設計 |
-| `.knowledge/feature-spec.md` | 🟡 規格 | 功能規格 |
-| `.knowledge/api-design.md` | 🔴 規範 | API 設計 |
-| `.knowledge/data-model.md` | 🔴 規範 | 資料模型 |
-| `.knowledge/acceptance-criteria.md` | 🟡 規格 | 驗收標準 |
-| `.knowledge/postmortem-log.md` | 🔵 參考 | 踩坑紀錄（持續累積） |
-| `.knowledge/agent-roster.md` | 🔵 參考 | 可用 Agent 資源（45 位，8 部門） |
-
----
+| `.knowledge/company-rules.md` | 共用開發規則 |
+| `.knowledge/team-workflow.md` | 共用工作流程 |
+| `.knowledge/project-overview.md` | 專案概述 |
+| `.knowledge/api-design.md` | API 設計（🔴 規範） |
+| `.knowledge/data-model.md` | 資料模型（🔴 規範） |
+| `.knowledge/feature-spec.md` | 功能規格（🟡 規格） |
+| `.knowledge/acceptance-criteria.md` | 驗收標準（🟡 規格） |
+| `.knowledge/postmortem-log.md` | 踩坑紀錄 |
 
 ## 公司知識庫
 
-> Agent 執行任務時遵循以下規範與 SOP。
+> **使用規則（company-rules.md 第 7 條）**：需要引用公司規範時，先檢查本地 `.knowledge/` 是否已有副本。若無，從下方來源路徑複製一份到 `.knowledge/` 再使用。不需要的規範不必複製。
 
-### 規範 (Standards)
-
-- [程式碼規範](C:\agent-hub\knowledge\company\standards\coding-standards.md)
-- [API 規範](C:\agent-hub\knowledge\company\standards\api-standards.md)
-- [安全規範](C:\agent-hub\knowledge\company\standards\security-standards.md)
-- [測試規範](C:\agent-hub\knowledge\company\standards\testing-standards.md)
-- [品質 Checklist](C:\agent-hub\knowledge\company\standards\quality-checklist.md)
-
-### SOP
-
-- [Code Review SOP](C:\agent-hub\knowledge\company\sop\code-review.md)
-- [部署 SOP](C:\agent-hub\knowledge\company\sop\deployment.md)
-- [Sprint 規劃 SOP](C:\agent-hub\knowledge\company\sop\sprint-planning.md)
-- [Agent 團隊資源表](C:\agent-hub\knowledge\company\agent-roster.md)（45 位 Agent，8 部門）
+| 規範 | 來源路徑 | 本地副本 |
+|------|---------|---------|
+| 程式碼規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/coding-standards.md` | `.knowledge/coding-standards.md` |
+| API 規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/api-standards.md` | `.knowledge/api-standards.md` |
+| 測試規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/testing-standards.md` | `.knowledge/testing-standards.md` |
+| 品質 Checklist | `{{AGENT_HUB_PATH}}/knowledge/company/standards/quality-checklist.md` | `.knowledge/quality-checklist.md` |
+| Code Review SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/code-review.md` | `.knowledge/code-review.md` |
+| Sprint 規劃 SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/sprint-planning.md` | `.knowledge/sprint-planning.md` |

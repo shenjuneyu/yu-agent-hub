@@ -1,300 +1,541 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { useTasksStore, type TaskStatus } from '../stores/tasks';
+import { onMounted, ref, computed } from 'vue';
+import { useTasksStore } from '../stores/tasks';
 import { useProjectsStore } from '../stores/projects';
-import { useAgentsStore } from '../stores/agents';
-import { useUiStore } from '../stores/ui';
-import KanbanColumn from '../components/task/KanbanColumn.vue';
-import BaseButton from '../components/common/BaseButton.vue';
+import { useIpc } from '../composables/useIpc';
+import type { SprintRecord } from '../stores/projects';
+import BaseTag from '../components/common/BaseTag.vue';
 
-const router = useRouter();
 const tasksStore = useTasksStore();
 const projectsStore = useProjectsStore();
-const agentsStore = useAgentsStore();
-const uiStore = useUiStore();
+const { listSprints } = useIpc();
 
-const selectedProjectId = ref<string | null>(null);
-const selectedSprintId = ref<string | null>(null);
-
-const showCreateModal = ref(false);
-const newTitle = ref('');
-const newDescription = ref('');
-const newPriority = ref<'low' | 'medium' | 'high' | 'critical'>('medium');
-const newAssignedTo = ref('');
-
-// ── Drag & Drop state ────────────────────────────────────────────────────────
-
-/** Mirrors the backend VALID_TRANSITIONS from task-manager.ts */
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  created: ['assigned', 'rejected'],
-  assigned: ['in_progress', 'rejected'],
-  in_progress: ['in_review', 'blocked'],
-  in_review: ['done', 'rejected'],
-  blocked: ['in_progress'],
-  rejected: ['assigned'],
-  done: [],
-};
-
-/** Chinese labels for status values used in toast messages */
-const STATUS_LABELS: Record<string, string> = {
-  created: '建立',
-  assigned: '已分配',
-  in_progress: '進行中',
-  in_review: '審查中',
-  blocked: '已阻塞',
-  rejected: '已拒絕',
-  done: '完成',
-};
-
-/** The status of the task currently being dragged, or null when not dragging */
-const dragSourceStatus = ref<string | null>(null);
-
-function isValidTransition(fromStatus: string, toStatus: string): boolean {
-  if (fromStatus === toStatus) return false;
-  return (VALID_TRANSITIONS[fromStatus] ?? []).includes(toStatus);
-}
-
-function handleCardDragStart(payload: { taskId: string; fromStatus: string }) {
-  dragSourceStatus.value = payload.fromStatus;
-}
-
-function handleDragEnd() {
-  dragSourceStatus.value = null;
-}
-
-// ── Lifecycle ────────────────────────────────────────────────────────────────
+const filterProjectId = ref('');
+const filterSprintId = ref('');
+const sprints = ref<SprintRecord[]>([]);
 
 onMounted(async () => {
-  if (agentsStore.agents.length === 0) await agentsStore.fetchAll();
   if (projectsStore.projects.length === 0) await projectsStore.fetchAll();
-  if (projectsStore.projects.length > 0 && !selectedProjectId.value) {
-    selectedProjectId.value = projectsStore.projects[0].id;
-  }
+  await tasksStore.fetchTasks();
 });
 
-// 選專案 → 載入 Sprints → 自動選 active sprint
-watch(selectedProjectId, async (id) => {
-  selectedSprintId.value = null;
-  if (id) {
-    await projectsStore.fetchSprints(id);
-    const active = projectsStore.sprints.find((s) => s.status === 'active');
-    selectedSprintId.value = active?.id ?? projectsStore.sprints[0]?.id ?? null;
+async function onProjectChange() {
+  filterSprintId.value = '';
+  sprints.value = [];
+  if (filterProjectId.value) {
+    try {
+      sprints.value = (await listSprints(filterProjectId.value)) as SprintRecord[];
+    } catch {
+      sprints.value = [];
+    }
   }
-});
-
-// 選 Sprint → 設定 context + refetch
-watch(selectedSprintId, async (sprintId) => {
-  if (selectedProjectId.value) {
-    tasksStore.setContext(selectedProjectId.value, sprintId);
-    await tasksStore.fetchTasks();
-    await tasksStore.fetchSessionCounts();
-  }
-});
-
-const hasProject = computed(() => projectsStore.projects.length > 0);
-
-async function handleDrop(taskId: string, toStatus: string) {
-  // Find source status: prefer dragSourceStatus, fall back to store lookup
-  const task = tasksStore.tasks.find((t) => t.id === taskId);
-  const fromStatus = dragSourceStatus.value ?? task?.status ?? '';
-
-  if (fromStatus && !isValidTransition(fromStatus, toStatus)) {
-    const fromLabel = STATUS_LABELS[fromStatus] ?? fromStatus;
-    const toLabel = STATUS_LABELS[toStatus] ?? toStatus;
-    uiStore.addToast(
-      `無法從「${fromLabel}」移動到「${toLabel}」，此狀態轉換不被允許。`,
-      'warning',
-      '狀態轉換無效',
-    );
-    dragSourceStatus.value = null;
-    return;
-  }
-
-  dragSourceStatus.value = null;
-
-  try {
-    await tasksStore.transition(taskId, toStatus as TaskStatus);
-  } catch (e: any) {
-    console.error('Transition failed', e);
-    uiStore.addToast(
-      `無法轉換狀態：${e.message || e}`,
-      'error',
-      '操作失敗',
-    );
-  }
+  tasksStore.setContext(filterProjectId.value || null, null);
+  await tasksStore.fetchTasks();
 }
 
-async function handleCreateTask() {
-  if (!newTitle.value.trim() || !selectedProjectId.value) return;
-
-  await tasksStore.create({
-    projectId: selectedProjectId.value,
-    title: newTitle.value.trim(),
-    description: newDescription.value.trim() || undefined,
-    priority: newPriority.value,
-    assignedTo: newAssignedTo.value || undefined,
-    sprintId: selectedSprintId.value || undefined,
-  });
-
-  newTitle.value = '';
-  newDescription.value = '';
-  newPriority.value = 'medium';
-  newAssignedTo.value = '';
-  showCreateModal.value = false;
+async function onSprintChange() {
+  tasksStore.setContext(filterProjectId.value || null, filterSprintId.value || null);
+  await tasksStore.fetchTasks();
 }
 
-function switchProject(projectId: string) {
-  selectedProjectId.value = projectId;
-}
+const priorityColor: Record<string, string> = {
+  critical: 'bg-danger',
+  high: 'bg-warning',
+  medium: 'bg-info',
+  low: 'bg-text-muted',
+};
 
-const currentSprintName = computed(() => {
-  if (!selectedSprintId.value) return null;
-  const sprint = projectsStore.sprints.find((s) => s.id === selectedSprintId.value);
-  return sprint?.name ?? null;
-});
+const priorityLabel: Record<string, string> = {
+  critical: '緊急',
+  high: '高',
+  medium: '中',
+  low: '低',
+};
+
+const tagColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | 'red'> = {
+  critical: 'red',
+  high: 'yellow',
+  medium: 'blue',
+  low: 'purple',
+};
+
+const columnHeaderColor: Record<string, string> = {
+  created: 'text-text-muted',
+  assigned: 'text-info',
+  in_progress: 'text-warning',
+  in_review: 'text-accent-light',
+  done: 'text-success',
+};
+
+const visibleColumns = computed(() =>
+  tasksStore.columns.filter((col) =>
+    ['created', 'assigned', 'in_progress', 'in_review', 'done'].includes(col.key),
+  ),
+);
 </script>
 
 <template>
-  <div class="flex h-full flex-col" @dragend="handleDragEnd">
-    <!-- Header -->
-    <div class="mb-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <h2 class="text-xl font-semibold">任務看板</h2>
-        <select
-          v-if="hasProject"
-          class="rounded-lg border border-border-default bg-bg-secondary px-3 py-1.5 text-xs text-text-primary"
-          :value="selectedProjectId || ''"
-          @change="switchProject(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="p in projectsStore.projects" :key="p.id" :value="p.id">
-            {{ p.name }}
-          </option>
-        </select>
-        <select
-          v-if="hasProject && projectsStore.sprints.length > 0"
-          class="rounded-lg border border-border-default bg-bg-secondary px-3 py-1.5 text-xs text-text-primary"
-          :value="selectedSprintId || ''"
-          @change="selectedSprintId = ($event.target as HTMLSelectElement).value || null"
-        >
-          <option value="">全部 Sprint</option>
-          <option v-for="s in projectsStore.sprints" :key="s.id" :value="s.id">
-            {{ s.name }}{{ s.status === 'active' ? ' (進行中)' : '' }}
-          </option>
-        </select>
-        <span v-if="tasksStore.totalCount > 0" class="text-xs text-text-muted">
-          {{ tasksStore.doneCount }}/{{ tasksStore.totalCount }} 完成
-        </span>
-      </div>
-      <BaseButton v-if="hasProject" variant="primary" size="sm" @click="showCreateModal = true">
-        新增任務
-      </BaseButton>
-    </div>
-
-    <!-- No project -->
-    <div
-      v-if="!hasProject"
-      class="flex flex-1 items-center justify-center rounded-xl border border-border-default bg-bg-card text-sm text-text-muted"
-    >
-      請先建立專案
-    </div>
-
-    <!-- Kanban -->
-    <div v-else class="flex flex-1 gap-3 overflow-x-auto pb-2">
-      <KanbanColumn
-        v-for="col in tasksStore.columns"
-        :key="col.key"
-        :label="col.label"
-        :status="col.key"
-        :tasks="tasksStore.tasksByStatus[col.key] || []"
-        :drag-source-status="dragSourceStatus"
-        :is-valid-target="
-          dragSourceStatus != null
-            ? isValidTransition(dragSourceStatus, col.key)
-            : undefined
-        "
-        @drop="handleDrop"
-        @task-click="router.push('/tasks/' + $event)"
-        @card-dragstart="handleCardDragStart"
-      />
-    </div>
-
-    <!-- Create Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showCreateModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-        @click.self="showCreateModal = false"
+  <div class="task-board-view">
+    <!-- Page Header -->
+    <div class="board-header">
+      <h2 class="board-title">任務看板</h2>
+      <span class="progress-badge">
+        完成 {{ tasksStore.doneCount }}/{{ tasksStore.totalCount }}
+      </span>
+      <div class="header-spacer"></div>
+      <select
+        v-model="filterProjectId"
+        class="filter-select"
+        @change="onProjectChange"
       >
-        <div class="w-[480px] rounded-xl border border-border-default bg-bg-secondary p-6">
-          <h3 class="mb-4 text-base font-semibold">新增任務</h3>
+        <option value="">全部專案</option>
+        <option
+          v-for="project in projectsStore.projects"
+          :key="project.id"
+          :value="project.id"
+        >
+          {{ project.name }}
+        </option>
+      </select>
+      <select
+        v-model="filterSprintId"
+        class="filter-select"
+        :disabled="!filterProjectId"
+        @change="onSprintChange"
+      >
+        <option value="">全部 Sprint</option>
+        <option
+          v-for="sprint in sprints"
+          :key="sprint.id"
+          :value="sprint.id"
+        >
+          {{ sprint.name }}
+        </option>
+      </select>
+    </div>
 
-          <div class="mb-3">
-            <label class="mb-1 block text-xs text-text-muted">標題</label>
-            <input
-              v-model="newTitle"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-              placeholder="任務標題"
-              @keydown.enter="handleCreateTask"
-            />
+    <!-- Loading skeleton -->
+    <div v-if="tasksStore.loading" class="kanban-wrapper">
+      <div class="kanban-board">
+        <div v-for="col in visibleColumns" :key="col.key" class="kanban-col">
+          <div class="col-header">
+            <div class="col-dot" :class="`col-dot--${col.key}`"></div>
+            <span class="col-title">{{ col.key === 'created' ? '待做' : col.label }}</span>
+            <span class="col-badge" :class="`col-badge--${col.key}`">—</span>
           </div>
-
-          <div class="mb-3">
-            <label class="mb-1 block text-xs text-text-muted">描述</label>
-            <textarea
-              v-model="newDescription"
-              class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-              rows="3"
-              placeholder="任務描述（選填）"
-            />
-          </div>
-
-          <div v-if="currentSprintName" class="mb-3">
-            <label class="mb-1 block text-xs text-text-muted">Sprint</label>
-            <div class="rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-muted">
-              {{ currentSprintName }}
-            </div>
-          </div>
-
-          <div class="mb-3 flex gap-3">
-            <div class="flex-1">
-              <label class="mb-1 block text-xs text-text-muted">優先級</label>
-              <select
-                v-model="newPriority"
-                class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="low">低</option>
-                <option value="medium">中</option>
-                <option value="high">高</option>
-                <option value="critical">緊急</option>
-              </select>
-            </div>
-            <div class="flex-1">
-              <label class="mb-1 block text-xs text-text-muted">指派 Agent</label>
-              <select
-                v-model="newAssignedTo"
-                class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary"
-              >
-                <option value="">不指派</option>
-                <optgroup
-                  v-for="[dept, deptAgents] in agentsStore.agentsByDepartment"
-                  :key="dept"
-                  :label="dept"
-                >
-                  <option v-for="a in deptAgents" :key="a.id" :value="a.id">
-                    {{ agentsStore.agentIcon(a) }} {{ agentsStore.displayName(a) }} ({{ a.id }})
-                  </option>
-                </optgroup>
-              </select>
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2">
-            <BaseButton variant="ghost" size="sm" @click="showCreateModal = false">取消</BaseButton>
-            <BaseButton variant="primary" size="sm" @click="handleCreateTask">建立</BaseButton>
+          <div class="col-body">
+            <div v-for="i in 3" :key="i" class="skeleton-card"></div>
           </div>
         </div>
       </div>
-    </Teleport>
+    </div>
+
+    <!-- Kanban board -->
+    <div v-else class="kanban-wrapper">
+      <div class="kanban-board">
+        <div
+          v-for="col in visibleColumns"
+          :key="col.key"
+          class="kanban-col"
+          :class="{ 'kanban-col--done': col.key === 'done' }"
+        >
+          <!-- Column header -->
+          <div class="col-header">
+            <div class="col-dot" :class="`col-dot--${col.key}`"></div>
+            <span class="col-title">{{ col.key === 'created' ? '待做' : col.label }}</span>
+            <span class="col-badge" :class="`col-badge--${col.key}`">
+              {{ tasksStore.tasksByStatus[col.key]?.length ?? 0 }}
+            </span>
+          </div>
+
+          <!-- Column body -->
+          <div class="col-body">
+            <!-- Empty state -->
+            <div
+              v-if="(tasksStore.tasksByStatus[col.key]?.length ?? 0) === 0"
+              class="empty-col"
+            >
+              <div class="empty-col-icon">○</div>
+              <div class="empty-col-text">無任務</div>
+            </div>
+
+            <!-- Task cards -->
+            <div
+              v-for="task in tasksStore.tasksByStatus[col.key]"
+              :key="task.id"
+              class="task-card"
+              :class="`task-card--${task.priority}`"
+            >
+              <!-- Task title -->
+              <div class="task-title">
+                <span class="task-title-text">
+                  <span v-if="col.key === 'done'" class="done-check">✓</span>
+                  {{ task.title }}
+                </span>
+                <span v-if="task.estimatedHours != null" class="estimated-hours">
+                  {{ task.estimatedHours }}h
+                </span>
+              </div>
+
+              <!-- Task meta: priority tag + agent + extra tags + depends-on -->
+              <div class="task-meta">
+                <BaseTag :color="tagColor[task.priority]" class="priority-tag-override">
+                  {{ priorityLabel[task.priority] }}
+                </BaseTag>
+                <span v-if="task.assignedTo" class="agent-tag">
+                  {{ task.assignedTo }}
+                </span>
+                <template v-if="task.tags">
+                  <span
+                    v-for="tag in task.tags.split(',').map((t) => t.trim()).filter(Boolean)"
+                    :key="tag"
+                    class="extra-tag"
+                  >
+                    {{ tag }}
+                  </span>
+                </template>
+                <span v-if="task.dependsOn.length > 0" class="depends-on-tag">
+                  ← {{ task.dependsOn.join(', ') }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* ── Layout ── */
+.task-board-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Page Header ── */
+.board-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.board-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+
+.progress-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: var(--color-success-dim, #00d68f33);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.header-spacer {
+  flex: 1;
+}
+
+.filter-select {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 24px 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235c5e72' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 150ms ease;
+}
+
+.filter-select:focus {
+  border-color: var(--color-accent);
+}
+
+.filter-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Kanban Wrapper ── */
+.kanban-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 20px 24px;
+  min-height: 0;
+}
+
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  height: 100%;
+  min-width: max-content;
+}
+
+/* ── Column ── */
+.kanban-col {
+  min-width: 220px;
+  width: 220px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.col-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.col-dot--created   { background: var(--color-text-muted); }
+.col-dot--assigned  { background: var(--color-info); }
+.col-dot--in_progress { background: var(--color-warning); }
+.col-dot--in_review { background: var(--color-accent-light); }
+.col-dot--done      { background: var(--color-success); }
+
+.col-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.col-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.col-badge--created   { color: var(--color-text-muted); background: rgba(92, 94, 114, 0.2); }
+.col-badge--assigned  { color: var(--color-info); background: var(--color-info-dim, #339af033); }
+.col-badge--in_progress { color: var(--color-warning); background: var(--color-warning-dim, #ffaa0033); }
+.col-badge--in_review { color: var(--color-accent-light); background: rgba(108, 92, 231, 0.2); }
+.col-badge--done      { color: var(--color-success); background: var(--color-success-dim, #00d68f33); }
+
+/* ── Column Body ── */
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.col-body::-webkit-scrollbar {
+  width: 3px;
+}
+
+.col-body::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 2px;
+}
+
+/* ── Empty State ── */
+.empty-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+}
+
+.empty-col-icon {
+  font-size: 22px;
+  opacity: 0.3;
+  color: var(--color-text-muted);
+}
+
+.empty-col-text {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── Task Card ── */
+.task-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  padding: 10px 10px 10px 14px;
+  position: relative;
+  cursor: pointer;
+  transition: all 150ms ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Priority left color bar via ::before */
+.task-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 8px 0 0 8px;
+}
+
+.task-card--critical::before { background: var(--color-danger); }
+.task-card--high::before     { background: var(--color-warning); }
+.task-card--medium::before   { background: var(--color-info); }
+.task-card--low::before      { background: var(--color-text-muted); }
+
+.task-card:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Done column: dim cards */
+.kanban-col--done .task-card {
+  opacity: 0.6;
+}
+
+.kanban-col--done .task-card:hover {
+  opacity: 0.9;
+}
+
+/* ── Card Contents ── */
+.task-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.task-title-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.estimated-hours {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.done-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  background: var(--color-success);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 8px;
+  line-height: 1;
+  margin-right: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Make BaseTag text match mockup (uppercase, 10px) */
+.priority-tag-override {
+  font-size: 10px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+.agent-tag {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.extra-tag {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.depends-on-tag {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* ── Skeleton Loading ── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.skeleton-card {
+  height: 68px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-card) 25%,
+    var(--color-bg-hover) 50%,
+    var(--color-bg-card) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  flex-shrink: 0;
+}
+
+.skeleton-card:nth-child(2n) {
+  height: 52px;
+}
+</style>

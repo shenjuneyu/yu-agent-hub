@@ -90,39 +90,39 @@ if (window.maestro?.on?.gateStatusChanged) {
 </script>
 
 <template>
-  <div v-if="hasGates" class="mx-4 mb-3">
+  <div v-if="hasGates" class="review-banner">
     <!-- Collapsed Banner -->
     <div
-      class="flex cursor-pointer items-center justify-between rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 transition-colors hover:bg-yellow-500/15"
+      class="review-banner__bar"
       @click="expanded = !expanded"
     >
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-medium text-yellow-400">
+      <div class="review-banner__bar-left">
+        <span class="review-banner__count-label">
           {{ submittedGates.length }} 個關卡待審核
         </span>
-        <span v-if="currentGate" class="text-xs text-text-muted">
+        <span v-if="currentGate" class="review-banner__gate-info">
           — {{ currentGate.gateType }} {{ gateLabels[currentGate.gateType] }}
           <template v-if="currentGate.projectName">
             ({{ currentGate.projectName }}<template v-if="currentGate.sprintName"> / {{ currentGate.sprintName }}</template>)
           </template>
         </span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="review-banner__bar-right">
         <template v-if="submittedGates.length > 1">
           <BaseButton size="sm" variant="ghost" @click.stop="cycleGate(-1)">
             &lt;
           </BaseButton>
-          <span class="text-xs text-text-muted">{{ currentIndex + 1 }}/{{ submittedGates.length }}</span>
+          <span class="review-banner__page-info">{{ currentIndex + 1 }}/{{ submittedGates.length }}</span>
           <BaseButton size="sm" variant="ghost" @click.stop="cycleGate(1)">
             &gt;
           </BaseButton>
         </template>
-        <span class="text-xs text-text-muted">{{ expanded ? '收起' : '展開' }}</span>
+        <span class="review-banner__toggle-hint">{{ expanded ? '收起' : '展開' }}</span>
       </div>
     </div>
 
     <!-- Expanded: Checklist Panel -->
-    <div v-if="expanded && currentGate" class="mt-2">
+    <div v-if="expanded && currentGate" class="review-banner__panel">
       <GateChecklistPanel
         :gate="currentGate"
         :gate-type="currentGate.gateType"
@@ -133,3 +133,58 @@ if (window.maestro?.on?.gateStatusChanged) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.review-banner {
+  margin: 0 1rem 0.75rem;
+}
+
+.review-banner__bar {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  background: rgba(234, 179, 8, 0.1);
+  padding: 0.625rem 1rem;
+  transition: background 150ms;
+}
+
+.review-banner__bar:hover {
+  background: rgba(234, 179, 8, 0.15);
+}
+
+.review-banner__bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.review-banner__count-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-warning);
+}
+
+.review-banner__gate-info {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.review-banner__bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.review-banner__page-info,
+.review-banner__toggle-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.review-banner__panel {
+  margin-top: 0.5rem;
+}
+</style>

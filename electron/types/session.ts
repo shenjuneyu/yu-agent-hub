@@ -60,8 +60,12 @@ export interface SpawnParams {
   interactive?: boolean;
   /** ID of the parent session for continuation sessions */
   parentSessionId?: string;
-  /** Resume a previous session using claude --resume */
+  /** Resume a previous session using claude --resume (looks up conversation ID from DB) */
   resumeSessionId?: string;
+  /** Resume directly by Claude conversation ID (from file-system scan) */
+  resumeConversationId?: string;
+  /** Working directory override (used with resumeConversationId) */
+  projectPath?: string;
 }
 
 export interface SpawnResult {

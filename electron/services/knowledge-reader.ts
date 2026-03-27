@@ -9,8 +9,17 @@ class KnowledgeReader {
    * Build directory tree from the knowledge directory.
    */
   listTree(): KnowledgeTreeNode[] {
-    const knowledgeDir = getKnowledgeDir();
-    if (!existsSync(knowledgeDir)) return [];
+    let knowledgeDir = getKnowledgeDir();
+
+    // Fallback: if getKnowledgeDir() path doesn't exist, try process.cwd()/knowledge
+    if (!existsSync(knowledgeDir)) {
+      const fallback = join(process.cwd(), 'knowledge');
+      if (existsSync(fallback)) {
+        knowledgeDir = fallback;
+      } else {
+        return [];
+      }
+    }
 
     return this.buildTree(knowledgeDir, knowledgeDir);
   }
@@ -19,7 +28,13 @@ class KnowledgeReader {
    * Read a file from the knowledge directory.
    */
   readFile(relativePath: string): string | null {
-    const knowledgeDir = getKnowledgeDir();
+    let knowledgeDir = getKnowledgeDir();
+    // Fallback: same as listTree
+    if (!existsSync(knowledgeDir)) {
+      const fallback = join(process.cwd(), 'knowledge');
+      if (existsSync(fallback)) knowledgeDir = fallback;
+    }
+
     const filePath = join(knowledgeDir, relativePath);
 
     // Security: ensure path stays within knowledge dir

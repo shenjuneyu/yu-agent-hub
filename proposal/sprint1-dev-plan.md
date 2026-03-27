@@ -234,6 +234,18 @@ T1 → T2 → T3 → T4 → T5 → T6
 
 | 任務 | 完成日期 | 結果 | 備註 |
 |------|---------|------|------|
+| T1 複製 v1 到 v2 | 2026-03-24 | ✅ 完成 | 305 檔案 54,612 LOC，git init commit 2ddd937 |
+| T2 移除依賴 | 2026-03-24 | ✅ 完成 | 移除 monaco-editor, @notionhq/client, simple-git |
+| T3 移除 19 服務 | 2026-03-24 | ✅ 完成 | 19 服務 + electron/mcp/ 刪除，保留 14 服務 |
+| T4 移除 6 IPC | 2026-03-24 | ✅ 完成 | 6 handler 刪除，IPC 三方 + env.d.ts 已同步 |
+| T5 移除 4 Store | 2026-03-24 | ✅ 完成 | auth/costs/objections/sync 刪除，7 個元件清理引用 |
+| T6 移除頁面元件 | 2026-03-24 | ✅ 完成 | 8 頁面 + 5 元件目錄 + 3 common 元件刪除，路由/導覽修正 |
+| T7 精簡 DB | 2026-03-24 | ✅ 完成 | 14 張表移除，3 個 migration 檔刪除，剩 11 業務表 |
+| T8 修 session-manager | 2026-03-24 | ✅ 完成 | 清除殘留 import、修正 resumeInfo hoisting、修正 emitSessionStatus 參數 |
+| T9 修 main.ts | 2026-03-24 | ✅ 完成 | 移除 4 個已砍服務的 import/init/destroy |
+| T10 typecheck | 2026-03-24 | ✅ 完成 | 新建 sql.js.d.ts，重寫 git-manager 用 child_process，同步 env.d.ts，0 error |
+| T11 構建驗證 | 2026-03-24 | ✅ 完成 | electron-vite build 成功，renderer bundle 1.2MB < 3MB |
+| T12 文件更新 | 2026-03-24 | ✅ 完成 | architecture.md + directory-structure.md + CLAUDE.md stores 計數修正 |
 
 ### Review 紀錄
 

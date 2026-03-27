@@ -1,265 +1,493 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import { useGatesStore, type GateType } from '../stores/gates';
+import { onMounted, ref, computed } from 'vue';
+import { useGatesStore } from '../stores/gates';
 import { useProjectsStore } from '../stores/projects';
-import GatePipeline from '../components/gate/GatePipeline.vue';
-import GateChecklistPanel from '../components/gate/GateChecklistPanel.vue';
 import BaseTag from '../components/common/BaseTag.vue';
-import BaseButton from '../components/common/BaseButton.vue';
 
-const route = useRoute();
 const gatesStore = useGatesStore();
 const projectsStore = useProjectsStore();
 
-const selectedGate = ref<GateType | null>(null);
-const selectedProjectId = ref<string | null>(null);
-const selectedSprintId = ref<string | null>(null);
+const filterProjectId = ref('');
+const filterStatus = ref('');
 
 onMounted(async () => {
-  await gatesStore.fetchChecklists();
   if (projectsStore.projects.length === 0) await projectsStore.fetchAll();
-
-  // 優先使用 query param 指定的專案
-  const queryProjectId = route.query.projectId as string | undefined;
-  if (queryProjectId && projectsStore.projects.some((p) => p.id === queryProjectId)) {
-    selectedProjectId.value = queryProjectId;
-  } else if (projectsStore.projects.length > 0 && !selectedProjectId.value) {
-    selectedProjectId.value = projectsStore.projects[0].id;
-  }
+  await gatesStore.fetchGates();
 });
 
-// 選專案 → 拉 sprints → 自動選 active sprint
-watch(selectedProjectId, async (id) => {
-  selectedSprintId.value = null;
-  selectedGate.value = null;
-  if (id) {
-    await projectsStore.fetchSprints(id);
-    const active = projectsStore.sprints.find((s) => s.status === 'active');
-    selectedSprintId.value = active?.id ?? projectsStore.sprints[0]?.id ?? null;
-  }
-});
+const gateTypeLabel: Record<string, string> = {
+  G0: '需求確認',
+  G1: '圖稿審核',
+  G2: '程式碼審查',
+  G3: '測試驗收',
+  G4: '文件審查',
+  G5: '部署就緒',
+  G6: '正式發佈',
+};
 
-// 選 sprint → 設定 gate context
-watch(selectedSprintId, (sprintId) => {
-  selectedGate.value = null;
-  if (selectedProjectId.value) {
-    gatesStore.setContext(selectedProjectId.value, sprintId);
-  }
-});
-
-// 判斷 pipeline 是否全空（舊 Sprint 未初始化）
-const pipelineEmpty = computed(() => {
-  return selectedSprintId.value !== null && gatesStore.existingGateTypes.length === 0;
-});
-
-// locked gates 列表（給 GatePipeline 用，只檢查實際存在的 gate）
-const lockedGates = computed(() => {
-  return gatesStore.existingGateTypes.filter((t) => gatesStore.isGateLocked(t));
-});
-
-function getChecklist(gateType: GateType) {
-  return gatesStore.checklists.find((c) => c.gateType === gateType) || null;
-}
-
-async function handleInitPipeline() {
-  if (!selectedProjectId.value || !selectedSprintId.value) return;
-  try {
-    await gatesStore.initPipeline(selectedProjectId.value, selectedSprintId.value);
-    // 重新拉一次確保 pipeline computed 正確
-    gatesStore.setContext(selectedProjectId.value, selectedSprintId.value);
-  } catch {
-    // error is set in store
-  }
-}
-
-async function handleSubmit(gateId: string, checklist: Record<string, boolean>) {
-  try {
-    await gatesStore.submit(gateId, 'user', checklist);
-  } catch {
-    // error is set in store
-  }
-}
-
-async function handleReview(
-  gateId: string,
-  decision: 'approved' | 'rejected',
-  checklist?: Record<string, boolean>,
-  comment?: string,
-  itemReasons?: Record<string, string>,
-) {
-  try {
-    await gatesStore.review(gateId, 'user', decision, comment, checklist, itemReasons);
-  } catch {
-    // error is set in store
-  }
-}
-
-const statusLabels: Record<string, string> = {
+const gateStatusLabel: Record<string, string> = {
   pending: '待處理',
   submitted: '已提交',
   approved: '已通過',
   rejected: '已退回',
 };
 
-const statusColors: Record<string, 'yellow' | 'blue' | 'green' | 'red'> = {
+const gateStatusColor: Record<string, 'yellow' | 'blue' | 'green' | 'red'> = {
   pending: 'yellow',
   submitted: 'blue',
   approved: 'green',
   rejected: 'red',
 };
 
-const sprintStatusLabels: Record<string, string> = {
-  planning: '規劃中',
-  active: '進行中',
-  review: '審查中',
-  completed: '已完成',
+const gateTypeColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | 'red'> = {
+  G0: 'purple',
+  G1: 'blue',
+  G2: 'yellow',
+  G3: 'green',
+  G4: 'blue',
+  G5: 'yellow',
+  G6: 'green',
 };
+
+const sortedGates = computed(() => {
+  return [...gatesStore.gates].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+});
+
+const filteredGates = computed(() => {
+  return sortedGates.value.filter((gate) => {
+    if (filterProjectId.value && gate.projectId !== filterProjectId.value) return false;
+    if (filterStatus.value && gate.status !== filterStatus.value) return false;
+    return true;
+  });
+});
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 </script>
 
 <template>
-  <div>
-    <h2 class="mb-6 text-xl font-semibold">審核關卡</h2>
-
-    <!-- Error banner -->
-    <div
-      v-if="gatesStore.error"
-      class="mb-4 flex items-center justify-between rounded-lg border border-danger/30 bg-danger-dim px-4 py-2 text-xs text-danger"
-    >
-      <span>{{ gatesStore.error }}</span>
-      <button class="ml-2 font-medium hover:underline" @click="gatesStore.error = null">
-        關閉
-      </button>
-    </div>
-
-    <!-- Project + Sprint selector -->
-    <div class="mb-6 flex items-center gap-3">
-      <select
-        v-model="selectedProjectId"
-        class="rounded-lg border border-border-default bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-      >
-        <option :value="null" disabled>選擇專案</option>
-        <option
-          v-for="project in projectsStore.projects"
-          :key="project.id"
-          :value="project.id"
-        >
-          {{ project.name }}
-        </option>
-      </select>
-
-      <select
-        v-if="selectedProjectId && projectsStore.sprints.length > 0"
-        v-model="selectedSprintId"
-        class="rounded-lg border border-border-default bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-      >
-        <option :value="null" disabled>選擇 Sprint</option>
-        <option
-          v-for="sprint in projectsStore.sprints"
-          :key="sprint.id"
-          :value="sprint.id"
-        >
-          {{ sprint.name }} ({{ sprintStatusLabels[sprint.status] || sprint.status }})
-        </option>
-      </select>
-
-      <span
-        v-if="selectedProjectId && projectsStore.sprints.length === 0"
-        class="text-xs text-text-muted"
-      >
-        此專案尚無 Sprint
-      </span>
-    </div>
-
-    <div v-if="selectedProjectId && selectedSprintId">
-      <!-- Pipeline empty → init button -->
-      <div
-        v-if="pipelineEmpty && !gatesStore.loading"
-        class="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-6 text-center"
-      >
-        <p class="mb-3 text-sm text-text-secondary">
-          此 Sprint 尚未建立審核管線
-        </p>
-        <BaseButton size="sm" @click="handleInitPipeline">初始化審核管線</BaseButton>
+  <div class="gates-view">
+    <!-- Page Header -->
+    <div class="gates-header">
+      <h2 class="gates-title">審核關卡</h2>
+      <div class="gates-filters">
+        <select v-model="filterProjectId" class="filter-select">
+          <option value="">全部專案</option>
+          <option
+            v-for="project in projectsStore.projects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.name }}
+          </option>
+        </select>
+        <select v-model="filterStatus" class="filter-select">
+          <option value="">全部狀態</option>
+          <option value="pending">待處理</option>
+          <option value="submitted">已提交</option>
+          <option value="approved">已通過</option>
+          <option value="rejected">已退回</option>
+        </select>
       </div>
+    </div>
 
-      <!-- Pipeline visualization -->
-      <div
-        v-if="!pipelineEmpty"
-        class="mb-6 overflow-x-auto rounded-xl border border-border-default bg-bg-card p-5"
-      >
-        <h3 class="mb-4 text-sm font-semibold">審核管線</h3>
-        <div class="flex justify-center">
-          <GatePipeline
-            :pipeline="gatesStore.pipeline"
-            :selected-gate="selectedGate"
-            :locked-gates="lockedGates"
-            @select="selectedGate = $event"
-          />
+    <!-- Scrollable content area -->
+    <div class="gates-scroll">
+
+      <!-- Loading: Skeleton -->
+      <div v-if="gatesStore.loading" class="timeline-list">
+        <div class="timeline-line"></div>
+        <div v-for="i in 4" :key="i" class="gate-entry">
+          <div class="gate-icon pending" style="opacity: 0.3">G?</div>
+          <div class="sk-card-wrap">
+            <div class="sk-row">
+              <div class="skeleton sk-line-sm" style="width: 80px"></div>
+              <div class="skeleton sk-line-sm" style="width: 60px"></div>
+              <div class="skeleton sk-line-sm" style="width: 70px; margin-left: auto"></div>
+            </div>
+            <div class="skeleton sk-line-lg" style="width: 200px"></div>
+            <div class="skeleton sk-line-sm" style="width: 240px"></div>
+            <div class="skeleton sk-line-md" style="width: 100%"></div>
+          </div>
         </div>
       </div>
 
-      <div v-if="!pipelineEmpty" class="grid grid-cols-2 gap-4">
-        <!-- Checklist panel -->
-        <div>
-          <div v-if="selectedGate">
-            <GateChecklistPanel
-              :gate="gatesStore.pipeline[selectedGate]"
-              :gate-type="selectedGate"
-              :checklist="getChecklist(selectedGate)"
-              :locked="gatesStore.isGateLocked(selectedGate)"
-              @submit="handleSubmit"
-              @review="(gateId, decision, checklist, comment, itemReasons) => handleReview(gateId, decision, checklist, comment, itemReasons)"
-            />
-          </div>
-          <div
-            v-else
-            class="rounded-xl border border-border-default bg-bg-card p-8 text-center text-xs text-text-muted"
-          >
-            點擊上方管線中的關卡以查看詳情
-          </div>
+      <!-- Empty state -->
+      <div v-else-if="filteredGates.length === 0" class="empty-state">
+        <div class="empty-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
+        <div class="empty-title">尚無審核關卡紀錄</div>
+        <div class="empty-sub">建立 Sprint 後，系統將自動建立關卡管線</div>
+      </div>
 
-        <!-- Gate history list -->
-        <div class="rounded-xl border border-border-default bg-bg-card p-5">
-          <h3 class="mb-3 text-sm font-semibold">關卡記錄</h3>
+      <!-- Timeline list -->
+      <div v-else class="timeline-list">
+        <div class="timeline-line"></div>
+        <div
+          v-for="gate in filteredGates"
+          :key="gate.id"
+          class="gate-entry"
+        >
+          <!-- Circle icon -->
           <div
-            v-if="gatesStore.gates.length === 0"
-            class="py-4 text-center text-xs text-text-muted"
+            class="gate-icon"
+            :class="gate.status"
           >
-            尚無關卡記錄
+            {{ gate.gateType }}
           </div>
-          <div v-else class="space-y-2">
-            <div
-              v-for="gate in gatesStore.gates"
-              :key="gate.id"
-              class="flex items-center gap-2 rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-xs"
-            >
-              <span class="font-semibold text-accent-light">{{ gate.gateType }}</span>
-              <span class="flex-1 truncate text-text-secondary">
-                {{ gate.projectName || gate.projectId }}
-              </span>
-              <BaseTag :color="statusColors[gate.status]" class="!text-[10px]">
-                {{ statusLabels[gate.status] }}
+
+          <!-- Gate card -->
+          <div class="gate-card">
+            <!-- Row 1: tags + date -->
+            <div class="gate-row1">
+              <BaseTag :color="gateTypeColor[gate.gateType]">
+                {{ gate.gateType }}&nbsp;{{ gateTypeLabel[gate.gateType] || gate.gateType }}
               </BaseTag>
+              <BaseTag :color="gateStatusColor[gate.status]">
+                {{ gateStatusLabel[gate.status] }}
+              </BaseTag>
+              <span class="tag-date">{{ formatDate(gate.createdAt) }}</span>
+            </div>
+
+            <!-- Row 2: project / sprint -->
+            <div class="gate-row2">
+              <span v-if="gate.projectName" class="project-name">{{ gate.projectName }}</span>
+              <span v-if="gate.sprintName" class="sprint-sep">&nbsp;/&nbsp;</span>
+              <span v-if="gate.sprintName" class="sprint-name">{{ gate.sprintName }}</span>
+            </div>
+
+            <!-- Row 3: submitter + reviewer -->
+            <div v-if="gate.submittedBy" class="gate-row3">
+              <div class="person-info">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                提交人:&nbsp;<strong>{{ gate.submittedBy }}</strong>
+              </div>
+              <span v-if="gate.reviewer" class="person-dot"></span>
+              <div v-if="gate.reviewer" class="person-info">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                審核人:&nbsp;<strong>{{ gate.reviewer }}</strong>
+              </div>
+            </div>
+
+            <!-- Row 4: decision / comment -->
+            <div v-if="gate.decision" class="gate-row4">
+              "{{ gate.decision }}"
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div
-      v-else-if="!selectedProjectId"
-      class="rounded-xl border border-border-default bg-bg-card p-8 text-center text-text-muted"
-    >
-      請先選擇一個專案
-    </div>
-
-    <div
-      v-else-if="!selectedSprintId"
-      class="rounded-xl border border-border-default bg-bg-card p-8 text-center text-text-muted"
-    >
-      請選擇一個 Sprint
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ── Layout ── */
+.gates-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.gates-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.gates-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+
+.gates-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.filter-select {
+  appearance: none;
+  background-color: var(--color-bg-card);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235c5e72' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 24px 6px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.filter-select:focus {
+  border-color: var(--color-accent);
+}
+
+/* ── Scroll area ── */
+.gates-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+.gates-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.gates-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 2px;
+}
+
+/* ── Timeline ── */
+.timeline-list {
+  position: relative;
+  padding-left: 52px;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 19px;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: var(--color-border-default);
+}
+
+/* ── Gate Entry ── */
+.gate-entry {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+/* Circle icon */
+.gate-icon {
+  position: absolute;
+  left: -33px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
+}
+
+.gate-icon.pending {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.gate-icon.submitted {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.gate-icon.approved {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.gate-icon.rejected {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* ── Gate Card ── */
+.gate-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 12px 14px;
+  width: 100%;
+  transition: all 150ms ease;
+}
+
+.gate-card:hover {
+  border-color: var(--color-border-light);
+  background: var(--color-bg-hover);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Row 1: tags + date */
+.gate-row1 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tag-date {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* Row 2: project / sprint */
+.gate-row2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.sprint-sep {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.sprint-name {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* Row 3: person info */
+.gate-row3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.person-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.person-info strong {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.person-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-border-light);
+  flex-shrink: 0;
+}
+
+/* Row 4: decision quote */
+.gate-row4 {
+  background: var(--color-bg-primary);
+  border-left: 2px solid var(--color-border-light);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ── Empty State ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 32px;
+  gap: 12px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.empty-sub {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  max-width: 300px;
+  line-height: 1.6;
+}
+
+/* ── Skeleton ── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-card) 25%,
+    var(--color-bg-hover) 50%,
+    var(--color-bg-card) 75%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+.sk-line-sm  { height: 10px; border-radius: 4px; }
+.sk-line-md  { height: 14px; border-radius: 4px; }
+.sk-line-lg  { height: 16px; border-radius: 4px; }
+
+.sk-card-wrap {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 14px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sk-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+</style>

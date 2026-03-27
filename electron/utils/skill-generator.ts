@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { agentLoader } from '../services/agent-loader';
@@ -130,4 +130,122 @@ export function generateAllSkillFiles(
 ): SkillGenerateResult[] {
   const ids = agentIds || agentLoader.getAll().map((a) => a.id);
   return ids.map((id) => generateSkillFile(workDir, id));
+}
+
+export interface WorkflowSkillResult {
+  status: 'written' | 'skipped' | 'conflict';
+  filePath: string;
+  skillName: string;
+}
+
+/**
+ * Locate the knowledge/company/skill-templates/ directory by trying multiple candidate paths.
+ */
+function findSkillTemplatesDir(): string | null {
+  const candidates = [
+    join(process.cwd(), 'knowledge', 'company', 'skill-templates'),
+    join(__dirname, '..', '..', 'knowledge', 'company', 'skill-templates'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/** Skills that should only be deployed to AgentHub itself, not to child projects */
+const AGENTHUB_ONLY_SKILLS = new Set(['knowledge-feedback']);
+
+/**
+ * Deploy workflow SKILL.md files from knowledge/company/skill-templates/ into the
+ * child project at {workDir}/.claude/skills/{skill-name}/SKILL.md.
+ *
+ * Uses the same hash-based anti-overwrite mechanism as generateSkillFile().
+ * Skills listed in AGENTHUB_ONLY_SKILLS are skipped for child projects.
+ */
+export function deployWorkflowSkills(workDir: string): WorkflowSkillResult[] {
+  const templateDir = findSkillTemplatesDir();
+  if (!templateDir) {
+    logger.warn('deployWorkflowSkills: skill-templates directory not found');
+    return [];
+  }
+
+  const results: WorkflowSkillResult[] = [];
+
+  let entries: string[];
+  try {
+    entries = readdirSync(templateDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+  } catch (err) {
+    logger.warn(`deployWorkflowSkills: failed to read template dir: ${err}`);
+    return [];
+  }
+
+  const isAgentHub = workDir === process.cwd();
+
+  for (const skillName of entries) {
+    // Skip AgentHub-only skills when deploying to child projects
+    if (AGENTHUB_ONLY_SKILLS.has(skillName) && !isAgentHub) {
+      results.push({ status: 'skipped', filePath: join(workDir, '.claude', 'skills', skillName, 'SKILL.md'), skillName });
+      continue;
+    }
+
+    const sourcePath = join(templateDir, skillName, 'SKILL.md');
+    if (!existsSync(sourcePath)) {
+      logger.info(`deployWorkflowSkills: no SKILL.md in template "${skillName}", skipping`);
+      results.push({ status: 'skipped', filePath: sourcePath, skillName });
+      continue;
+    }
+
+    const destDir = join(workDir, '.claude', 'skills', skillName);
+    const destPath = join(destDir, 'SKILL.md');
+
+    let content: string;
+    try {
+      content = readFileSync(sourcePath, 'utf-8');
+    } catch (err) {
+      logger.warn(`deployWorkflowSkills: failed to read "${sourcePath}": ${err}`);
+      results.push({ status: 'skipped', filePath: destPath, skillName });
+      continue;
+    }
+
+    if (existsSync(destPath)) {
+      if (wasManuallyModified(destPath, content)) {
+        logger.info(`Workflow skill conflict: ${destPath} was manually modified`);
+        results.push({ status: 'conflict', filePath: destPath, skillName });
+        continue;
+      }
+      // Content identical — no need to write again
+      results.push({ status: 'skipped', filePath: destPath, skillName });
+      continue;
+    }
+
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
+    }
+
+    writeFileSync(destPath, content, 'utf-8');
+    logger.info(`Workflow skill deployed: ${destPath}`);
+    results.push({ status: 'written', filePath: destPath, skillName });
+  }
+
+  return results;
+}
+
+/**
+ * Deploy both agent skills and workflow skills to a child project in one call.
+ */
+export function generateAllSkillsForProject(
+  workDir: string,
+  agentId?: string,
+): Array<SkillGenerateResult | WorkflowSkillResult> {
+  const agentResults = agentId
+    ? [generateSkillFile(workDir, agentId)]
+    : generateAllSkillFiles(workDir);
+
+  const workflowResults = deployWorkflowSkills(workDir);
+
+  return [...agentResults, ...workflowResults];
 }

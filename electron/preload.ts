@@ -46,6 +46,7 @@ export interface MaestroApi {
     listDelegations: () => Promise<unknown[]>;
     requestSummary: (sessionId: string) => Promise<string | null>;
     getSummaries: (sessionId: string) => Promise<Array<{ content: string; createdAt: string }>>;
+    scanResumable: (limit?: number) => Promise<import('./types').ResumableSession[]>;
   };
   agents: {
     list: (filters?: {
@@ -59,12 +60,12 @@ export interface MaestroApi {
   tasks: {
     create: (params: unknown) => Promise<unknown>;
     list: (filters?: unknown) => Promise<unknown[]>;
-    get: (id: string) => Promise<unknown>;
-    update: (id: string, params: unknown) => Promise<unknown>;
-    delete: (id: string) => Promise<{ success: boolean }>;
-    transition: (params: { taskId: string; toStatus: string }) => Promise<unknown>;
-    addDependency: (taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
-    removeDependency: (taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
+    get: (projectId: string, id: string) => Promise<unknown>;
+    update: (projectId: string, id: string, params: unknown) => Promise<unknown>;
+    delete: (projectId: string, id: string) => Promise<{ success: boolean }>;
+    transition: (params: { projectId?: string; taskId: string; toStatus: string }) => Promise<unknown>;
+    addDependency: (projectId: string, taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
+    removeDependency: (projectId: string, taskId: string, dependsOnId: string) => Promise<{ success: boolean }>;
     getReady: (projectId: string) => Promise<unknown[]>;
     getSessionCounts: (taskIds: string[]) => Promise<Record<string, { total: number; active: number }>>;
   };
@@ -124,29 +125,116 @@ export interface MaestroApi {
     getChecklists: () => Promise<unknown[]>;
     initPipeline: (params: { projectId: string; sprintId: string }) => Promise<unknown[]>;
   };
-  costs: {
-    getOverview: () => Promise<unknown>;
-    getBreakdown: (type: string) => Promise<unknown>;
-    getBudget: (projectId: string) => Promise<unknown>;
-    setBudget: (params: {
-      projectId: string;
-      dailyTokenLimit?: number;
-      totalTokenLimit?: number;
-      alertThreshold?: number;
-    }) => Promise<unknown>;
-  };
   settings: {
     get: (key: string) => Promise<string | null>;
     update: (params: { key: string; value: string; category?: string }) => Promise<unknown>;
     getAll: () => Promise<Record<string, string>>;
   };
-  objections: {
-    list: () => Promise<unknown[]>;
-    resolve: (params: {
-      objectionId: string;
-      resolution: string;
-      resolvedBy: string;
-    }) => Promise<unknown>;
+  hooks: {
+    getConfig: (workDir: string) => Promise<{
+      autoInject: boolean;
+      stopValidatorEnabled: boolean;
+      stack: { testCommand: string; lintCommand: string };
+    }>;
+    updateConfig: (params: { workDir: string; autoInject?: boolean; stopValidatorEnabled?: boolean }) => Promise<{ success: boolean }>;
+    list: (params?: { projectPath?: string }) => Promise<Array<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      type: string;
+      matcher: string;
+      enabled: boolean;
+    }>>;
+    get: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      type: string;
+      matcher: string;
+      enabled: boolean;
+      script: string;
+    }>;
+    create: (params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    update: (params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    delete: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    toggle: (params: { name: string; enabled: boolean; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    getLogs: (filters?: { hookName?: string; result?: string; limit?: number; offset?: number; projectPath?: string }) => Promise<Array<{
+      id: number;
+      hook_name: string;
+      hook_type: string;
+      trigger_time: string;
+      trigger_reason: string | null;
+      result: 'blocked' | 'passed' | 'warned';
+      details: string | null;
+      session_id: string | null;
+      scope: string;
+      project_path: string | null;
+      created_at: string;
+    }>>;
+    getStats: (projectPath?: string) => Promise<{ total: number; blocked: number; passed: number; warned: number }>;
+  };
+  skills: {
+    list: (params?: { projectPath?: string }) => Promise<Array<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      enabled: boolean;
+    }>>;
+    get: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{
+      name: string;
+      source: 'system' | 'user';
+      scope: 'global' | 'project';
+      projectPath?: string;
+      enabled: boolean;
+      content: string;
+      deployedTo: string[];
+    }>;
+    create: (params: { name: string; content: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean; path: string }>;
+    update: (params: { name: string; content: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    delete: (params: { name: string; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    deploy: (params: { name: string; projects: string[] }) => Promise<{ success: boolean; deployed: string[] }>;
+    toggle: (params: { name: string; enabled: boolean; scope?: string; projectPath?: string }) => Promise<{ success: boolean }>;
+    export: (params: { names: string[] }) => Promise<{
+      version: number;
+      exportedAt: string;
+      skills: Array<{
+        name: string;
+        content: string;
+        source: 'system' | 'user';
+        scope: 'global' | 'project';
+      }>;
+    }>;
+    import: (params: {
+      bundle: {
+        version: number;
+        exportedAt: string;
+        skills: Array<{
+          name: string;
+          content: string;
+          source: 'system' | 'user';
+          scope: 'global' | 'project';
+        }>;
+      };
+      onConflict: 'skip' | 'overwrite';
+    }) => Promise<{
+      imported: string[];
+      skipped: string[];
+      overwritten: string[];
+      errors: string[];
+    }>;
+  };
+  pitfall: {
+    getOverdue: () => Promise<Array<{
+      project: string;
+      title: string;
+      category: string;
+      dueDate: string;
+      daysOverdue: number;
+      problem: string;
+    }>>;
   };
   audit: {
     query: (params?: unknown) => Promise<unknown[]>;
@@ -168,12 +256,6 @@ export interface MaestroApi {
     checkout: (cwd: string, branchName: string) => Promise<{ success: boolean }>;
     deleteBranch: (cwd: string, branchName: string, force?: boolean) => Promise<{ success: boolean }>;
   };
-  auth: {
-    login: () => Promise<{ success: boolean; user?: unknown; error?: string }>;
-    logout: () => Promise<{ success: boolean }>;
-    getProfile: () => Promise<unknown>;
-    getStatus: () => Promise<{ authenticated: boolean; user?: unknown }>;
-  };
   github: {
     createPR: (params: {
       owner: string;
@@ -193,38 +275,18 @@ export interface MaestroApi {
     }) => Promise<unknown>;
     getRepos: (page?: number, perPage?: number) => Promise<unknown[]>;
   };
-  notion: {
-    login: () => Promise<unknown>;
-    disconnect: () => Promise<{ success: boolean }>;
-    getStatus: () => Promise<unknown>;
-    verify: () => Promise<{ valid: boolean; error?: string }>;
-    setParentPage: (pageId: string) => Promise<{ success: boolean }>;
-    initDatabases: () => Promise<{ success: boolean; created: number; error?: string }>;
-    getDbStatus: () => Promise<unknown[]>;
-    syncPush: (tableName?: string) => Promise<unknown>;
-    syncPull: (tableName?: string) => Promise<unknown>;
-    syncAll: (options?: unknown) => Promise<unknown>;
-    schedulerStart: (intervalMs?: number) => Promise<{ success: boolean; enabled: boolean; interval: number }>;
-    schedulerStop: () => Promise<{ success: boolean; enabled: boolean }>;
-    queueFlush: () => Promise<{ processed: number; failed: number }>;
-  };
-  docSync: {
-    getStatus: (scope: string, projectWorkDir?: string) => Promise<unknown>;
-    discover: (scope: string, projectWorkDir?: string) => Promise<string[]>;
-    getMappings: (scope: string) => Promise<unknown[]>;
-    setRootPage: (scope: string, pageId: string) => Promise<{ success: boolean }>;
-    push: (options: unknown) => Promise<unknown>;
-    pull: (options: unknown) => Promise<unknown>;
-    syncAll: (options: unknown) => Promise<unknown>;
-  };
-  browse: {
-    start: () => Promise<{ port: number; token: string }>;
-    stop: () => Promise<{ success: boolean }>;
-    getStatus: () => Promise<{ running: boolean; port: number }>;
-  };
   pty: {
     input: (ptyId: string, data: string) => void;
     resize: (ptyId: string, cols: number, rows: number) => void;
+  };
+  projectSync: {
+    start: (params: { projectId: string; workDir: string }) => Promise<{ success: boolean }>;
+    stop: (params: { projectId: string }) => Promise<{ success: boolean }>;
+    fullSync: (params: { projectId: string; workDir: string }) => Promise<{
+      tasksUpdated: number;
+      gatesUpdated: number;
+      errors: string[];
+    }>;
   };
   on: {
     sessionEvent: (callback: (data: unknown) => void) => void;
@@ -233,8 +295,8 @@ export interface MaestroApi {
     notification: (callback: (data: unknown) => void) => void;
     agentsReloaded: (callback: (data: unknown) => void) => void;
     delegationReport: (callback: (data: unknown) => void) => void;
-    syncStatus: (callback: (data: unknown) => void) => void;
     gateStatusChanged: (callback: (data: unknown) => void) => void;
+    projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
   };
 }
 
@@ -260,6 +322,7 @@ const api: MaestroApi = {
     listDelegations: () => ipcRenderer.invoke('session:list-delegations'),
     requestSummary: (sessionId) => ipcRenderer.invoke('session:request-summary', sessionId),
     getSummaries: (sessionId) => ipcRenderer.invoke('session:get-summaries', sessionId),
+    scanResumable: (limit?) => ipcRenderer.invoke('session:scan-resumable', limit),
   },
   agents: {
     list: (filters) => ipcRenderer.invoke('agent:list', filters),
@@ -269,14 +332,14 @@ const api: MaestroApi = {
   tasks: {
     create: (params) => ipcRenderer.invoke('task:create', params),
     list: (filters) => ipcRenderer.invoke('task:list', filters),
-    get: (id) => ipcRenderer.invoke('task:get', id),
-    update: (id, params) => ipcRenderer.invoke('task:update', id, params),
-    delete: (id) => ipcRenderer.invoke('task:delete', id),
+    get: (projectId, id) => ipcRenderer.invoke('task:get', projectId, id),
+    update: (projectId, id, params) => ipcRenderer.invoke('task:update', projectId, id, params),
+    delete: (projectId, id) => ipcRenderer.invoke('task:delete', projectId, id),
     transition: (params) => ipcRenderer.invoke('task:transition', params),
-    addDependency: (taskId, dependsOnId) =>
-      ipcRenderer.invoke('task:add-dependency', taskId, dependsOnId),
-    removeDependency: (taskId, dependsOnId) =>
-      ipcRenderer.invoke('task:remove-dependency', taskId, dependsOnId),
+    addDependency: (projectId, taskId, dependsOnId) =>
+      ipcRenderer.invoke('task:add-dependency', projectId, taskId, dependsOnId),
+    removeDependency: (projectId, taskId, dependsOnId) =>
+      ipcRenderer.invoke('task:remove-dependency', projectId, taskId, dependsOnId),
     getReady: (projectId) => ipcRenderer.invoke('task:get-ready', projectId),
     getSessionCounts: (taskIds) => ipcRenderer.invoke('task:get-session-counts', taskIds),
   },
@@ -314,20 +377,36 @@ const api: MaestroApi = {
     getChecklists: () => ipcRenderer.invoke('gate:get-checklists'),
     initPipeline: (params) => ipcRenderer.invoke('gate:init-pipeline', params),
   },
-  costs: {
-    getOverview: () => ipcRenderer.invoke('cost:get-overview'),
-    getBreakdown: (type) => ipcRenderer.invoke('cost:get-breakdown', type),
-    getBudget: (projectId) => ipcRenderer.invoke('cost:get-budget', projectId),
-    setBudget: (params) => ipcRenderer.invoke('cost:set-budget', params),
-  },
   settings: {
     get: (key) => ipcRenderer.invoke('settings:get', key),
     update: (params) => ipcRenderer.invoke('settings:update', params),
     getAll: () => ipcRenderer.invoke('settings:get-all'),
   },
-  objections: {
-    list: () => ipcRenderer.invoke('objection:list'),
-    resolve: (params) => ipcRenderer.invoke('objection:resolve', params),
+  hooks: {
+    getConfig: (workDir: string) => ipcRenderer.invoke('hook:get-config', workDir),
+    updateConfig: (params) => ipcRenderer.invoke('hook:update-config', params),
+    list: (params?) => ipcRenderer.invoke('hook:list', params),
+    get: (params) => ipcRenderer.invoke('hook:get', params),
+    create: (params) => ipcRenderer.invoke('hook:create', params),
+    update: (params) => ipcRenderer.invoke('hook:update', params),
+    delete: (params) => ipcRenderer.invoke('hook:delete', params),
+    toggle: (params) => ipcRenderer.invoke('hook:toggle', params),
+    getLogs: (filters?) => ipcRenderer.invoke('hook:getLogs', filters),
+    getStats: (projectPath?) => ipcRenderer.invoke('hook:getStats', projectPath),
+  },
+  skills: {
+    list: (params?) => ipcRenderer.invoke('skill:list', params),
+    get: (params) => ipcRenderer.invoke('skill:get', params),
+    create: (params) => ipcRenderer.invoke('skill:create', params),
+    update: (params) => ipcRenderer.invoke('skill:update', params),
+    delete: (params) => ipcRenderer.invoke('skill:delete', params),
+    deploy: (params) => ipcRenderer.invoke('skill:deploy', params),
+    toggle: (params) => ipcRenderer.invoke('skill:toggle', params),
+    export: (params) => ipcRenderer.invoke('skill:export', params),
+    import: (params) => ipcRenderer.invoke('skill:import', params),
+  },
+  pitfall: {
+    getOverdue: () => ipcRenderer.invoke('pitfall:getOverdue'),
   },
   audit: {
     query: (params) => ipcRenderer.invoke('audit:query', params),
@@ -353,49 +432,11 @@ const api: MaestroApi = {
     deleteBranch: (cwd, branchName, force?) =>
       ipcRenderer.invoke('git:delete-branch', cwd, branchName, force),
   },
-  auth: {
-    login: () => ipcRenderer.invoke('auth:login'),
-    logout: () => ipcRenderer.invoke('auth:logout'),
-    getProfile: () => ipcRenderer.invoke('auth:get-profile'),
-    getStatus: () => ipcRenderer.invoke('auth:get-status'),
-  },
   github: {
     createPR: (params) => ipcRenderer.invoke('github:create-pr', params),
     listPRs: (owner, repo, state) => ipcRenderer.invoke('github:list-prs', owner, repo, state),
     createIssue: (params) => ipcRenderer.invoke('github:create-issue', params),
     getRepos: (page, perPage) => ipcRenderer.invoke('github:get-repos', page, perPage),
-  },
-  notion: {
-    login: () => ipcRenderer.invoke('notion:login'),
-    disconnect: () => ipcRenderer.invoke('notion:disconnect'),
-    getStatus: () => ipcRenderer.invoke('notion:get-status'),
-    verify: () => ipcRenderer.invoke('notion:verify'),
-    setParentPage: (pageId) => ipcRenderer.invoke('notion:set-parent-page', pageId),
-    initDatabases: () => ipcRenderer.invoke('notion:init-databases'),
-    getDbStatus: () => ipcRenderer.invoke('notion:get-db-status'),
-    syncPush: (tableName?: string) => ipcRenderer.invoke('notion:sync-push', tableName),
-    syncPull: (tableName?: string) => ipcRenderer.invoke('notion:sync-pull', tableName),
-    syncAll: (options?: unknown) => ipcRenderer.invoke('notion:sync-all', options),
-    schedulerStart: (intervalMs?: number) => ipcRenderer.invoke('sync:scheduler-start', intervalMs),
-    schedulerStop: () => ipcRenderer.invoke('sync:scheduler-stop'),
-    queueFlush: () => ipcRenderer.invoke('sync:queue-flush'),
-  },
-  docSync: {
-    getStatus: (scope: string, projectWorkDir?: string) =>
-      ipcRenderer.invoke('doc-sync:get-status', scope, projectWorkDir),
-    discover: (scope: string, projectWorkDir?: string) =>
-      ipcRenderer.invoke('doc-sync:discover', scope, projectWorkDir),
-    getMappings: (scope: string) => ipcRenderer.invoke('doc-sync:get-mappings', scope),
-    setRootPage: (scope: string, pageId: string) =>
-      ipcRenderer.invoke('doc-sync:set-root-page', scope, pageId),
-    push: (options: unknown) => ipcRenderer.invoke('doc-sync:push', options),
-    pull: (options: unknown) => ipcRenderer.invoke('doc-sync:pull', options),
-    syncAll: (options: unknown) => ipcRenderer.invoke('doc-sync:sync-all', options),
-  },
-  browse: {
-    start: () => ipcRenderer.invoke('browse:start'),
-    stop: () => ipcRenderer.invoke('browse:stop'),
-    getStatus: () => ipcRenderer.invoke('browse:status'),
   },
   pty: {
     input: (ptyId, data) => ipcRenderer.send('pty:input', { ptyId, data }),
@@ -420,12 +461,17 @@ const api: MaestroApi = {
     delegationReport: (callback) => {
       ipcRenderer.on('delegation:report', (_e, data) => callback(data));
     },
-    syncStatus: (callback) => {
-      ipcRenderer.on('sync:status', (_e, data) => callback(data));
-    },
     gateStatusChanged: (callback) => {
       ipcRenderer.on('gate:status-changed', (_e, data) => callback(data));
     },
+    projectSynced: (callback) => {
+      ipcRenderer.on('project-sync:status', (_e, data) => callback(data));
+    },
+  },
+  projectSync: {
+    start: (params) => ipcRenderer.invoke('project-sync:start', params),
+    stop: (params) => ipcRenderer.invoke('project-sync:stop', params),
+    fullSync: (params) => ipcRenderer.invoke('project-sync:full', params),
   },
 };
 

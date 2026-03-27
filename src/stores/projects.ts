@@ -29,6 +29,7 @@ export interface SprintRecord {
 export interface ProjectStats {
   tasksDone: number;
   tasksInProgress: number;
+  totalTasks: number;
   totalTokens: number;
   totalCostUsd: number;
   activeSprint: { name: string; progressPct: number; activeCount: number } | null;

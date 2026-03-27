@@ -2,11 +2,9 @@
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSessionsStore } from '../../stores/sessions';
-import { useGatesStore } from '../../stores/gates';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
-const gatesStore = useGatesStore();
 const expanded = ref(false);
 
 const navGroups = [
@@ -15,17 +13,15 @@ const navGroups = [
     { to: '/sessions', icon: '\u25B7', label: '\u5DE5\u4F5C\u968E\u6BB5', name: 'sessions', badge: 'session' },
   ],
   [
-    { to: '/agents', icon: '\u25CE', label: '\u4EE3\u7406\u4EBA', name: 'agents' },
     { to: '/projects', icon: '\u25A4', label: '\u5C08\u6848', name: 'projects' },
-    { to: '/tasks', icon: '\u2611', label: '\u4EFB\u52D9', name: 'tasks' },
-    { to: '/knowledge', icon: '\u25A6', label: '\u77E5\u8B58\u5EAB', name: 'knowledge' },
+    { to: '/tasks', icon: '\u2630', label: '\u4EFB\u52D9', name: 'tasks' },
+    { to: '/gates', icon: '\u25C8', label: '\u95DC\u5361', name: 'gates' },
+    { to: '/agents', icon: '\u25C9', label: '\u5718\u968A', name: 'agents' },
+    { to: '/harness', icon: '⚡', label: 'Harness', name: 'harness' },
+    { to: '/knowledge', icon: '\uD83D\uDCDA', label: '\u77E5\u8B58\u5EAB', name: 'knowledge' },
   ],
   [
-    { to: '/costs', icon: '\u25C7', label: '\u6210\u672C', name: 'costs' },
-    { to: '/gates', icon: '\u25C8', label: '\u5BE9\u6838\u95DC\u5361', name: 'gates', badge: 'gate' },
-  ],
-  [
-    { to: '/guide', icon: '?', label: '\u4F7F\u7528\u8AAA\u660E', name: 'guide' },
+    { to: '/settings', icon: '\u2699', label: '\u8A2D\u5B9A', name: 'settings' },
   ],
 ];
 
@@ -74,10 +70,6 @@ function isActive(item: { to: string }): boolean {
             v-if="item.badge === 'session' && sessionsStore.activeCount > 0"
             class="badge-dot bg-accent"
           ></span>
-          <span
-            v-if="item.badge === 'gate' && gatesStore.pendingCount > 0"
-            class="badge-dot bg-warning"
-          ></span>
 
           <!-- Badge number (expanded) -->
           <span
@@ -85,12 +77,6 @@ function isActive(item: { to: string }): boolean {
             class="sidebar-label ml-auto rounded-full bg-accent px-[7px] py-[2px] text-[10px] font-semibold text-white"
           >
             {{ sessionsStore.activeCount }}
-          </span>
-          <span
-            v-if="item.badge === 'gate' && gatesStore.pendingCount > 0"
-            class="sidebar-label ml-auto rounded-full bg-warning px-[7px] py-[2px] text-[10px] font-semibold text-bg-primary"
-          >
-            {{ gatesStore.pendingCount }}
           </span>
         </RouterLink>
       </template>

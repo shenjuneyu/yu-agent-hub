@@ -65,11 +65,21 @@ export interface SessionRecord {
   ended_at: string | null;
 }
 
+export interface ResumableSession {
+  conversationId: string;
+  projectPath: string;
+  projectName: string;
+  firstMessage: string;
+  lastModified: string;
+  fileSize: number;
+}
+
 export const useSessionsStore = defineStore('sessions', () => {
   const ipc = useIpc();
 
   const activeSessions = ref<ActiveSession[]>([]);
   const history = ref<SessionRecord[]>([]);
+  const resumableSessions = ref<ResumableSession[]>([]);
   const layoutMode = ref<LayoutMode>(
     (localStorage.getItem('maestro-layout-mode') as LayoutMode) || 'list',
   );
@@ -141,6 +151,49 @@ export const useSessionsStore = defineStore('sessions', () => {
       history.value = (await ipc.listSessions(limit)) as SessionRecord[];
     } catch (err) {
       console.error('Failed to fetch session history', err);
+    }
+  }
+
+  async function fetchResumable(limit = 50) {
+    try {
+      resumableSessions.value = (await ipc.scanResumableSessions(limit)) as ResumableSession[];
+    } catch (err) {
+      console.error('Failed to scan resumable sessions', err);
+    }
+  }
+
+  async function resumeByConversationId(item: ResumableSession) {
+    loading.value = true;
+    try {
+      const result = await ipc.spawnSession({
+        agentId: '',
+        task: item.firstMessage || '(resumed)',
+        interactive: true,
+        resumeConversationId: item.conversationId,
+        projectPath: item.projectPath,
+      });
+      activeSessions.value.push({
+        sessionId: result.sessionId,
+        agentId: '(resumed)',
+        agentName: '(resumed)',
+        task: item.firstMessage || '(resumed)',
+        taskId: null,
+        projectId: null,
+        model: 'sonnet',
+        status: 'starting',
+        costUsd: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        toolCallsCount: 0,
+        turnsCount: 0,
+        durationMs: 0,
+        startedAt: new Date().toISOString(),
+        ptyId: result.ptyId,
+      });
+      selectedSessionId.value = result.sessionId;
+      return result;
+    } finally {
+      loading.value = false;
     }
   }
 
@@ -283,6 +336,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     // State
     activeSessions,
     history,
+    resumableSessions,
     taskSessions,
     layoutMode,
     selectedSessionId,
@@ -296,6 +350,8 @@ export const useSessionsStore = defineStore('sessions', () => {
     // Actions
     fetchActive,
     fetchHistory,
+    fetchResumable,
+    resumeByConversationId,
     fetchByTask,
     fetchByProject,
     spawn,

@@ -51,7 +51,7 @@ class TaskManager {
     );
 
     logger.info(`Task created: ${id} - ${params.title}`);
-    const task = this.getById(id)!;
+    const task = this.getById(params.projectId, id)!;
 
     // Generate task record file
     this.generateTaskRecord(task);
@@ -59,8 +59,24 @@ class TaskManager {
     return task;
   }
 
-  getById(id: string): TaskRecord | null {
-    const rows = database.prepare('SELECT * FROM tasks WHERE id = ?', [id]);
+  /**
+   * Get a task by composite key (projectId + id).
+   * Falls back to id-only lookup for UUID-based tasks (backward compat).
+   */
+  getById(projectId: string, id: string): TaskRecord | null;
+  getById(id: string): TaskRecord | null;
+  getById(projectIdOrId: string, maybeId?: string): TaskRecord | null {
+    let rows: any[];
+    if (maybeId !== undefined) {
+      // Composite key lookup
+      rows = database.prepare(
+        'SELECT * FROM tasks WHERE project_id = ? AND id = ?',
+        [projectIdOrId, maybeId],
+      );
+    } else {
+      // Legacy: single id lookup (works for UUID-based tasks)
+      rows = database.prepare('SELECT * FROM tasks WHERE id = ?', [projectIdOrId]);
+    }
     if (rows.length === 0) return null;
     return this.rowToTask(rows[0]);
   }
@@ -105,7 +121,7 @@ class TaskManager {
     return rows.map((r: any) => this.rowToTask(r));
   }
 
-  update(id: string, params: TaskUpdateParams): TaskRecord | null {
+  update(projectId: string, id: string, params: TaskUpdateParams): TaskRecord | null {
     const fields: string[] = [];
     const values: unknown[] = [];
 
@@ -118,23 +134,27 @@ class TaskManager {
     if (params.estimatedHours !== undefined) { fields.push('estimated_hours = ?'); values.push(params.estimatedHours); }
     if (params.actualHours !== undefined) { fields.push('actual_hours = ?'); values.push(params.actualHours); }
 
-    if (fields.length === 0) return this.getById(id);
+    if (fields.length === 0) return this.getById(projectId, id);
 
     fields.push('updated_at = ?');
     values.push(new Date().toISOString());
+    values.push(projectId);
     values.push(id);
 
-    database.run(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, values);
-    return this.getById(id);
+    database.run(`UPDATE tasks SET ${fields.join(', ')} WHERE project_id = ? AND id = ?`, values);
+    return this.getById(projectId, id);
   }
 
-  delete(id: string): void {
-    database.run('DELETE FROM tasks WHERE id = ?', [id]);
-    logger.info(`Task deleted: ${id}`);
+  delete(projectId: string, id: string): void {
+    database.run('DELETE FROM tasks WHERE project_id = ? AND id = ?', [projectId, id]);
+    logger.info(`Task deleted: ${projectId}/${id}`);
   }
 
   transition(params: TaskTransitionParams): TaskRecord {
-    const task = this.getById(params.taskId);
+    // Resolve task: use composite key if projectId provided, else fall back to single-id lookup
+    const task = params.projectId
+      ? this.getById(params.projectId, params.taskId)
+      : this.getById(params.taskId);
     if (!task) throw new Error(`Task not found: ${params.taskId}`);
 
     const allowed = VALID_TRANSITIONS[task.status];
@@ -144,29 +164,28 @@ class TaskManager {
       );
     }
 
-    // If transitioning to assigned and no assignee, require one
     database.run(
-      'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
-      [params.toStatus, new Date().toISOString(), params.taskId],
+      'UPDATE tasks SET status = ?, updated_at = ? WHERE project_id = ? AND id = ?',
+      [params.toStatus, new Date().toISOString(), task.projectId, task.id],
     );
 
-    logger.info(`Task ${params.taskId} transitioned: ${task.status} → ${params.toStatus}`);
+    logger.info(`Task ${task.projectId}/${task.id} transitioned: ${task.status} → ${params.toStatus}`);
 
     // Append event to task record file
     let eventText = `狀態變更: ${task.status} → ${params.toStatus}`;
     if (params.toStatus === 'assigned' && task.assignedTo) {
       eventText += `\n指派給 ${task.assignedTo}`;
     }
-    this.appendTaskEvent(params.taskId, eventText);
+    this.appendTaskEvent(task.projectId, task.id, eventText);
 
     // Trigger summary for associated sessions only when task is done
     if (params.toStatus === 'done') {
-      this.triggerSummaryForTask(params.taskId);
+      this.triggerSummaryForTask(task.projectId, task.id);
     }
 
     // 9C: 任務完成 → 檢查 Sprint 是否所有任務 done
     if (params.toStatus === 'done') {
-      const updatedTask = this.getById(params.taskId);
+      const updatedTask = this.getById(task.projectId, task.id);
       if (updatedTask?.sprintId) {
         const allTasks = this.list({ sprintId: updatedTask.sprintId });
         if (allTasks.length > 0 && allTasks.every((t) => t.status === 'done')) {
@@ -176,34 +195,34 @@ class TaskManager {
       }
     }
 
-    return this.getById(params.taskId)!;
+    return this.getById(task.projectId, task.id)!;
   }
 
-  addDependency(taskId: string, dependsOnId: string): void {
+  addDependency(projectId: string, taskId: string, dependsOnId: string): void {
     // Prevent self-dependency
     if (taskId === dependsOnId) throw new Error('Task cannot depend on itself');
 
     // Check both tasks exist
-    if (!this.getById(taskId)) throw new Error(`Task not found: ${taskId}`);
-    if (!this.getById(dependsOnId)) throw new Error(`Dependency task not found: ${dependsOnId}`);
+    if (!this.getById(projectId, taskId)) throw new Error(`Task not found: ${taskId}`);
+    if (!this.getById(projectId, dependsOnId)) throw new Error(`Dependency task not found: ${dependsOnId}`);
 
     database.run(
-      'INSERT OR IGNORE INTO task_dependencies (task_id, depends_on) VALUES (?, ?)',
-      [taskId, dependsOnId],
+      'INSERT OR IGNORE INTO task_dependencies (project_id, task_id, depends_on) VALUES (?, ?, ?)',
+      [projectId, taskId, dependsOnId],
     );
   }
 
-  removeDependency(taskId: string, dependsOnId: string): void {
+  removeDependency(projectId: string, taskId: string, dependsOnId: string): void {
     database.run(
-      'DELETE FROM task_dependencies WHERE task_id = ? AND depends_on = ?',
-      [taskId, dependsOnId],
+      'DELETE FROM task_dependencies WHERE project_id = ? AND task_id = ? AND depends_on = ?',
+      [projectId, taskId, dependsOnId],
     );
   }
 
-  getDependencies(taskId: string): string[] {
+  getDependencies(projectId: string, taskId: string): string[] {
     const rows = database.prepare(
-      'SELECT depends_on FROM task_dependencies WHERE task_id = ?',
-      [taskId],
+      'SELECT depends_on FROM task_dependencies WHERE project_id = ? AND task_id = ?',
+      [projectId, taskId],
     );
     return rows.map((r: any) => r.depends_on as string);
   }
@@ -214,17 +233,19 @@ class TaskManager {
   getReadyTasks(projectId: string): TaskRecord[] {
     const tasks = this.list({ projectId, status: 'assigned' });
     return tasks.filter((task) => {
-      const deps = this.getDependencies(task.id);
+      const deps = this.getDependencies(projectId, task.id);
       if (deps.length === 0) return true;
       return deps.every((depId) => {
-        const dep = this.getById(depId);
+        const dep = this.getById(projectId, depId);
         return dep && dep.status === 'done';
       });
     });
   }
 
   /**
-   * Create tasks from delegation commands (L1 → L2).
+   * @deprecated DelegationCommand JSON format removed in favour of skill-based task creation.
+   * Tasks are now created via /task-delegation or /task-dispatch skills → .tasks/ files → project-sync.
+   * Kept for backward compatibility; no active callers.
    */
   createFromDelegations(
     delegations: DelegationCommand[],
@@ -425,9 +446,9 @@ class TaskManager {
   /**
    * Append an event entry to an existing task record file.
    */
-  appendTaskEvent(taskId: string, eventText: string): void {
+  appendTaskEvent(projectId: string, taskId: string, eventText: string): void {
     try {
-      const task = this.getById(taskId);
+      const task = this.getById(projectId, taskId);
       if (!task) return;
 
       const tasksDir = this.getTaskRecordDir(task);
@@ -463,12 +484,12 @@ class TaskManager {
    * Trigger summary for all non-terminal sessions associated with a task.
    * Uses lazy require to avoid circular dependency with session-manager.
    */
-  private triggerSummaryForTask(taskId: string): void {
+  private triggerSummaryForTask(projectId: string, taskId: string): void {
     try {
       const terminalStatuses = ['completed', 'failed', 'stopped'];
       const rows = database.prepare(
-        `SELECT id FROM claude_sessions WHERE task_id = ? AND status NOT IN (${terminalStatuses.map(() => '?').join(',')})`,
-        [taskId, ...terminalStatuses],
+        `SELECT id FROM claude_sessions WHERE project_id = ? AND task_id = ? AND status NOT IN (${terminalStatuses.map(() => '?').join(',')})`,
+        [projectId, taskId, ...terminalStatuses],
       ) as Array<{ id: string }>;
 
       if (rows.length === 0) return;
@@ -492,8 +513,8 @@ class TaskManager {
   }
 
   private rowToTask(row: any): TaskRecord {
-    // Load dependencies
-    const deps = this.getDependencies(row.id);
+    // Load dependencies (composite key)
+    const deps = this.getDependencies(row.project_id, row.id);
 
     return {
       id: row.id,

@@ -13,6 +13,7 @@ const DEPARTMENT_LABELS: Record<string, string> = {
   testing: '測試部',
   'project-management': '專案管理部',
   'studio-operations': '工作室營運',
+  company: '公司管理',
   bonus: '特殊',
 };
 
@@ -24,6 +25,7 @@ const DEPARTMENT_COLORS: Record<string, string> = {
   testing: 'red',
   'project-management': 'blue',
   'studio-operations': 'yellow',
+  company: 'cyan',
   bonus: 'purple',
 };
 
@@ -81,6 +83,7 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   // bonus
   'joker': '小丑',
   'studio-coach': '工作室教練',
+  'company-manager': '公司知識管理者',
 };
 
 /**

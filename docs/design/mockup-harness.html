@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentHub — Harness Mockup</title>
+<style>
+  :root {
+    --color-bg-primary: #0f1117;
+    --color-bg-secondary: #161822;
+    --color-bg-card: #1c1e2e;
+    --color-bg-hover: #252840;
+    --color-bg-active: #2a2d45;
+    --color-border-default: #2e3148;
+    --color-border-light: #3a3d56;
+    --color-text-primary: #e4e4f0;
+    --color-text-secondary: #8b8da3;
+    --color-text-muted: #5c5e72;
+    --color-accent: #6c5ce7;
+    --color-accent-light: #a29bfe;
+    --color-success: #00d68f;
+    --color-success-dim: #00d68f33;
+    --color-warning: #ffaa00;
+    --color-warning-dim: #ffaa0033;
+    --color-danger: #ff6b6b;
+    --color-danger-dim: #ff6b6b33;
+    --color-info: #339af0;
+    --color-info-dim: #339af033;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── State Switcher ─── */
+  .state-switcher {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    gap: 6px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .state-btn {
+    padding: 4px 12px;
+    border-radius: 5px;
+    border: none;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    color: var(--color-text-secondary);
+    transition: all 0.15s;
+  }
+  .state-btn.active { background: var(--color-bg-active); color: var(--color-accent-light); }
+  .state-btn:hover:not(.active) { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+  /* ─── App Shell ─── */
+  .app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ─── Sidebar ─── */
+  .sidebar {
+    width: 52px;
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-default);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .sidebar-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+    letter-spacing: -1px;
+  }
+  .nav-item {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s;
+    color: var(--color-text-muted);
+    font-size: 16px;
+  }
+  .nav-item:hover { background: var(--color-bg-hover); color: var(--color-text-secondary); }
+  .nav-item.active { background: var(--color-bg-active); color: var(--color-accent-light); }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: var(--color-accent);
+    border-radius: 0 3px 3px 0;
+  }
+  .nav-spacer { flex: 1; }
+
+  /* ─── Main ─── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ─── TopBar ─── */
+  .topbar {
+    min-height: 64px;
+    border-bottom: 1px solid var(--color-border-default);
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .topbar-icon { font-size: 22px; }
+  .topbar-text { flex: 1; }
+  .topbar-title { font-size: 17px; font-weight: 600; color: var(--color-text-primary); display: block; }
+  .topbar-subtitle { font-size: 12px; color: var(--color-text-muted); display: block; margin-top: 2px; }
+
+  /* ─── Buttons ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 7px;
+    border: none;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--color-accent); color: #fff; }
+  .btn-primary:hover { background: #7d6ef0; }
+  .btn-ghost { background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-border-default); }
+  .btn-ghost:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+  /* ─── Content Area ─── */
+  .content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Tab Bar (top-level, above panels) ─── */
+  .harness-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+    background: var(--color-bg-secondary);
+  }
+  .harness-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+  .harness-tab:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+  .harness-tab.active {
+    background: var(--color-bg-active);
+    color: var(--color-accent-light);
+    border-color: var(--color-border-light);
+  }
+  .harness-tab-icon { font-size: 14px; }
+
+  /* ─── Panel Layout ─── */
+  .panels {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* ─── Left Panel ─── */
+  .panel-left {
+    width: 320px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--color-border-default);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-left::-webkit-scrollbar { width: 4px; }
+  .panel-left::-webkit-scrollbar-track { background: transparent; }
+  .panel-left::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+
+  /* ─── Search Input ─── */
+  .search-wrap {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 7px;
+    padding: 7px 12px 7px 32px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235c5e72' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 10px center;
+  }
+  .search-input::placeholder { color: var(--color-text-muted); }
+  .search-input:focus { border-color: var(--color-accent); }
+
+  /* ─── List Items ─── */
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-bottom: 1px solid var(--color-border-default);
+    border-left: 3px solid transparent;
+  }
+  .list-item:hover { background: var(--color-bg-hover); }
+  .list-item.selected {
+    background: rgba(108,92,231,0.08);
+    border-left-color: var(--color-accent);
+  }
+  .list-item-body { flex: 1; min-width: 0; }
+  .list-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .list-item.selected .list-item-name { color: var(--color-accent-light); }
+  .list-item-path {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .list-item-meta { display: flex; align-items: center; gap: 5px; }
+
+  /* ─── Tags ─── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tag-system { background: rgba(108,92,231,0.2); color: var(--color-accent-light); }
+  .tag-custom { background: var(--color-success-dim); color: var(--color-success); }
+  .tag-pre { background: rgba(34,211,238,0.15); color: #22d3ee; }
+  .tag-post { background: rgba(255,146,43,0.18); color: #ff922b; }
+  .tag-stop { background: var(--color-danger-dim); color: var(--color-danger); }
+  .tag-blocked { background: var(--color-danger-dim); color: var(--color-danger); }
+  .tag-passed { background: var(--color-success-dim); color: var(--color-success); }
+  .tag-warning-tag { background: var(--color-warning-dim); color: var(--color-warning); }
+  .tag-muted { background: rgba(255,255,255,0.06); color: var(--color-text-muted); }
+
+  /* ─── Toggle Switch ─── */
+  .toggle {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: var(--color-bg-hover);
+    border: 1px solid var(--color-border-light);
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--color-success); border-color: var(--color-success); }
+  .toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-knob { transform: translateX(14px); }
+
+  /* ─── Right Panel ─── */
+  .panel-right {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Detail Header ─── */
+  .detail-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .detail-header-body { flex: 1; min-width: 0; }
+  .detail-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .detail-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .detail-meta-item {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .detail-meta-item span {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    color: var(--color-text-secondary);
+  }
+
+  /* ─── Detail Content ─── */
+  .detail-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .detail-body::-webkit-scrollbar { width: 4px; }
+  .detail-body::-webkit-scrollbar-track { background: transparent; }
+  .detail-body::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+
+  /* ─── Markdown Blocks ─── */
+  .md-h1 { font-size: 17px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 4px; }
+  .md-h2 { font-size: 13px; font-weight: 600; color: var(--color-accent-light); margin: 20px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .md-h3 { font-size: 13px; font-weight: 600; color: var(--color-text-primary); margin: 14px 0 5px; }
+  .md-p { font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin-bottom: 8px; }
+  .md-code {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--color-accent-light);
+  }
+  .md-block {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-left: 3px solid var(--color-accent);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 10px 0;
+  }
+  .md-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 10px 0;
+  }
+  .md-list li {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    padding: 2px 0 2px 16px;
+    position: relative;
+  }
+  .md-list li::before {
+    content: '–';
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+  }
+  .md-divider {
+    border: none;
+    border-top: 1px solid var(--color-border-default);
+    margin: 16px 0;
+  }
+
+  /* ─── Detail Footer ─── */
+  .detail-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--color-bg-secondary);
+  }
+  .footer-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+  .footer-meta span { color: var(--color-text-secondary); font-family: 'Cascadia Code', 'Consolas', monospace; }
+
+  /* ─── Empty State ─── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px 20px;
+  }
+  .empty-icon { font-size: 40px; opacity: 0.4; }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--color-text-secondary); }
+  .empty-desc { font-size: 12px; color: var(--color-text-muted); text-align: center; max-width: 220px; line-height: 1.6; }
+
+  /* ─── Nothing Selected (right panel placeholder) ─── */
+  .no-selection {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--color-text-muted);
+  }
+  .no-selection-icon { font-size: 36px; opacity: 0.25; }
+  .no-selection-text { font-size: 13px; }
+
+  /* ─── Trigger Records Table ─── */
+  .records-panel {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .records-panel::-webkit-scrollbar { width: 4px; }
+  .records-panel::-webkit-scrollbar-track { background: transparent; }
+  .records-panel::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+
+  .records-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .records-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .records-table thead th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-default);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+  }
+  .records-table tbody tr {
+    transition: background 0.12s;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .records-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.018); }
+  .records-table tbody tr:hover { background: var(--color-bg-hover); }
+  .records-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+  }
+  .td-time {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+  .td-hook {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+  .td-reason {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ─── Filter Bar (trigger records left panel) ─── */
+  .filter-section {
+    padding: 14px;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .filter-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+  }
+  .filter-select {
+    width: 100%;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--color-text-secondary);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    margin-bottom: 8px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c5e72' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+  .filter-select:focus { border-color: var(--color-accent); }
+
+  /* ─── Stats Cards ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px;
+  }
+  .stat-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.2;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+  .stat-card.stat-blocked .stat-value { color: var(--color-danger); }
+  .stat-card.stat-passed .stat-value { color: var(--color-success); }
+  .stat-card.stat-warning .stat-value { color: var(--color-warning); }
+
+  /* ─── Skeleton / Loading ─── */
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg,
+      var(--color-bg-card) 25%,
+      var(--color-bg-hover) 50%,
+      var(--color-bg-card) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 4px;
+  }
+  .skel-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border-default);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .skel-row { display: flex; align-items: center; gap: 8px; }
+  .skel-line { height: 10px; border-radius: 4px; }
+  .skel-block {
+    height: 120px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+
+  /* ─── Tab content visibility ─── */
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; }
+
+  /* ─── Records full-width layout ─── */
+  .records-full {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Scope Tags ─── */
+  .tag-scope-global { background: rgba(51,154,240,0.2); color: var(--color-info); }
+  .tag-scope-project { background: rgba(34,211,238,0.2); color: #22d3ee; }
+
+  /* ─── Search Row (search + filter + add btn) ─── */
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border-default);
+    flex-shrink: 0;
+  }
+  .search-row .search-input { padding: 7px 12px 7px 32px; flex: 1; }
+  .project-filter {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    padding: 7px 26px 7px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--color-text-secondary);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235c5e72' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .project-filter:focus { border-color: var(--color-accent); }
+  .btn-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: none;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--color-accent);
+    color: #fff;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-add:hover { background: #7d6ef0; }
+  .edit-icon {
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    color: var(--color-text-muted);
+    margin-left: 4px;
+  }
+  .list-item:hover .edit-icon { opacity: 1; }
+  .edit-icon:hover { color: var(--color-accent-light); }
+
+  /* ─── Right Panel Mode Toggle ─── */
+  .right-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--color-border-default);
+    background: var(--color-bg-secondary);
+    flex-shrink: 0;
+  }
+  .mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    border: none;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    color: var(--color-text-muted);
+    transition: all 0.15s;
+  }
+  .mode-btn:hover { background: var(--color-bg-hover); color: var(--color-text-secondary); }
+  .mode-btn.active { background: var(--color-bg-active); color: var(--color-accent-light); }
+
+  /* ─── Agent Session Terminal ─── */
+  .session-wrap {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  .session-wrap.active { display: flex; }
+  .session-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border-default);
+    background: var(--color-bg-secondary);
+    flex-shrink: 0;
+  }
+  .session-agent-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .session-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .session-status-running { background: var(--color-success-dim); color: var(--color-success); }
+  .session-status-done { background: rgba(255,255,255,0.06); color: var(--color-text-muted); }
+  .terminal-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    background: var(--color-bg-primary);
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .term-meta { color: var(--color-text-muted); font-size: 11px; }
+  .term-agent { color: var(--color-text-secondary); }
+  .term-agent-label { color: var(--color-info); font-weight: 600; }
+  .term-user { color: var(--color-accent-light); }
+  .term-success { color: var(--color-success); }
+  .term-warning { color: var(--color-warning); }
+  .term-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: var(--color-accent);
+    vertical-align: middle;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+  .session-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--color-border-default);
+    background: var(--color-bg-secondary);
+    flex-shrink: 0;
+  }
+  .session-input {
+    flex: 1;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--color-text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .session-input:focus { border-color: var(--color-accent); }
+  .session-send-btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--color-accent);
+    color: #fff;
+    transition: all 0.15s;
+  }
+  .session-send-btn:hover { background: #7d6ef0; }
+
+  /* ─── Preview wrap ─── */
+  .preview-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  .preview-wrap.active { display: flex; }
+</style>
+</head>
+<body>
+
+<!-- State Switcher -->
+<div class="state-switcher">
+  <button class="state-btn active" onclick="switchState('normal', event)">正常</button>
+  <button class="state-btn" onclick="switchState('session', event)">Agent Session</button>
+  <button class="state-btn" onclick="switchState('empty', event)">空狀態</button>
+  <button class="state-btn" onclick="switchState('loading', event)">Loading</button>
+</div>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">AH</div>
+    <div class="nav-item" title="Dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </div>
+    <div class="nav-item" title="Sessions">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </div>
+    <div class="nav-item" title="Projects">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h3l2 2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    </div>
+    <div class="nav-item" title="Tasks">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </div>
+    <div class="nav-item" title="Gates">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <div class="nav-item" title="Agents">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><circle cx="12" cy="12" r="9"/></svg>
+    </div>
+    <div class="nav-item active" title="Harness">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-item" title="Knowledge">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    </div>
+    <div class="nav-item" title="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- TopBar -->
+    <div class="topbar">
+      <div class="topbar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a29bfe" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div class="topbar-text">
+        <span class="topbar-title">Harness 管理</span>
+        <span class="topbar-subtitle">Skill / Hook / 觸發紀錄</span>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ═══════════════════════════ NORMAL STATE ═══════════════════════════ -->
+      <div id="state-normal" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+
+        <!-- Top Tab Bar -->
+        <div class="harness-tab-bar">
+          <div class="harness-tab active" id="tab-skill-btn" onclick="switchTab('skill')">
+            <span class="harness-tab-icon">🧩</span> Skill
+          </div>
+          <div class="harness-tab" id="tab-hook-btn" onclick="switchTab('hook')">
+            <span class="harness-tab-icon">🪝</span> Hook
+          </div>
+          <div class="harness-tab" id="tab-record-btn" onclick="switchTab('record')">
+            <span class="harness-tab-icon">📋</span> 觸發紀錄
+          </div>
+        </div>
+
+        <!-- Panels -->
+        <div class="panels">
+
+          <!-- ── SKILL TAB ── -->
+          <div id="tab-skill" class="tab-content active" style="width:100%; display:flex; flex:1; overflow:hidden;">
+
+            <!-- Left: Skill List -->
+            <div class="panel-left">
+              <div class="search-row">
+                <input class="search-input" type="text" placeholder="搜尋 Skill...">
+                <select class="project-filter">
+                  <option>全部專案</option>
+                  <option>ChatPilot</option>
+                  <option>LexMind</option>
+                  <option>AgentHub</option>
+                </select>
+                <button class="btn-add" onclick="showSkillSession()">+ 新增</button>
+              </div>
+
+              <!-- commit -->
+              <div class="list-item selected" onclick="selectItem(this, 'skill-commit')">
+                <div class="list-item-body">
+                  <div class="list-item-name">commit</div>
+                  <div class="list-item-path">.claude/skills/commit.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-system">System</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- review-pr -->
+              <div class="list-item" onclick="selectItem(this, 'skill-review')">
+                <div class="list-item-body">
+                  <div class="list-item-name">review-pr</div>
+                  <div class="list-item-path">.claude/skills/review-pr.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-system">System</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- deploy -->
+              <div class="list-item" onclick="selectItem(this, 'skill-deploy')">
+                <div class="list-item-body">
+                  <div class="list-item-name">deploy<span class="edit-icon" onclick="event.stopPropagation(); showSkillSession()">✏️</span></div>
+                  <div class="list-item-path">.claude/skills/deploy.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-custom">Custom</span>
+                    <span class="tag tag-scope-project">ChatPilot</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- lint-fix -->
+              <div class="list-item" onclick="selectItem(this, 'skill-lint')">
+                <div class="list-item-body">
+                  <div class="list-item-name">lint-fix<span class="edit-icon" onclick="event.stopPropagation(); showSkillSession()">✏️</span></div>
+                  <div class="list-item-path">.claude/skills/lint-fix.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-custom">Custom</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- db-migrate (disabled) -->
+              <div class="list-item" onclick="selectItem(this, 'skill-db')" style="opacity:0.6;">
+                <div class="list-item-body">
+                  <div class="list-item-name">db-migrate<span class="edit-icon" onclick="event.stopPropagation(); showSkillSession()">✏️</span></div>
+                  <div class="list-item-path">.claude/skills/db-migrate.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-custom">Custom</span>
+                    <span class="tag tag-scope-project">LexMind</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox">
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- test-runner -->
+              <div class="list-item" onclick="selectItem(this, 'skill-test')">
+                <div class="list-item-body">
+                  <div class="list-item-name">test-runner</div>
+                  <div class="list-item-path">.claude/skills/test-runner.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-system">System</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- doc-gen -->
+              <div class="list-item" onclick="selectItem(this, 'skill-docgen')">
+                <div class="list-item-body">
+                  <div class="list-item-name">doc-gen<span class="edit-icon" onclick="event.stopPropagation(); showSkillSession()">✏️</span></div>
+                  <div class="list-item-path">.claude/skills/doc-gen.md</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-custom">Custom</span>
+                    <span class="tag tag-scope-project">ChatPilot</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Right: Skill Detail -->
+            <div class="panel-right">
+
+              <!-- Mode Toggle Bar -->
+              <div class="right-mode-bar">
+                <button class="mode-btn active" id="skill-mode-preview" onclick="setSkillMode('preview')">📄 預覽</button>
+                <button class="mode-btn" id="skill-mode-session" onclick="setSkillMode('session')">🤖 Agent Session</button>
+              </div>
+
+              <!-- Agent Session Terminal (hidden by default) -->
+              <div class="session-wrap" id="skill-session-panel">
+                <div class="session-header">
+                  <span style="font-size:18px;">🤖</span>
+                  <span class="session-agent-name">harness-manager</span>
+                  <span class="session-status session-status-running">● running</span>
+                </div>
+                <div class="terminal-area">
+                  <div class="term-meta">[14:32:05] harness-manager Session 已啟動</div>
+                  <br>
+                  <div class="term-agent"><span class="term-agent-label">[harness-manager]</span> 想建立什麼 Skill？請描述你的需求，我會幫你生成對應的 Skill 定義檔。</div>
+                  <br>
+                  <div class="term-user">&gt; 我需要一個 deploy skill，在 ChatPilot 專案中自動執行 build 和部署到 staging 環境</div>
+                  <br>
+                  <div class="term-agent"><span class="term-agent-label">[harness-manager]</span> 了解，我來為 ChatPilot 建立 deploy skill。</div>
+                  <br>
+                  <div class="term-agent">📋 分析需求：</div>
+                  <div class="term-agent">&nbsp;&nbsp;- 專案：ChatPilot</div>
+                  <div class="term-agent">&nbsp;&nbsp;- 功能：自動化 build + staging 部署</div>
+                  <div class="term-agent">&nbsp;&nbsp;- 範圍：專案專用</div>
+                  <br>
+                  <div class="term-warning">⏳ 正在生成 Skill 定義...</div>
+                  <br>
+                  <div class="term-agent">📝 已建立：projects/ChatPilot/.claude/skills/deploy.md</div>
+                  <br>
+                  <div class="term-success">✅ Skill "deploy" 已建立並啟用</div>
+                  <div class="term-agent">&nbsp;&nbsp;&nbsp;作用範圍：ChatPilot（專案專用）</div>
+                  <div class="term-agent">&nbsp;&nbsp;&nbsp;觸發方式：/deploy 或 /deploy staging</div>
+                  <br>
+                  <div class="term-agent">還需要調整嗎？例如增加 production 部署選項？</div>
+                  <br>
+                  <div class="term-user">&gt; <span class="term-cursor"></span></div>
+                </div>
+                <div class="session-input-bar">
+                  <input class="session-input" type="text" placeholder="💬 輸入指令...">
+                  <button class="session-send-btn">送出</button>
+                </div>
+              </div>
+
+              <!-- Preview Panels Container -->
+              <div class="preview-wrap active" id="skill-preview-panel">
+
+              <!-- commit detail (default shown) -->
+              <div id="skill-commit" class="skill-detail" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">
+                      commit
+                      <span class="tag tag-system">System</span>
+                    </div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/commit.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: commit</p>
+                  <p class="md-p">建立標準化的 Git Commit，遵循 Conventional Commits 規範，並自動加入協作者署名。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/commit -m "feat(auth): add OAuth2 login flow"</div>
+                  <p class="md-h2">規則</p>
+                  <ul class="md-list">
+                    <li>遵循 Conventional Commits 格式（feat / fix / chore / docs / refactor）</li>
+                    <li>自動加入 <span class="md-code">Co-Authored-By: Claude</span> 署名</li>
+                    <li>禁止使用 <span class="md-code">--no-verify</span> 旗標</li>
+                    <li>Commit 前必須確認 <span class="md-code">git diff --staged</span> 不為空</li>
+                    <li>Message 長度不超過 72 字元</li>
+                  </ul>
+                  <p class="md-h2">範例輸出</p>
+                  <div class="md-block">feat(harness): add skill toggle endpoint
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;</div>
+                  <p class="md-h2">禁止行為</p>
+                  <ul class="md-list">
+                    <li>不得 amend 既有 commit（除非使用者明確要求）</li>
+                    <li>不得對 main/master 分支直接 push</li>
+                    <li>不得略過 pre-commit hook</li>
+                  </ul>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-01-10</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-20</span></div>
+                  <div class="footer-meta">檔案大小 <span>1.4 KB</span></div>
+                </div>
+              </div>
+
+              <!-- review-pr detail -->
+              <div id="skill-review" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">review-pr <span class="tag tag-system">System</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/review-pr.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: review-pr</p>
+                  <p class="md-p">審查 Pull Request，產出結構化的審查報告，包含問題分類、嚴重度與建議修正方向。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/review-pr 123
+/review-pr https://github.com/org/repo/pull/123</div>
+                  <p class="md-h2">輸出格式</p>
+                  <ul class="md-list">
+                    <li>Critical — 必須修正才能合併</li>
+                    <li>Warning — 建議修正但不阻擋</li>
+                    <li>Suggestion — 可選改進項目</li>
+                  </ul>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-01-10</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-15</span></div>
+                  <div class="footer-meta">檔案大小 <span>2.1 KB</span></div>
+                </div>
+              </div>
+
+              <!-- deploy detail -->
+              <div id="skill-deploy" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">deploy <span class="tag tag-custom">Custom</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/deploy.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: deploy</p>
+                  <p class="md-p">執行部署流程，支援 staging 與 production 環境，部署前自動執行測試與 lint。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/deploy staging
+/deploy production --confirm</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-02-05</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-22</span></div>
+                  <div class="footer-meta">檔案大小 <span>1.8 KB</span></div>
+                </div>
+              </div>
+
+              <!-- lint-fix detail -->
+              <div id="skill-lint" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">lint-fix <span class="tag tag-custom">Custom</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/lint-fix.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: lint-fix</p>
+                  <p class="md-p">自動修復 ESLint / Prettier 問題，並回報無法自動修復的項目清單。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/lint-fix
+/lint-fix --dry-run</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-02-18</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-01</span></div>
+                  <div class="footer-meta">檔案大小 <span>0.9 KB</span></div>
+                </div>
+              </div>
+
+              <!-- db-migrate detail -->
+              <div id="skill-db" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">db-migrate <span class="tag tag-custom">Custom</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/db-migrate.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-text-muted);">● 已停用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: db-migrate</p>
+                  <p class="md-p">執行資料庫遷移腳本，支援 up / down rollback，遷移前自動備份。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/db-migrate up
+/db-migrate down --steps 1</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-02-28</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-10</span></div>
+                  <div class="footer-meta">檔案大小 <span>1.2 KB</span></div>
+                </div>
+              </div>
+
+              <!-- test-runner detail -->
+              <div id="skill-test" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">test-runner <span class="tag tag-system">System</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/test-runner.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: test-runner</p>
+                  <p class="md-p">執行測試套件，回報覆蓋率、失敗測試與建議修正方向。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/test-runner
+/test-runner --coverage --watch</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-01-10</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-18</span></div>
+                  <div class="footer-meta">檔案大小 <span>1.6 KB</span></div>
+                </div>
+              </div>
+
+              <!-- doc-gen detail -->
+              <div id="skill-docgen" class="skill-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">doc-gen <span class="tag tag-custom">Custom</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">路徑 <span>.claude/skills/doc-gen.md</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Skill: doc-gen</p>
+                  <p class="md-p">根據程式碼自動產生文件，支援 JSDoc、Markdown 與 OpenAPI 格式。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">使用方式</p>
+                  <div class="md-block">/doc-gen src/services/
+/doc-gen --format openapi --output docs/api.yaml</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">建立時間 <span>2026-03-05</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-24</span></div>
+                  <div class="footer-meta">檔案大小 <span>1.1 KB</span></div>
+                </div>
+              </div>
+
+              </div>
+              <!-- /preview-wrap -->
+
+            </div>
+          </div>
+          <!-- /SKILL TAB -->
+
+          <!-- ── HOOK TAB ── -->
+          <div id="tab-hook" class="tab-content" style="width:100%; flex:1; overflow:hidden;">
+
+            <!-- Left: Hook List -->
+            <div class="panel-left">
+              <div class="search-row">
+                <input class="search-input" type="text" placeholder="搜尋 Hook...">
+                <select class="project-filter">
+                  <option>全部專案</option>
+                  <option>ChatPilot</option>
+                  <option>LexMind</option>
+                  <option>AgentHub</option>
+                </select>
+                <button class="btn-add" onclick="showHookSession()">+ 新增</button>
+              </div>
+
+              <!-- kill-port-blocker -->
+              <div class="list-item selected" onclick="selectHook(this, 'hook-kill')">
+                <div class="list-item-body">
+                  <div class="list-item-name">kill-port-blocker</div>
+                  <div class="list-item-path">Bash(kill|taskkill)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-pre">PreToolUse</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- force-push-guard -->
+              <div class="list-item" onclick="selectHook(this, 'hook-forcepush')">
+                <div class="list-item-body">
+                  <div class="list-item-name">force-push-guard</div>
+                  <div class="list-item-path">Bash(git push.*--force)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-pre">PreToolUse</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- no-verify-block -->
+              <div class="list-item" onclick="selectHook(this, 'hook-noverify')">
+                <div class="list-item-body">
+                  <div class="list-item-name">no-verify-block</div>
+                  <div class="list-item-path">Bash(--no-verify)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-pre">PreToolUse</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- commit-format -->
+              <div class="list-item" onclick="selectHook(this, 'hook-commitfmt')">
+                <div class="list-item-body">
+                  <div class="list-item-name">commit-format</div>
+                  <div class="list-item-path">Bash(git commit)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-post">PostToolUse</span>
+                    <span class="tag tag-scope-project">ChatPilot</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- test-after-edit (disabled) -->
+              <div class="list-item" onclick="selectHook(this, 'hook-testedit')" style="opacity:0.6;">
+                <div class="list-item-body">
+                  <div class="list-item-name">test-after-edit</div>
+                  <div class="list-item-path">Edit(*)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-post">PostToolUse</span>
+                    <span class="tag tag-scope-project">LexMind</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox">
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+
+              <!-- forbidden-cmd -->
+              <div class="list-item" onclick="selectHook(this, 'hook-forbidden')">
+                <div class="list-item-body">
+                  <div class="list-item-name">forbidden-cmd</div>
+                  <div class="list-item-path">Bash(rm -rf /)</div>
+                  <div class="list-item-meta">
+                    <span class="tag tag-stop">Stop</span>
+                    <span class="tag tag-scope-global">全域</span>
+                  </div>
+                </div>
+                <label class="toggle" onclick="event.stopPropagation()">
+                  <input type="checkbox" checked>
+                  <div class="toggle-track"></div>
+                  <div class="toggle-knob"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Right: Hook Detail -->
+            <div class="panel-right">
+
+              <!-- Mode Toggle Bar -->
+              <div class="right-mode-bar">
+                <button class="mode-btn active" id="hook-mode-preview" onclick="setHookMode('preview')">📄 預覽</button>
+                <button class="mode-btn" id="hook-mode-session" onclick="setHookMode('session')">🤖 Agent Session</button>
+              </div>
+
+              <!-- Agent Session Terminal (hidden) -->
+              <div class="session-wrap" id="hook-session-panel">
+                <div class="session-header">
+                  <span style="font-size:18px;">🤖</span>
+                  <span class="session-agent-name">harness-manager</span>
+                  <span class="session-status session-status-running">● running</span>
+                </div>
+                <div class="terminal-area">
+                  <div class="term-meta">[14:45:12] harness-manager Session 已啟動</div>
+                  <br>
+                  <div class="term-agent"><span class="term-agent-label">[harness-manager]</span> 想建立什麼 Hook？請描述觸發條件和處理邏輯。</div>
+                  <br>
+                  <div class="term-user">&gt; <span class="term-cursor"></span></div>
+                </div>
+                <div class="session-input-bar">
+                  <input class="session-input" type="text" placeholder="💬 輸入指令...">
+                  <button class="session-send-btn">送出</button>
+                </div>
+              </div>
+
+              <!-- Preview Panels Container -->
+              <div class="preview-wrap active" id="hook-preview-panel">
+
+              <!-- hook-kill detail (default) -->
+              <div id="hook-kill" class="hook-detail" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">
+                      kill-port-blocker
+                      <span class="tag tag-pre">PreToolUse</span>
+                    </div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Bash(kill|taskkill)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: kill-port-blocker</p>
+                  <p class="md-p">在 Bash 工具執行 kill 或 taskkill 指令前攔截，防止 Agent 意外終止關鍵系統程序。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">類型</p>
+                  <p class="md-p"><span class="tag tag-pre">PreToolUse</span> — 在工具執行前觸發，可阻止執行</p>
+                  <p class="md-h2">Matcher 規則</p>
+                  <div class="md-block">{"matcher": "Bash(kill|taskkill)"}</div>
+                  <p class="md-h2">處理邏輯</p>
+                  <ul class="md-list">
+                    <li>比對指令是否包含 <span class="md-code">kill</span> 或 <span class="md-code">taskkill</span></li>
+                    <li>若比對成功則回傳 <span class="md-code">block: true</span> 阻止執行</li>
+                    <li>同時記錄觸發事件至 trigger log</li>
+                  </ul>
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+# kill-port-blocker PreToolUse hook
+echo '{"decision":"block","reason":"kill/taskkill commands are forbidden"}'</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-20</span></div>
+                  <div class="footer-meta">觸發次數 <span>47</span></div>
+                </div>
+              </div>
+
+              <!-- hook-forcepush detail -->
+              <div id="hook-forcepush" class="hook-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">force-push-guard <span class="tag tag-pre">PreToolUse</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Bash(git push.*--force)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: force-push-guard</p>
+                  <p class="md-p">防止 Agent 對任何分支執行 force push，保護 Git 歷史記錄完整性。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+echo '{"decision":"block","reason":"force push is forbidden"}'</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-18</span></div>
+                  <div class="footer-meta">觸發次數 <span>12</span></div>
+                </div>
+              </div>
+
+              <!-- hook-noverify detail -->
+              <div id="hook-noverify" class="hook-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">no-verify-block <span class="tag tag-pre">PreToolUse</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Bash(--no-verify)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: no-verify-block</p>
+                  <p class="md-p">攔截任何使用 --no-verify 旗標的 Git 指令，確保 pre-commit hook 永遠執行。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+echo '{"decision":"block","reason":"--no-verify is forbidden by policy"}'</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-20</span></div>
+                  <div class="footer-meta">觸發次數 <span>8</span></div>
+                </div>
+              </div>
+
+              <!-- hook-commitfmt detail -->
+              <div id="hook-commitfmt" class="hook-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">commit-format <span class="tag tag-post">PostToolUse</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Bash(git commit)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: commit-format</p>
+                  <p class="md-p">在 git commit 執行後驗證 commit message 格式是否符合 Conventional Commits 規範。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+MSG=$(git log -1 --format="%s")
+if ! echo "$MSG" | grep -qE "^(feat|fix|chore|docs|refactor|test|style)"; then
+  echo "Warning: commit message may not follow Conventional Commits"
+fi</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-15</span></div>
+                  <div class="footer-meta">觸發次數 <span>134</span></div>
+                </div>
+              </div>
+
+              <!-- hook-testedit detail -->
+              <div id="hook-testedit" class="hook-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">test-after-edit <span class="tag tag-post">PostToolUse</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Edit(*)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-text-muted);">● 已停用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: test-after-edit</p>
+                  <p class="md-p">每次編輯檔案後自動執行相關測試，目前已停用以避免影響開發速度。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+npm run test -- --related "$TOOL_INPUT_FILE_PATH"</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-10</span></div>
+                  <div class="footer-meta">觸發次數 <span>0（已停用）</span></div>
+                </div>
+              </div>
+
+              <!-- hook-forbidden detail -->
+              <div id="hook-forbidden" class="hook-detail" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div class="detail-header">
+                  <div class="detail-header-body">
+                    <div class="detail-title">forbidden-cmd <span class="tag tag-stop">Stop</span></div>
+                    <div class="detail-meta-row">
+                      <div class="detail-meta-item">Matcher <span>Bash(rm -rf /)</span></div>
+                      <div class="detail-meta-item" style="color:var(--color-success);">● 已啟用</div>
+                    </div>
+                  </div>
+                  <label class="toggle" style="width:36px; height:20px; margin-top:4px;">
+                    <input type="checkbox" checked>
+                    <div class="toggle-track"></div>
+                    <div class="toggle-knob"></div>
+                  </label>
+                </div>
+                <div class="detail-body">
+                  <p class="md-h1">Hook: forbidden-cmd</p>
+                  <p class="md-p">Stop Hook — 偵測到危險指令時立即終止 Agent 執行，防止破壞性操作。</p>
+                  <hr class="md-divider">
+                  <p class="md-h2">類型</p>
+                  <p class="md-p"><span class="tag tag-stop">Stop</span> — 在 Agent 停止前觸發，可記錄最終狀態</p>
+                  <p class="md-h2">Hook 腳本</p>
+                  <div class="md-block">#!/bin/bash
+echo "CRITICAL: forbidden command detected" >&2
+exit 1</div>
+                </div>
+                <div class="detail-footer">
+                  <div class="footer-meta">設定檔 <span>.claude/settings.json</span></div>
+                  <div class="footer-meta">最後修改 <span>2026-03-20</span></div>
+                  <div class="footer-meta">觸發次數 <span>2</span></div>
+                </div>
+              </div>
+
+              </div>
+              <!-- /hook-preview-wrap -->
+
+            </div>
+          </div>
+          <!-- /HOOK TAB -->
+
+          <!-- ── TRIGGER RECORDS TAB ── -->
+          <div id="tab-record" class="tab-content" style="width:100%; flex:1; overflow:hidden;">
+
+            <!-- Left: Filters + Stats -->
+            <div class="panel-left" style="overflow-y:auto;">
+              <div class="filter-section">
+                <div class="filter-label">專案</div>
+                <select class="filter-select">
+                  <option>全部專案</option>
+                  <option>ChatPilot</option>
+                  <option>LexMind</option>
+                  <option>AgentHub</option>
+                </select>
+                <div class="filter-label">Hook 名稱</div>
+                <select class="filter-select">
+                  <option>全部 Hook</option>
+                  <option>kill-port-blocker</option>
+                  <option>force-push-guard</option>
+                  <option>no-verify-block</option>
+                  <option>commit-format</option>
+                  <option>forbidden-cmd</option>
+                </select>
+                <div class="filter-label">執行結果</div>
+                <select class="filter-select">
+                  <option>全部結果</option>
+                  <option>Blocked</option>
+                  <option>Passed</option>
+                  <option>Warning</option>
+                </select>
+                <div class="filter-label">日期範圍</div>
+                <select class="filter-select">
+                  <option>今日</option>
+                  <option>最近 7 天</option>
+                  <option>最近 30 天</option>
+                  <option>全部</option>
+                </select>
+              </div>
+
+              <div style="padding: 12px 14px 4px; border-bottom: 1px solid var(--color-border-default);">
+                <div class="filter-label">今日統計</div>
+              </div>
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-value">28</div>
+                  <div class="stat-label">總觸發次數</div>
+                </div>
+                <div class="stat-card stat-blocked">
+                  <div class="stat-value">5</div>
+                  <div class="stat-label">已攔截</div>
+                </div>
+                <div class="stat-card stat-passed">
+                  <div class="stat-value">21</div>
+                  <div class="stat-label">通過</div>
+                </div>
+                <div class="stat-card stat-warning">
+                  <div class="stat-value">2</div>
+                  <div class="stat-label">警告</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Records Table -->
+            <div class="panel-right">
+              <div class="records-table-wrap">
+                <table class="records-table">
+                  <thead>
+                    <tr>
+                      <th>時間</th>
+                      <th>Hook 名稱</th>
+                      <th>類型</th>
+                      <th>觸發原因</th>
+                      <th>結果</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="td-time">14:32:05</td>
+                      <td class="td-hook">kill-port-blocker</td>
+                      <td><span class="tag tag-pre">PreToolUse</span></td>
+                      <td class="td-reason">Bash: kill -9 3200</td>
+                      <td><span class="tag tag-blocked">Blocked</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">14:28:11</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "feat: add toggle"</td>
+                      <td><span class="tag tag-passed">Passed</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">14:21:43</td>
+                      <td class="td-hook">force-push-guard</td>
+                      <td><span class="tag tag-pre">PreToolUse</span></td>
+                      <td class="td-reason">Bash: git push origin main --force</td>
+                      <td><span class="tag tag-blocked">Blocked</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">14:15:30</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "update stuff"</td>
+                      <td><span class="tag tag-warning-tag">Warning</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">14:10:08</td>
+                      <td class="td-hook">no-verify-block</td>
+                      <td><span class="tag tag-pre">PreToolUse</span></td>
+                      <td class="td-reason">Bash: git commit --no-verify -m "fix"</td>
+                      <td><span class="tag tag-blocked">Blocked</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">14:05:52</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "chore: bump version"</td>
+                      <td><span class="tag tag-passed">Passed</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:58:17</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "fix(db): handle null"</td>
+                      <td><span class="tag tag-passed">Passed</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:50:04</td>
+                      <td class="td-hook">kill-port-blocker</td>
+                      <td><span class="tag tag-pre">PreToolUse</span></td>
+                      <td class="td-reason">Bash: taskkill /F /PID 4400</td>
+                      <td><span class="tag tag-blocked">Blocked</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:44:29</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "docs: update README"</td>
+                      <td><span class="tag tag-passed">Passed</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:38:55</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "wip changes"</td>
+                      <td><span class="tag tag-warning-tag">Warning</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:30:12</td>
+                      <td class="td-hook">force-push-guard</td>
+                      <td><span class="tag tag-pre">PreToolUse</span></td>
+                      <td class="td-reason">Bash: git push origin feature/x --force-with-lease</td>
+                      <td><span class="tag tag-blocked">Blocked</span></td>
+                    </tr>
+                    <tr>
+                      <td class="td-time">13:20:48</td>
+                      <td class="td-hook">commit-format</td>
+                      <td><span class="tag tag-post">PostToolUse</span></td>
+                      <td class="td-reason">Bash: git commit -m "refactor: extract hook logic"</td>
+                      <td><span class="tag tag-passed">Passed</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- /TRIGGER RECORDS TAB -->
+
+        </div>
+        <!-- /panels -->
+      </div>
+      <!-- /state-normal -->
+
+      <!-- ═══════════════════════════ EMPTY STATE ═══════════════════════════ -->
+      <div id="state-empty" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+
+        <!-- Tab Bar (same structure, reused) -->
+        <div class="harness-tab-bar">
+          <div class="harness-tab active" id="etab-skill-btn" onclick="switchEmptyTab('skill')">
+            <span class="harness-tab-icon">🧩</span> Skill
+          </div>
+          <div class="harness-tab" id="etab-hook-btn" onclick="switchEmptyTab('hook')">
+            <span class="harness-tab-icon">🪝</span> Hook
+          </div>
+          <div class="harness-tab" id="etab-record-btn" onclick="switchEmptyTab('record')">
+            <span class="harness-tab-icon">📋</span> 觸發紀錄
+          </div>
+        </div>
+
+        <div class="panels">
+          <!-- Empty Left + Right for Skill -->
+          <div id="etab-skill" class="tab-content active" style="width:100%; display:flex; flex:1; overflow:hidden;">
+            <div class="panel-left">
+              <div class="search-wrap">
+                <input class="search-input" type="text" placeholder="搜尋 Skill..." disabled>
+              </div>
+              <div class="empty-state">
+                <div class="empty-icon">🧩</div>
+                <div class="empty-title">尚無 Skill</div>
+                <div class="empty-desc">透過 Agent 對話建立第一個 Skill，例如：「建立一個 commit skill」</div>
+              </div>
+            </div>
+            <div class="panel-right">
+              <div class="no-selection">
+                <div class="no-selection-icon">🧩</div>
+                <div class="no-selection-text" style="color:var(--color-text-muted); font-size:14px; font-weight:600; margin-bottom:6px;">尚無 Skill</div>
+                <div class="no-selection-text" style="font-size:12px; color:var(--color-text-muted); text-align:center; max-width:260px; line-height:1.6;">透過 Agent 對話建立第一個 Skill，Skill 檔案將儲存在 <span style="font-family:monospace; color:var(--color-accent-light);">.claude/skills/</span> 目錄</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty for Hook -->
+          <div id="etab-hook" class="tab-content" style="width:100%; display:flex; flex:1; overflow:hidden;">
+            <div class="panel-left">
+              <div class="search-wrap">
+                <input class="search-input" type="text" placeholder="搜尋 Hook..." disabled>
+              </div>
+              <div class="empty-state">
+                <div class="empty-icon">🪝</div>
+                <div class="empty-title">尚無 Hook</div>
+                <div class="empty-desc">在 .claude/settings.json 中的 hooks 欄位配置 Hook 規則</div>
+              </div>
+            </div>
+            <div class="panel-right">
+              <div class="no-selection">
+                <div class="no-selection-icon">🪝</div>
+                <div class="no-selection-text" style="color:var(--color-text-muted); font-size:14px; font-weight:600; margin-bottom:6px;">尚無 Hook</div>
+                <div class="no-selection-text" style="font-size:12px; color:var(--color-text-muted); text-align:center; max-width:260px; line-height:1.6;">Hook 設定存放於 <span style="font-family:monospace; color:var(--color-accent-light);">.claude/settings.json</span>，透過 PreToolUse / PostToolUse / Stop 事件觸發</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty for Trigger Records -->
+          <div id="etab-record" class="tab-content" style="width:100%; display:flex; flex:1; overflow:hidden;">
+            <div class="panel-left" style="overflow-y:auto;">
+              <div class="filter-section" style="opacity:0.5; pointer-events:none;">
+                <div class="filter-label">Hook 名稱</div>
+                <select class="filter-select"><option>全部 Hook</option></select>
+                <div class="filter-label">執行結果</div>
+                <select class="filter-select"><option>全部結果</option></select>
+              </div>
+              <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <div class="empty-title">尚無觸發紀錄</div>
+                <div class="empty-desc">Hook 被觸發時將記錄在此，啟用 Hook 後開始監控</div>
+              </div>
+            </div>
+            <div class="panel-right">
+              <div class="no-selection">
+                <div class="no-selection-icon">📋</div>
+                <div class="no-selection-text" style="color:var(--color-text-muted); font-size:14px; font-weight:600; margin-bottom:6px;">尚無觸發紀錄</div>
+                <div class="no-selection-text" style="font-size:12px; color:var(--color-text-muted); text-align:center; max-width:280px; line-height:1.6;">當 Hook 被觸發（Blocked / Passed / Warning）時，所有事件記錄將顯示在此</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /state-empty -->
+
+      <!-- ═══════════════════════════ LOADING STATE ═══════════════════════════ -->
+      <div id="state-loading" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+
+        <!-- Tab Bar (loading, tabs disabled) -->
+        <div class="harness-tab-bar">
+          <div class="harness-tab active" style="pointer-events:none;">
+            <span class="harness-tab-icon">🧩</span> Skill
+          </div>
+          <div class="harness-tab" style="pointer-events:none; opacity:0.5;">
+            <span class="harness-tab-icon">🪝</span> Hook
+          </div>
+          <div class="harness-tab" style="pointer-events:none; opacity:0.5;">
+            <span class="harness-tab-icon">📋</span> 觸發紀錄
+          </div>
+        </div>
+
+        <div class="panels">
+          <!-- Left skeleton -->
+          <div class="panel-left">
+            <div class="search-wrap">
+              <div class="skeleton skel-line" style="width:100%; height:32px; border-radius:7px;"></div>
+            </div>
+            <!-- Skeleton items -->
+            <div class="skel-item">
+              <div class="skel-row">
+                <div class="skeleton skel-line" style="width:90px;"></div>
+                <div class="skeleton skel-line" style="width:48px; height:8px; border-radius:20px; margin-left:auto;"></div>
+              </div>
+              <div class="skeleton skel-line" style="width:170px; height:8px;"></div>
+              <div class="skeleton skel-line" style="width:56px; height:14px; border-radius:20px;"></div>
+            </div>
+            <div class="skel-item">
+              <div class="skel-row">
+                <div class="skeleton skel-line" style="width:80px;"></div>
+                <div class="skeleton skel-line" style="width:48px; height:8px; border-radius:20px; margin-left:auto;"></div>
+              </div>
+              <div class="skeleton skel-line" style="width:160px; height:8px;"></div>
+              <div class="skeleton skel-line" style="width:56px; height:14px; border-radius:20px;"></div>
+            </div>
+            <div class="skel-item">
+              <div class="skel-row">
+                <div class="skeleton skel-line" style="width:60px;"></div>
+                <div class="skeleton skel-line" style="width:48px; height:8px; border-radius:20px; margin-left:auto;"></div>
+              </div>
+              <div class="skeleton skel-line" style="width:150px; height:8px;"></div>
+              <div class="skeleton skel-line" style="width:52px; height:14px; border-radius:20px;"></div>
+            </div>
+            <div class="skel-item">
+              <div class="skel-row">
+                <div class="skeleton skel-line" style="width:100px;"></div>
+                <div class="skeleton skel-line" style="width:48px; height:8px; border-radius:20px; margin-left:auto;"></div>
+              </div>
+              <div class="skeleton skel-line" style="width:180px; height:8px;"></div>
+              <div class="skeleton skel-line" style="width:56px; height:14px; border-radius:20px;"></div>
+            </div>
+            <div class="skel-item">
+              <div class="skel-row">
+                <div class="skeleton skel-line" style="width:70px;"></div>
+                <div class="skeleton skel-line" style="width:48px; height:8px; border-radius:20px; margin-left:auto;"></div>
+              </div>
+              <div class="skeleton skel-line" style="width:155px; height:8px;"></div>
+              <div class="skeleton skel-line" style="width:52px; height:14px; border-radius:20px;"></div>
+            </div>
+          </div>
+
+          <!-- Right skeleton -->
+          <div class="panel-right" style="padding: 20px;">
+            <div class="skeleton skel-line" style="width:160px; height:22px; margin-bottom:10px;"></div>
+            <div class="skel-row" style="margin-bottom:16px; gap:8px;">
+              <div class="skeleton skel-line" style="width:56px; height:18px; border-radius:20px;"></div>
+              <div class="skeleton skel-line" style="width:100px; height:12px;"></div>
+            </div>
+            <div class="skeleton skel-block" style="height:1px; background:var(--color-border-default); animation:none; margin:0 0 16px;"></div>
+            <div class="skeleton skel-line" style="width:80px; height:12px; margin-bottom:10px;"></div>
+            <div class="skeleton skel-block" style="height:80px; margin-bottom:16px;"></div>
+            <div class="skeleton skel-line" style="width:60px; height:12px; margin-bottom:10px;"></div>
+            <div class="skeleton skel-line" style="width:100%; height:10px; margin-bottom:6px;"></div>
+            <div class="skeleton skel-line" style="width:92%; height:10px; margin-bottom:6px;"></div>
+            <div class="skeleton skel-line" style="width:85%; height:10px; margin-bottom:6px;"></div>
+            <div class="skeleton skel-line" style="width:78%; height:10px; margin-bottom:20px;"></div>
+            <div class="skeleton skel-line" style="width:70px; height:12px; margin-bottom:10px;"></div>
+            <div class="skeleton skel-block" style="height:100px;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- /state-loading -->
+
+    </div>
+    <!-- /content -->
+  </div>
+  <!-- /main -->
+</div>
+<!-- /app-shell -->
+
+<script>
+  // ─── State Switcher ───
+  function switchState(state, event) {
+    document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    var isNormal = (state === 'normal' || state === 'session');
+    document.getElementById('state-normal').style.display  = isNormal ? 'flex' : 'none';
+    document.getElementById('state-empty').style.display   = state === 'empty'   ? 'flex' : 'none';
+    document.getElementById('state-loading').style.display = state === 'loading' ? 'flex' : 'none';
+    // Toggle skill right panel mode based on state
+    if (state === 'session') {
+      setSkillMode('session');
+      // Make sure skill tab is active
+      switchTab('skill');
+    } else if (state === 'normal') {
+      setSkillMode('preview');
+    }
+  }
+
+  // ─── Tab Switcher (Normal state) ───
+  function switchTab(tab) {
+    // Update tab buttons
+    ['skill', 'hook', 'record'].forEach(t => {
+      const btn = document.getElementById('tab-' + t + '-btn');
+      if (btn) btn.classList.toggle('active', t === tab);
+    });
+    // Show/hide tab content panels
+    ['skill', 'hook', 'record'].forEach(t => {
+      const panel = document.getElementById('tab-' + t);
+      if (panel) {
+        panel.classList.toggle('active', t === tab);
+        panel.style.display = t === tab ? 'flex' : 'none';
+      }
+    });
+  }
+
+  // ─── Tab Switcher (Empty state) ───
+  function switchEmptyTab(tab) {
+    ['skill', 'hook', 'record'].forEach(t => {
+      const btn = document.getElementById('etab-' + t + '-btn');
+      if (btn) btn.classList.toggle('active', t === tab);
+      const panel = document.getElementById('etab-' + t);
+      if (panel) {
+        panel.classList.toggle('active', t === tab);
+        panel.style.display = t === tab ? 'flex' : 'none';
+      }
+    });
+  }
+
+  // ─── Skill Item Selection ───
+  function selectItem(el, detailId) {
+    // Update list item highlight
+    el.closest('.panel-left').querySelectorAll('.list-item').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
+    // Show matching detail, hide others
+    document.querySelectorAll('.skill-detail').forEach(d => {
+      d.style.display = 'none';
+    });
+    const target = document.getElementById(detailId);
+    if (target) target.style.display = 'flex';
+  }
+
+  // ─── Hook Item Selection ───
+  function selectHook(el, detailId) {
+    el.closest('.panel-left').querySelectorAll('.list-item').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
+    document.querySelectorAll('.hook-detail').forEach(d => {
+      d.style.display = 'none';
+    });
+    const target = document.getElementById(detailId);
+    if (target) target.style.display = 'flex';
+  }
+
+  // ─── Skill Right Panel Mode ───
+  function setSkillMode(mode) {
+    var previewBtn = document.getElementById('skill-mode-preview');
+    var sessionBtn = document.getElementById('skill-mode-session');
+    var previewPanel = document.getElementById('skill-preview-panel');
+    var sessionPanel = document.getElementById('skill-session-panel');
+    if (!previewBtn) return;
+    if (mode === 'session') {
+      previewBtn.classList.remove('active');
+      sessionBtn.classList.add('active');
+      previewPanel.classList.remove('active');
+      previewPanel.style.display = 'none';
+      sessionPanel.classList.add('active');
+      sessionPanel.style.display = 'flex';
+    } else {
+      previewBtn.classList.add('active');
+      sessionBtn.classList.remove('active');
+      previewPanel.classList.add('active');
+      previewPanel.style.display = '';
+      sessionPanel.classList.remove('active');
+      sessionPanel.style.display = 'none';
+    }
+  }
+
+  function showSkillSession() {
+    setSkillMode('session');
+  }
+
+  // ─── Hook Right Panel Mode ───
+  function setHookMode(mode) {
+    var previewBtn = document.getElementById('hook-mode-preview');
+    var sessionBtn = document.getElementById('hook-mode-session');
+    var previewPanel = document.getElementById('hook-preview-panel');
+    var sessionPanel = document.getElementById('hook-session-panel');
+    if (!previewBtn) return;
+    if (mode === 'session') {
+      previewBtn.classList.remove('active');
+      sessionBtn.classList.add('active');
+      previewPanel.classList.remove('active');
+      previewPanel.style.display = 'none';
+      sessionPanel.classList.add('active');
+      sessionPanel.style.display = 'flex';
+    } else {
+      previewBtn.classList.add('active');
+      sessionBtn.classList.remove('active');
+      previewPanel.classList.add('active');
+      previewPanel.style.display = '';
+      sessionPanel.classList.remove('active');
+      sessionPanel.style.display = 'none';
+    }
+  }
+
+  function showHookSession() {
+    setHookMode('session');
+  }
+
+  // ─── Toggle click stops propagation (already done inline) ───
+  document.querySelectorAll('.toggle input[type="checkbox"]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      const item = cb.closest('.list-item');
+      if (item) {
+        item.style.opacity = cb.checked ? '1' : '0.6';
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import SidebarNav from '../components/layout/SidebarNav.vue';
 import TopBar from '../components/layout/TopBar.vue';
-import CommandPalette from '../components/common/CommandPalette.vue';
 </script>
 
 <template>
@@ -20,6 +19,5 @@ import CommandPalette from '../components/common/CommandPalette.vue';
         </RouterView>
       </main>
     </div>
-    <CommandPalette />
   </div>
 </template>

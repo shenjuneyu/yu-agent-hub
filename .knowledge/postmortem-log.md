@@ -11,6 +11,19 @@
 
 ---
 
+## 踩坑快速參考
+
+| 場景 | 規則 |
+|------|------|
+| `node-pty` 編譯 | 需要 Visual Studio Build Tools。`npx electron-rebuild -f -w node-pty` |
+| 新增 IPC 通道 | `ipc.ts` → `preload.ts` → `useIpc.ts` 三方同步 |
+| 修改 Pinia store | 確認 `useIpc()` 有暴露對應 IPC wrapper |
+| 修改 DB schema | 必須在 database.ts migrations 新增版本 |
+| 循環依賴 | service 之間用 lazy `require()` 避免 |
+| TailwindCSS 4 | 用 `@theme` 定義 token，不用 `tailwind.config.js` |
+
+---
+
 ## 從 v1 繼承的已知問題
 
 ### PM-001: node-pty 編譯需要 Visual Studio Build Tools

@@ -17,16 +17,19 @@ export function registerTaskHandlers(): void {
     return taskManager.list(filters);
   });
 
-  ipcMain.handle(IpcChannels.TASK_GET, (_e, id: string) => {
-    return taskManager.getById(id);
+  // Composite key: (projectId, id)
+  ipcMain.handle(IpcChannels.TASK_GET, (_e, projectId: string, id: string) => {
+    return taskManager.getById(projectId, id);
   });
 
-  ipcMain.handle(IpcChannels.TASK_UPDATE, (_e, id: string, params: TaskUpdateParams) => {
-    return taskManager.update(id, params);
+  // Composite key: (projectId, id, params)
+  ipcMain.handle(IpcChannels.TASK_UPDATE, (_e, projectId: string, id: string, params: TaskUpdateParams) => {
+    return taskManager.update(projectId, id, params);
   });
 
-  ipcMain.handle(IpcChannels.TASK_DELETE, (_e, id: string) => {
-    taskManager.delete(id);
+  // Composite key: (projectId, id)
+  ipcMain.handle(IpcChannels.TASK_DELETE, (_e, projectId: string, id: string) => {
+    taskManager.delete(projectId, id);
     return { success: true };
   });
 
@@ -34,18 +37,20 @@ export function registerTaskHandlers(): void {
     return taskManager.transition(params);
   });
 
+  // Composite key: (projectId, taskId, dependsOnId)
   ipcMain.handle(
     IpcChannels.TASK_ADD_DEPENDENCY,
-    (_e, taskId: string, dependsOnId: string) => {
-      taskManager.addDependency(taskId, dependsOnId);
+    (_e, projectId: string, taskId: string, dependsOnId: string) => {
+      taskManager.addDependency(projectId, taskId, dependsOnId);
       return { success: true };
     },
   );
 
+  // Composite key: (projectId, taskId, dependsOnId)
   ipcMain.handle(
     IpcChannels.TASK_REMOVE_DEPENDENCY,
-    (_e, taskId: string, dependsOnId: string) => {
-      taskManager.removeDependency(taskId, dependsOnId);
+    (_e, projectId: string, taskId: string, dependsOnId: string) => {
+      taskManager.removeDependency(projectId, taskId, dependsOnId);
       return { success: true };
     },
   );

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentHub Design System — Index</title>
+  <style>
+    :root {
+      --color-bg-primary: #0f1117;
+      --color-bg-secondary: #161822;
+      --color-bg-card: #1c1e2e;
+      --color-bg-hover: #252840;
+      --color-bg-active: #2a2d45;
+      --color-border-default: #2e3148;
+      --color-border-light: #3a3d56;
+      --color-text-primary: #e4e4f0;
+      --color-text-secondary: #8b8da3;
+      --color-text-muted: #5c5e72;
+      --color-accent: #6c5ce7;
+      --color-accent-light: #a29bfe;
+      --color-success: #00d68f;
+      --color-warning: #ffaa00;
+      --color-danger: #ff6b6b;
+      --color-info: #339af0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 32px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .header p {
+      font-size: 15px;
+      color: var(--color-text-secondary);
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .header .meta {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    .header .meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 48px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+    .section-icon {
+      font-size: 18px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .section-count {
+      font-size: 11px;
+      background: var(--color-bg-hover);
+      color: var(--color-text-muted);
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+
+    /* Card Grid */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 12px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover {
+      border-color: var(--color-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(108, 92, 231, 0.12);
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+    }
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .tag-purple { background: rgba(108,92,231,0.2); color: var(--color-accent-light); }
+    .tag-green { background: rgba(0,214,143,0.2); color: var(--color-success); }
+    .tag-blue { background: rgba(51,154,240,0.2); color: var(--color-info); }
+    .tag-yellow { background: rgba(255,170,0,0.2); color: var(--color-warning); }
+    .tag-red { background: rgba(255,107,107,0.2); color: var(--color-danger); }
+    .tag-muted { background: var(--color-bg-hover); color: var(--color-text-muted); }
+
+    .card-arrow {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: var(--color-text-muted);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .card:hover .card-arrow {
+      opacity: 1;
+      color: var(--color-accent-light);
+    }
+
+    /* Priority badge */
+    .freq-high { border-left: 3px solid var(--color-success); }
+    .freq-mid { border-left: 3px solid var(--color-info); }
+    .freq-low { border-left: 3px solid var(--color-text-muted); }
+
+    /* Foundation card */
+    .card-foundation {
+      background: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(34,211,238,0.05));
+      border-color: rgba(108,92,231,0.3);
+    }
+    .card-foundation:hover {
+      border-color: var(--color-accent);
+      box-shadow: 0 8px 32px rgba(108, 92, 231, 0.2);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 32px 0;
+      border-top: 1px solid var(--color-border-default);
+      margin-top: 24px;
+    }
+    .footer p {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    .footer a {
+      color: var(--color-accent-light);
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Status indicator */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-ready { background: var(--color-success); }
+    .status-pending { background: var(--color-warning); }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="brand">M</div>
+      <h1>AgentHub Design System</h1>
+      <p>AI Agent 虛擬開發團隊管理平台 — Sprint 5A 全應用 UI/UX 設計圖稿索引</p>
+      <div class="meta">
+        <span><span class="status-dot status-ready"></span> Design System v1.0</span>
+        <span>10 頁面 Mockup</span>
+        <span>Vue 3 + TailwindCSS 4</span>
+        <span>2026-03-25</span>
+      </div>
+    </div>
+
+    <!-- Foundation -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">🎨</span>
+        <span class="section-title">設計基礎</span>
+        <span class="section-count">2</span>
+      </div>
+      <div class="card-grid">
+        <a href="components.html" class="card card-foundation">
+          <div class="card-top">
+            <div class="card-icon" style="background: linear-gradient(135deg, #6c5ce7, #22d3ee);">
+              <span style="font-size: 18px;">🧩</span>
+            </div>
+            <div>
+              <div class="card-title">元件庫 Component Library</div>
+              <div class="card-subtitle">components.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            Button / Card / Tag / StatusDot / Form / Modal / ProgressBar / Empty State / Loading / Toast / Sidebar Nav / Table
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-purple">12 元件</span>
+            <span class="tag tag-blue">色彩 Token</span>
+            <span class="tag tag-blue">字體系統</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="../../.knowledge/design-system.md" class="card card-foundation" style="cursor:default; pointer-events:none; opacity:0.7;">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(108,92,231,0.15);">
+              <span style="font-size: 18px;">📐</span>
+            </div>
+            <div>
+              <div class="card-title">設計規範文件</div>
+              <div class="card-subtitle">.knowledge/design-system.md</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            色彩系統 / 字體排版 / 間距 / 圓角 / 陰影 / 動畫 / 元件規範 / 佈局系統 / 狀態設計 / 色彩映射
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-purple">14 章節</span>
+            <span class="tag tag-muted">Markdown</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- High Frequency Pages -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">⚡</span>
+        <span class="section-title">高頻頁面</span>
+        <span class="section-count">2</span>
+      </div>
+      <div class="card-grid">
+        <a href="mockup-dashboard.html" class="card freq-high">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(0,214,143,0.12);">◫</div>
+            <div>
+              <div class="card-title">儀表板 Dashboard</div>
+              <div class="card-subtitle">mockup-dashboard.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            老闆每天第一個看到的頁面 — StatCard 統計 / Sprint 進度 / 待處理任務 / 活躍 Session / Gate 審核
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+            <span class="tag tag-red">Error</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-sessions.html" class="card freq-high">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(0,214,143,0.12);">▷</div>
+            <div>
+              <div class="card-title">工作階段 Sessions</div>
+              <div class="card-subtitle">mockup-sessions.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            最高頻核心頁面 — 終端互動 / 4 種佈局（清單/單欄/雙欄/三欄）/ 3 種分組（無/專案/部門）/ 歷史紀錄
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+            <span class="tag tag-purple">Modal</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Management Pages -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">📊</span>
+        <span class="section-title">管理頁面</span>
+        <span class="section-count">6</span>
+      </div>
+      <div class="card-grid">
+        <a href="mockup-projects.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(51,154,240,0.12);">▤</div>
+            <div>
+              <div class="card-title">專案列表 Projects</div>
+              <div class="card-subtitle">mockup-projects.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            專案卡片網格 / Sprint 進度 / 任務統計 / 新增專案 Modal
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-project-detail.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(51,154,240,0.12);">📋</div>
+            <div>
+              <div class="card-title">專案詳情 Project Detail</div>
+              <div class="card-subtitle">mockup-project-detail.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            專案資訊 / Sprint 歷史 / Gate 進度管線 / 任務與 Session 統計
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-taskboard.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(51,154,240,0.12);">☰</div>
+            <div>
+              <div class="card-title">任務看板 Task Board</div>
+              <div class="card-subtitle">mockup-taskboard.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            Kanban 5 欄看板 / 優先級色帶 / 專案 + Sprint 篩選
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-gates.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(51,154,240,0.12);">◈</div>
+            <div>
+              <div class="card-title">審核關卡 Gates</div>
+              <div class="card-subtitle">mockup-gates.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            時間線佈局 / G0-G6 關卡類型 / 審核意見 / 專案 + 狀態篩選
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-agents.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(51,154,240,0.12);">◉</div>
+            <div>
+              <div class="card-title">Agent 團隊 Agents</div>
+              <div class="card-subtitle">mockup-agents.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            按部門分組 / 3 欄卡片 / Level + Model 標籤 / 搜尋 + 篩選
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-harness.html" class="card freq-mid">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(34,211,238,0.12);">⚡</div>
+            <div>
+              <div class="card-title">Harness 管理 Harness</div>
+              <div class="card-subtitle">mockup-harness.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            3 Tab（Skill / Hook / 觸發紀錄）/ 左右面板佈局 / Toggle 開關 / 觸發紀錄表格
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- System Pages -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-icon">⚙</span>
+        <span class="section-title">系統頁面</span>
+        <span class="section-count">2</span>
+      </div>
+      <div class="card-grid">
+        <a href="mockup-knowledge.html" class="card freq-low">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(92,94,114,0.15);">📚</div>
+            <div>
+              <div class="card-title">知識庫 Knowledge</div>
+              <div class="card-subtitle">mockup-knowledge.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            檔案樹瀏覽 / Markdown 預覽 / 內嵌終端 Session / 子專案列表
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+
+        <a href="mockup-settings.html" class="card freq-low" id="card-settings">
+          <div class="card-top">
+            <div class="card-icon" style="background: rgba(92,94,114,0.15);">⚙</div>
+            <div>
+              <div class="card-title">設定 Settings</div>
+              <div class="card-subtitle">mockup-settings.html</div>
+            </div>
+          </div>
+          <div class="card-desc">
+            7 個 Tab / 一般 / Claude CLI / 工作階段 / 預算 / 通知 / 快捷鍵 / 權限（自動審核規則）
+          </div>
+          <div class="card-tags">
+            <span class="tag tag-green">正常</span>
+            <span class="tag tag-yellow">空狀態</span>
+            <span class="tag tag-blue">Loading</span>
+          </div>
+          <span class="card-arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>
+        AgentHub Design System v1.0 — Sprint 5A
+        &nbsp;·&nbsp; 設計規範: <a href="../../.knowledge/design-system.md">.knowledge/design-system.md</a>
+        &nbsp;·&nbsp; 技術棧: Vue 3 + TailwindCSS 4 + Electron
+      </p>
+      <p style="margin-top: 8px;">
+        頁面分類：<span style="color: var(--color-success);">■</span> 高頻
+        &nbsp;&nbsp;<span style="color: var(--color-info);">■</span> 管理
+        &nbsp;&nbsp;<span style="color: var(--color-text-muted);">■</span> 系統
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

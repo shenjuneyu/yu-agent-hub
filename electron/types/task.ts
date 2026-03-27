@@ -53,6 +53,7 @@ export interface TaskUpdateParams {
 }
 
 export interface TaskTransitionParams {
+  projectId?: string;  // Optional for backward compat (UUID tasks don't need it)
   taskId: string;
   toStatus: TaskStatus;
 }

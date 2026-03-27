@@ -6,14 +6,14 @@ import { registerSprintHandlers } from './sprints';
 import { registerProjectHandlers } from './projects';
 import { registerKnowledgeHandlers } from './knowledge';
 import { registerGateHandlers } from './gates';
-import { registerCostHandlers } from './costs';
 import { registerSettingsHandlers } from './settings';
-import { registerObjectionHandlers } from './objections';
 import { registerGitHandlers } from './git';
-import { registerAuthHandlers } from './auth';
-import { registerSyncHandlers } from './sync';
-import { registerDocSyncHandlers } from './doc-sync';
-import { registerBrowseHandlers } from './browse';
+import { registerHookHandlers } from './hooks';
+import { registerProjectSyncHandlers } from './project-sync';
+import { registerHarnessHandlers } from './harness';
+import { registerHarnessHookHandlers } from './harness-hooks';
+import { registerHarnessLogHandlers } from './harness-logs';
+import { registerPitfallHandlers } from './pitfall';
 
 export function registerAllHandlers(): void {
   registerSystemHandlers();
@@ -24,12 +24,12 @@ export function registerAllHandlers(): void {
   registerProjectHandlers();
   registerKnowledgeHandlers();
   registerGateHandlers();
-  registerCostHandlers();
   registerSettingsHandlers();
-  registerObjectionHandlers();
   registerGitHandlers();
-  registerAuthHandlers();
-  registerSyncHandlers();
-  registerDocSyncHandlers();
-  registerBrowseHandlers();
+  registerHookHandlers();
+  registerProjectSyncHandlers();
+  registerHarnessHandlers();
+  registerHarnessHookHandlers();
+  registerHarnessLogHandlers();
+  registerPitfallHandlers();
 }

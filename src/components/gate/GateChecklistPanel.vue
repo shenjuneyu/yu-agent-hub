@@ -152,75 +152,75 @@ function confirmReject() {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border-default bg-bg-card p-5">
-    <div class="mb-4 flex items-center justify-between">
-      <h3 class="text-sm font-semibold">
+  <div class="checklist-panel">
+    <div class="checklist-panel__header">
+      <h3 class="checklist-panel__title">
         {{ gateType }} — {{ gateLabels[gateType] }}
       </h3>
       <span
         v-if="gate"
-        class="text-xs font-medium"
-        :class="statusColors[gate.status]"
+        class="checklist-panel__status"
+        :data-status="gate.status"
       >
         {{ statusLabels[gate.status] }}
       </span>
     </div>
 
     <!-- Locked hint -->
-    <div v-if="locked && gate" class="text-center">
-      <div class="mb-3 space-y-2">
+    <div v-if="locked && gate" class="checklist-panel__locked">
+      <div class="checklist-panel__item-list">
         <label
           v-for="item in items"
           :key="item"
-          class="flex items-center gap-2.5 rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-xs opacity-40"
+          class="checklist-panel__item checklist-panel__item--disabled"
         >
-          <input type="checkbox" :checked="false" disabled class="h-3.5 w-3.5 accent-accent" />
+          <input type="checkbox" :checked="false" disabled class="checklist-panel__checkbox" />
           <span>{{ item }}</span>
         </label>
       </div>
-      <p class="text-xs text-text-muted">
+      <p class="checklist-panel__locked-hint">
         需先通過 {{ prevGateLabel }} 關卡
       </p>
     </div>
 
     <!-- No gate yet -->
-    <div v-else-if="!gate" class="text-center">
-      <p class="text-xs text-text-muted">尚未建立此關卡</p>
+    <div v-else-if="!gate" class="checklist-panel__empty">
+      <p class="checklist-panel__muted-text">尚未建立此關卡</p>
     </div>
 
     <!-- Reject reason input mode (step 2) -->
-    <div v-else-if="rejectMode">
-      <p class="mb-3 text-[11px] text-text-muted">
+    <div v-else-if="rejectMode" class="checklist-panel__reject-mode">
+      <p class="checklist-panel__reject-hint">
         請為每個不合格項目說明退回原因，填寫完成後點擊「確認退回」。
       </p>
 
-      <div class="mb-4 space-y-3">
+      <div class="checklist-panel__failed-list">
         <div
           v-for="item in failedItems"
           :key="item"
-          class="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2"
+          class="checklist-panel__failed-item"
         >
-          <div class="mb-1.5 text-xs font-medium text-red-400">{{ item }}</div>
+          <div class="checklist-panel__failed-label">{{ item }}</div>
           <input
             v-model="itemReasons[item]"
             type="text"
             :placeholder="'不合格原因...'"
-            class="w-full rounded border border-border-default bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+            class="checklist-panel__reason-input"
           />
         </div>
       </div>
 
-      <div class="mb-4">
-        <label class="mb-1 block text-[11px] text-text-muted">整體退回備註（選填）</label>
+      <div class="checklist-panel__comment-block">
+        <label class="checklist-panel__comment-label">整體退回備註（選填）</label>
         <textarea
           v-model="rejectComment"
           rows="2"
           placeholder="整體退回原因或建議..."
-          class="w-full resize-none rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+          class="checklist-panel__comment-textarea"
         />
       </div>
 
-      <div class="flex gap-2">
+      <div class="checklist-panel__actions">
         <BaseButton size="sm" variant="danger" @click="confirmReject">
           確認退回
         </BaseButton>
@@ -231,29 +231,29 @@ function confirmReject() {
     </div>
 
     <!-- Checklist -->
-    <div v-else>
-      <div class="mb-4 space-y-2">
+    <div v-else class="checklist-panel__body">
+      <div class="checklist-panel__item-list">
         <div
           v-for="item in items"
           :key="item"
         >
           <label
-            class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-xs transition-colors hover:border-border-light"
-            :class="{ 'opacity-60': isDisabled && !lockedItems.has(item) }"
+            class="checklist-panel__item"
+            :class="{ 'checklist-panel__item--faded': isDisabled && !lockedItems.has(item) }"
           >
             <input
               type="checkbox"
               :checked="checkStates[item]"
               :disabled="isDisabled || lockedItems.has(item)"
-              class="mt-0.5 h-3.5 w-3.5 accent-accent"
+              class="checklist-panel__checkbox"
               @change="checkStates[item] = !checkStates[item]"
             />
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
+            <div class="checklist-panel__item-content">
+              <div class="checklist-panel__item-row">
                 <span>{{ item }}</span>
-                <span v-if="lockedItems.has(item)" class="text-[10px] text-emerald-400">✓ 已通過</span>
+                <span v-if="lockedItems.has(item)" class="checklist-panel__passed-badge">✓ 已通過</span>
               </div>
-              <div v-if="criteriaMap[item]" class="mt-0.5 text-[11px] leading-tight text-text-muted">
+              <div v-if="criteriaMap[item]" class="checklist-panel__criteria">
                 {{ criteriaMap[item] }}
               </div>
             </div>
@@ -261,7 +261,7 @@ function confirmReject() {
           <!-- 退回原因顯示（rejected 狀態 + 該項未通過 + 有原因） -->
           <div
             v-if="gate.status === 'rejected' && !checkStates[item] && gate.itemReasons?.[item]"
-            class="ml-6 mt-1 rounded border-l-2 border-red-500/50 bg-red-500/5 px-2 py-1 text-[11px] text-red-400"
+            class="checklist-panel__reject-reason"
           >
             不合格原因：{{ gate.itemReasons[item] }}
           </div>
@@ -269,12 +269,12 @@ function confirmReject() {
       </div>
 
       <!-- Reviewer hint -->
-      <p v-if="gate.status === 'submitted'" class="mb-3 text-[11px] text-text-muted">
+      <p v-if="gate.status === 'submitted'" class="checklist-panel__reviewer-hint">
         取消勾選不合格的項目，再點擊「退回」；全部合格則點擊「核准」。
       </p>
 
       <!-- Actions -->
-      <div class="flex gap-2">
+      <div class="checklist-panel__actions">
         <BaseButton
           v-if="gate.status === 'pending' || gate.status === 'rejected'"
           size="sm"
@@ -306,7 +306,7 @@ function confirmReject() {
       <!-- Meta info -->
       <div
         v-if="gate.submittedBy || gate.reviewer"
-        class="mt-3 space-y-1 text-[11px] text-text-muted"
+        class="checklist-panel__meta"
       >
         <div v-if="gate.submittedBy">提交者：{{ gate.submittedBy }}</div>
         <div v-if="gate.reviewer">審核者：{{ gate.reviewer }}</div>
@@ -315,3 +315,229 @@ function confirmReject() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.checklist-panel {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 1.25rem;
+}
+
+.checklist-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.checklist-panel__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.checklist-panel__status {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.checklist-panel__status[data-status="pending"]  { color: var(--color-warning); }
+.checklist-panel__status[data-status="submitted"] { color: var(--color-info); }
+.checklist-panel__status[data-status="approved"]  { color: var(--color-success); }
+.checklist-panel__status[data-status="rejected"]  { color: var(--color-error); }
+
+/* Locked state */
+.checklist-panel__locked,
+.checklist-panel__empty {
+  text-align: center;
+}
+
+.checklist-panel__locked-hint,
+.checklist-panel__muted-text {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Item list */
+.checklist-panel__item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.checklist-panel__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-input);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  transition: border-color 150ms;
+  cursor: pointer;
+}
+
+.checklist-panel__item:hover {
+  border-color: var(--color-border-light);
+}
+
+.checklist-panel__item--disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.checklist-panel__item--faded {
+  opacity: 0.6;
+}
+
+.checklist-panel__checkbox {
+  margin-top: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.checklist-panel__item-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.checklist-panel__item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.checklist-panel__passed-badge {
+  font-size: 0.625rem;
+  color: var(--color-success);
+}
+
+.checklist-panel__criteria {
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+}
+
+/* Reject reason display */
+.checklist-panel__reject-reason {
+  margin-left: 1.5rem;
+  margin-top: 0.25rem;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid rgba(var(--color-error-rgb, 239, 68, 68), 0.5);
+  background: rgba(var(--color-error-rgb, 239, 68, 68), 0.05);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--color-error);
+}
+
+/* Reject mode */
+.checklist-panel__reject-hint {
+  margin-bottom: 0.75rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.checklist-panel__failed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.checklist-panel__failed-item {
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--color-error-rgb, 239, 68, 68), 0.3);
+  background: rgba(var(--color-error-rgb, 239, 68, 68), 0.05);
+  padding: 0.5rem 0.75rem;
+}
+
+.checklist-panel__failed-label {
+  margin-bottom: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-error);
+}
+
+.checklist-panel__reason-input {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-input);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.checklist-panel__reason-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.checklist-panel__reason-input:focus {
+  border-color: var(--color-accent);
+}
+
+/* Comment block */
+.checklist-panel__comment-block {
+  margin-bottom: 1rem;
+}
+
+.checklist-panel__comment-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.checklist-panel__comment-textarea {
+  width: 100%;
+  resize: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-input);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.checklist-panel__comment-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.checklist-panel__comment-textarea:focus {
+  border-color: var(--color-accent);
+}
+
+/* Actions */
+.checklist-panel__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Reviewer hint */
+.checklist-panel__reviewer-hint {
+  margin-bottom: 0.75rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+/* Meta */
+.checklist-panel__meta {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+</style>

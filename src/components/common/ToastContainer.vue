@@ -19,25 +19,25 @@ const typeIcons: Record<string, string> = {
 </script>
 
 <template>
-  <div class="fixed bottom-4 right-4 z-[10000] flex flex-col gap-2">
+  <div class="toast-container">
     <transition-group name="toast">
       <div
         v-for="toast in uiStore.toasts"
         :key="toast.id"
-        class="flex max-w-[360px] items-start gap-2 rounded-lg border bg-bg-card px-4 py-3 shadow-lg"
-        :class="typeClasses[toast.type]"
+        class="toast"
+        :data-type="toast.type"
       >
-        <span class="mt-0.5 flex-shrink-0 text-sm font-bold" :class="typeClasses[toast.type]">
+        <span class="toast__icon" :data-type="toast.type">
           {{ typeIcons[toast.type] }}
         </span>
-        <div class="min-w-0 flex-1">
-          <p v-if="toast.title" class="text-xs font-bold text-text-primary">{{ toast.title }}</p>
-          <p class="text-xs text-text-secondary" :class="{ 'mt-0.5': toast.title }">
+        <div class="toast__body">
+          <p v-if="toast.title" class="toast__title">{{ toast.title }}</p>
+          <p class="toast__message" :class="{ 'toast__message--indented': toast.title }">
             {{ toast.message }}
           </p>
         </div>
         <button
-          class="flex-shrink-0 cursor-pointer border-none bg-transparent text-xs text-text-muted hover:text-text-primary"
+          class="toast__dismiss"
           @click="uiStore.dismissToast(toast.id)"
         >
           ✕
@@ -48,6 +48,102 @@ const typeIcons: Record<string, string> = {
 </template>
 
 <style scoped>
+.toast-container {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 360px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Type-specific toast colors */
+.toast[data-type="error"] {
+  border-color: rgba(var(--color-error-rgb, 239, 68, 68), 0.4);
+  background: rgba(var(--color-error-rgb, 239, 68, 68), 0.05);
+}
+
+.toast[data-type="success"] {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.toast[data-type="warning"] {
+  border-color: rgba(234, 179, 8, 0.4);
+  background: rgba(234, 179, 8, 0.05);
+}
+
+.toast[data-type="info"] {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Icon */
+.toast__icon {
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.toast__icon[data-type="error"]   { color: var(--color-error); }
+.toast__icon[data-type="success"] { color: var(--color-success); }
+.toast__icon[data-type="warning"] { color: var(--color-warning); }
+.toast__icon[data-type="info"]    { color: var(--color-info); }
+
+/* Body */
+.toast__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.toast__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.toast__message {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.toast__message--indented {
+  margin-top: 0.125rem;
+}
+
+/* Dismiss button */
+.toast__dismiss {
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.toast__dismiss:hover {
+  color: var(--color-text-primary);
+}
+
 @keyframes slideInUp {
   from {
     transform: translateY(20px);

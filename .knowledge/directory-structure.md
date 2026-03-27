@@ -1,7 +1,7 @@
 # 目錄結構說明
 
-> **版本**: v1.0
-> **最後更新**: 2026-03-24
+> **版本**: v1.1
+> **最後更新**: 2026-03-25
 
 ---
 
@@ -45,6 +45,8 @@ electron/
 │   ├── knowledge.ts             # 知識庫讀取
 │   ├── settings.ts              # 使用者設定
 │   ├── git.ts                   # Git 操作
+│   ├── hooks.ts                 # Hook 管理
+│   ├── project-sync.ts          # 專案檔案同步 IPC
 │   └── system.ts                # 系統健康、資料夾選擇
 ├── services/                    # 核心服務（~14 個）
 │   ├── session-manager.ts       # 核心：PTY 管理、Session 生命週期
@@ -60,7 +62,10 @@ electron/
 │   ├── knowledge-reader.ts      # 知識庫讀取
 │   ├── file-watcher.ts          # 檔案監控
 │   ├── audit-logger.ts          # 稽核日誌
-│   └── tray-service.ts          # 系統列圖示
+│   ├── tray-service.ts          # 系統列圖示
+│   ├── hook-manager.ts          # Hook 偵測/產生/寫入
+│   ├── markdown-parser.ts       # 解析 .tasks/*.md + dev-plan 第 10 節
+│   └── project-sync.ts          # chokidar 監聽 → DB 同步
 ├── types/                       # 共享型別
 │   └── ipc.ts                   # IpcChannels 常數 + 型別定義
 └── utils/
@@ -74,20 +79,24 @@ src/
 ├── App.vue
 ├── main.ts
 ├── router/
-│   └── index.ts                 # 5 個路由
-├── stores/                      # Pinia（7 個）
+│   └── index.ts                 # 8 個路由
+├── stores/                      # Pinia（8 個）
 │   ├── sessions.ts
 │   ├── projects.ts
 │   ├── tasks.ts
 │   ├── gates.ts
 │   ├── agents.ts
+│   ├── git.ts
 │   ├── settings.ts
 │   └── ui.ts
-├── views/                       # 頁面（5 個）
+├── views/                       # 頁面（8 個）
 │   ├── DashboardView.vue        # 監控：Sprint + 任務 + Gate + Session
 │   ├── SessionsView.vue         # 核心：終端互動
 │   ├── ProjectsView.vue         # 操作：專案列表 + 建立
 │   ├── ProjectDetailView.vue    # 操作：專案詳情
+│   ├── TaskBoardView.vue        # Sprint 3：任務看板（Kanban）
+│   ├── GatesView.vue            # Sprint 3：Gate 紀錄時間線
+│   ├── AgentsView.vue           # Sprint 3：Agent 團隊清單
 │   └── SettingsView.vue         # 設定
 ├── components/
 │   ├── common/                  # 通用元件

@@ -8,8 +8,8 @@ import {
   useSessionsStore,
   type LayoutMode,
   type ActiveSession,
-  type SessionRecord,
   type SessionGroup,
+  type ResumableSession,
 } from '../stores/sessions';
 import type { SessionGroupMode } from '../stores/ui';
 import { useTasksStore } from '../stores/tasks';
@@ -22,7 +22,6 @@ import SessionGrid from '../components/session/SessionGrid.vue';
 import SessionTerminal from '../components/session/SessionTerminal.vue';
 import { type RemixData } from '../components/session/SessionLauncher.vue';
 const SessionLauncher = defineAsyncComponent(() => import('../components/session/SessionLauncher.vue'));
-const SidePanel = defineAsyncComponent(() => import('../components/session/SidePanel.vue'));
 const GateReviewBanner = defineAsyncComponent(() => import('../components/gate/GateReviewBanner.vue'));
 import VirtualList from '../components/common/VirtualList.vue';
 
@@ -63,8 +62,6 @@ const activeViewTab = ref<ViewTab>('active');
 
 const showLauncher = ref(false);
 const remixData = ref<RemixData | null>(null);
-const sidePanelSession = ref<ActiveSession | null>(null);
-const historyPanelSession = ref<SessionRecord | null>(null);
 
 // Auto-select session from query param (e.g. /sessions?id=xxx)
 onMounted(() => {
@@ -89,10 +86,10 @@ onBeforeUnmount(() => {
   }
 });
 
-// Load history when switching to history tab
+// Load resumable sessions when switching to history tab
 watch(activeViewTab, (tab) => {
   if (tab === 'history') {
-    sessionsStore.fetchHistory();
+    sessionsStore.fetchResumable();
   }
 });
 
@@ -137,10 +134,6 @@ function handleRemix(session: ActiveSession) {
     model: session.model as 'opus' | 'sonnet' | 'haiku',
   };
   showLauncher.value = true;
-}
-
-function handleOpenDiff(session: ActiveSession) {
-  sidePanelSession.value = session;
 }
 
 function openTaskAssigner(session: ActiveSession) {
@@ -210,17 +203,19 @@ async function handleSendDelegation() {
   delegationTargetId.value = null;
 }
 
-function openHistoryDetail(item: SessionRecord) {
-  historyPanelSession.value = item;
-}
-
-async function handleResume(item: SessionRecord) {
+async function handleResumeConversation(item: ResumableSession) {
   try {
-    await sessionsStore.resume(item);
+    await sessionsStore.resumeByConversationId(item);
     activeViewTab.value = 'active';
   } catch (err) {
-    console.error('Failed to resume session', err);
+    console.error('Failed to resume conversation', err);
   }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDuration(ms: number): string {
@@ -254,94 +249,120 @@ async function handleRequestSummary(session: ActiveSession) {
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
-    <!-- Header -->
-    <div class="mb-4 flex items-center gap-3">
-      <h2 class="text-xl font-semibold">工作階段</h2>
+  <div class="sessions-view">
 
-      <!-- Tab switcher -->
-      <div class="flex items-center gap-0.5 rounded-lg border border-border-default bg-bg-hover p-0.5">
+    <!-- ── Page Header ── -->
+    <div class="sessions-header">
+      <!-- Top row: title + controls -->
+      <div class="sessions-header__top">
+        <h1 class="sessions-header__title">工作階段</h1>
+
+        <div class="sessions-header__actions">
+          <!-- Gate Banner (compact, inline) -->
+          <GateReviewBanner />
+
+          <!-- Group mode pills (active tab only) -->
+          <div
+            v-if="activeViewTab === 'active'"
+            class="sessions-pill-group"
+          >
+            <button
+              v-for="opt in groupOptions"
+              :key="opt.value"
+              class="sessions-pill-group__item"
+              :class="
+                uiStore.sessionGroupMode === opt.value
+                  ? 'sessions-pill-group__item--active'
+                  : 'sessions-pill-group__item--inactive'
+              "
+              @click="uiStore.setSessionGroupMode(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+
+          <!-- Layout icon buttons (active tab only) -->
+          <div
+            v-if="activeViewTab === 'active'"
+            class="sessions-layout-group"
+          >
+            <button
+              v-for="opt in layoutOptions"
+              :key="opt.value"
+              class="sessions-layout-group__btn"
+              :class="
+                sessionsStore.layoutMode === opt.value
+                  ? 'sessions-layout-group__btn--active'
+                  : 'sessions-layout-group__btn--inactive'
+              "
+              :title="opt.label"
+              @click="sessionsStore.setLayout(opt.value)"
+              v-html="opt.svg"
+            />
+          </div>
+
+          <!-- New Session button -->
+          <BaseButton variant="primary" size="sm" @click="showLauncher = true">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" class="sessions-header__new-icon">
+              <path d="M7 2v10M2 7h10"/>
+            </svg>
+            新增工作階段
+          </BaseButton>
+        </div>
+      </div>
+
+      <!-- Tab row -->
+      <div class="sessions-tabs">
         <button
-          class="cursor-pointer rounded-md border-none px-3 py-1 text-xs font-medium transition-colors"
-          :class="activeViewTab === 'active' ? 'bg-accent text-white' : 'bg-transparent text-text-muted hover:text-text-primary'"
+          class="sessions-tabs__item"
+          :class="
+            activeViewTab === 'active'
+              ? 'sessions-tabs__item--active'
+              : 'sessions-tabs__item--inactive'
+          "
           @click="activeViewTab = 'active'"
         >
           執行中
           <span
             v-if="sessionsStore.activeCount > 0"
-            class="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
-            :class="activeViewTab === 'active' ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent-light'"
+            class="sessions-tabs__badge"
           >{{ sessionsStore.activeCount }}</span>
         </button>
         <button
-          class="cursor-pointer rounded-md border-none px-3 py-1 text-xs font-medium transition-colors"
-          :class="activeViewTab === 'history' ? 'bg-accent text-white' : 'bg-transparent text-text-muted hover:text-text-primary'"
+          class="sessions-tabs__item"
+          :class="
+            activeViewTab === 'history'
+              ? 'sessions-tabs__item--active'
+              : 'sessions-tabs__item--inactive'
+          "
           @click="activeViewTab = 'history'"
         >
           歷史紀錄
           <span
-            v-if="sessionsStore.history.length > 0"
-            class="ml-1 text-[10px] opacity-60"
-          >{{ sessionsStore.history.length }}</span>
+            v-if="sessionsStore.resumableSessions.length > 0"
+            class="sessions-tabs__count"
+          >{{ sessionsStore.resumableSessions.length }}</span>
         </button>
-      </div>
-
-      <div class="ml-auto flex items-center gap-2">
-        <!-- Group mode toggle (only show for active tab) -->
-        <div
-          v-if="activeViewTab === 'active'"
-          class="flex items-center gap-0.5 rounded-lg border border-border-default bg-bg-hover p-0.5"
-        >
-          <button
-            v-for="opt in groupOptions"
-            :key="opt.value"
-            class="cursor-pointer rounded-md border-none px-2 py-1 text-xs font-medium transition-colors"
-            :class="
-              uiStore.sessionGroupMode === opt.value
-                ? 'bg-accent text-white'
-                : 'bg-transparent text-text-muted hover:text-text-primary'
-            "
-            @click="uiStore.setSessionGroupMode(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-
-        <!-- Layout toggle (only show for active tab) -->
-        <div
-          v-if="activeViewTab === 'active'"
-          class="flex items-center gap-0.5 rounded-lg border border-border-default bg-bg-hover p-0.5"
-        >
-          <button
-            v-for="opt in layoutOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-center justify-center rounded-md border-none px-2 py-1.5 transition-colors"
-            :class="
-              sessionsStore.layoutMode === opt.value
-                ? 'bg-accent text-white'
-                : 'bg-transparent text-text-muted hover:text-text-primary'
-            "
-            :title="opt.label"
-            @click="sessionsStore.setLayout(opt.value)"
-            v-html="opt.svg"
-          />
-        </div>
-
-        <BaseButton variant="primary" @click="showLauncher = true">
-          + 新增工作階段
-        </BaseButton>
       </div>
     </div>
 
-    <!-- 9D: Gate 審核 Banner -->
-    <GateReviewBanner />
-
     <!-- ===== Active sessions tab ===== -->
-    <div v-if="activeViewTab === 'active'" class="flex flex-1 gap-4 overflow-hidden">
-      <!-- Session grid / list -->
-      <div ref="scrollContainer" class="min-w-0 flex-1 overflow-y-auto">
+    <div v-if="activeViewTab === 'active'" class="sessions-body">
+
+      <!-- Session list / grid panel -->
+      <div
+        ref="scrollContainer"
+        class="sessions-scroll-panel"
+      >
         <!-- Ungrouped view -->
         <template v-if="uiStore.sessionGroupMode === 'none'">
+          <!-- Section header -->
+          <div
+            v-if="sessionsStore.activeSessions.length > 0"
+            class="sessions-section-header"
+          >
+            執行中 — {{ sessionsStore.activeSessions.length }} 個工作階段
+          </div>
           <SessionGrid
             :sessions="sessionsStore.activeSessions"
             :layout="sessionsStore.layoutMode"
@@ -349,7 +370,6 @@ async function handleRequestSummary(session: ActiveSession) {
             @select="handleSelect"
             @stop="handleStop"
             @remix="handleRemix"
-            @open-diff="handleOpenDiff"
             @navigate-to-task="navigateToTask"
             @delegation="openDelegation"
             @assign-task="openTaskAssigner"
@@ -362,18 +382,18 @@ async function handleRequestSummary(session: ActiveSession) {
           <div
             v-for="group in sessionsStore.groupedSessions"
             :key="group.key"
-            class="mb-4"
+            class="sessions-group"
           >
             <button
-              class="mb-2 flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-1 text-left"
+              class="sessions-group__header"
               @click="toggleGroupCollapse(group.key)"
             >
               <span
-                class="inline-block text-xs text-text-muted transition-transform"
-                :class="collapsedGroups.has(group.key) ? '' : 'rotate-90'"
-              >▶</span>
-              <span class="text-sm font-semibold text-text-primary">{{ group.label }}</span>
-              <span class="rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] text-text-muted">{{ group.sessions.length }}</span>
+                class="sessions-group__chevron"
+                :class="collapsedGroups.has(group.key) ? '' : 'sessions-group__chevron--open'"
+              >&#9658;</span>
+              <span class="sessions-group__label">{{ group.label }}</span>
+              <span class="sessions-group__count">{{ group.sessions.length }}</span>
             </button>
             <SessionGrid
               v-show="!collapsedGroups.has(group.key)"
@@ -383,7 +403,6 @@ async function handleRequestSummary(session: ActiveSession) {
               @select="handleSelect"
               @stop="handleStop"
               @remix="handleRemix"
-              @open-diff="handleOpenDiff"
               @navigate-to-task="navigateToTask"
               @delegation="openDelegation"
               @assign-task="openTaskAssigner"
@@ -395,15 +414,16 @@ async function handleRequestSummary(session: ActiveSession) {
         <!-- Empty state -->
         <div
           v-if="sessionsStore.activeSessions.length === 0"
-          class="flex flex-col items-center justify-center py-20 text-text-muted"
+          class="sessions-empty"
         >
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mb-3 opacity-30">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="sessions-empty__icon">
             <rect x="2" y="3" width="20" height="18" rx="2"/>
             <path d="M8 7h8M8 11h5"/>
           </svg>
-          <p class="text-sm">目前沒有執行中的工作階段</p>
+          <p class="sessions-empty__title">尚無執行中的工作階段</p>
+          <p class="sessions-empty__subtitle">啟動一個新的 Agent 工作階段開始工作</p>
           <button
-            class="mt-2 cursor-pointer border-none bg-transparent text-xs text-accent-light hover:underline"
+            class="sessions-empty__action"
             @click="showLauncher = true"
           >
             啟動新的工作階段
@@ -411,41 +431,118 @@ async function handleRequestSummary(session: ActiveSession) {
         </div>
       </div>
 
-      <!-- Side panel: selected session detail terminal -->
+      <!-- ── Terminal Side Panel (list mode only) ── -->
       <div
         v-if="selectedSession && sessionsStore.layoutMode === 'list'"
-        class="flex w-[480px] min-w-[360px] flex-col overflow-hidden rounded-xl border border-border-default bg-bg-card"
+        class="sessions-terminal-panel"
       >
-        <div class="flex items-center justify-between border-b border-border-default px-4 py-2.5">
-          <div>
-            <div class="text-sm font-medium">{{ selectedSession.agentName }}</div>
-            <div class="text-xs text-text-muted">{{ selectedSession.task }}</div>
+        <!-- Terminal header -->
+        <div class="sessions-terminal-panel__header">
+          <div class="sessions-terminal-panel__header-info">
+            <div class="sessions-terminal-panel__agent-row">
+              <span
+                class="sessions-terminal-panel__status-dot"
+                :class="{
+                  'sessions-terminal-panel__status-dot--running': selectedSession.status === 'running',
+                  'sessions-terminal-panel__status-dot--thinking': selectedSession.status === 'thinking' || selectedSession.status === 'starting',
+                  'sessions-terminal-panel__status-dot--tool': selectedSession.status === 'executing_tool',
+                  'sessions-terminal-panel__status-dot--waiting': selectedSession.status === 'awaiting_approval' || selectedSession.status === 'waiting_input',
+                  'sessions-terminal-panel__status-dot--idle': ['completed', 'failed', 'stopped'].includes(selectedSession.status),
+                }"
+              />
+              {{ selectedSession.agentName }}
+              <span
+                class="sessions-terminal-panel__status-badge"
+                :class="{
+                  'sessions-terminal-panel__status-badge--running': selectedSession.status === 'running',
+                  'sessions-terminal-panel__status-badge--thinking': ['thinking', 'starting', 'executing_tool'].includes(selectedSession.status),
+                  'sessions-terminal-panel__status-badge--waiting': ['awaiting_approval', 'waiting_input'].includes(selectedSession.status),
+                  'sessions-terminal-panel__status-badge--summarizing': selectedSession.status === 'summarizing',
+                  'sessions-terminal-panel__status-badge--idle': ['completed', 'failed', 'stopped'].includes(selectedSession.status),
+                }"
+              >
+                <span
+                  v-if="['running', 'thinking', 'starting', 'summarizing'].includes(selectedSession.status)"
+                  class="sessions-terminal-panel__status-pulse"
+                />
+                {{ { running: '執行中', thinking: '思考中', starting: '啟動中', executing_tool: '執行工具', awaiting_approval: '等待核准', waiting_input: '等待輸入', summarizing: '摘要中', completed: '已完成', failed: '失敗', stopped: '已停止' }[selectedSession.status] || selectedSession.status }}
+              </span>
+            </div>
+            <div class="sessions-terminal-panel__task">{{ selectedSession.task }}</div>
           </div>
           <button
-            class="cursor-pointer border-none bg-transparent text-text-muted hover:text-text-primary"
+            class="sessions-terminal-panel__close-btn"
             @click="sessionsStore.selectSession(null)"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 2l10 10M12 2L2 12"/>
+            </svg>
           </button>
         </div>
-        <div class="flex-1 bg-bg-primary">
+
+        <!-- Terminal body -->
+        <div class="sessions-terminal-panel__body">
           <SessionTerminal :key="selectedSession.ptyId" :pty-id="selectedSession.ptyId" :active="true" />
         </div>
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border-default px-4 py-2 text-[11px] text-text-muted">
-          <span class="font-medium text-text-secondary">{{ formatTokens(selectedSession.inputTokens + selectedSession.outputTokens) }} tok</span>
-          <span>T{{ selectedSession.turnsCount }}</span>
-          <div v-if="selectedSession.projectId && !['completed','failed','stopped'].includes(selectedSession.status)" class="ml-auto flex items-center gap-1.5">
+
+        <!-- Terminal footer: stats + actions -->
+        <div class="sessions-terminal-panel__footer">
+          <!-- Stats row -->
+          <div class="sessions-terminal-panel__stats">
+            <div class="sessions-terminal-panel__stat">
+              <span class="sessions-terminal-panel__stat-label">Token</span>
+              <span class="sessions-terminal-panel__stat-value">{{ formatTokens(selectedSession.inputTokens + selectedSession.outputTokens) }}</span>
+            </div>
+            <div class="sessions-terminal-panel__stat">
+              <span class="sessions-terminal-panel__stat-label">Turns</span>
+              <span class="sessions-terminal-panel__stat-value">{{ selectedSession.turnsCount }}</span>
+            </div>
+            <div class="sessions-terminal-panel__stat">
+              <span class="sessions-terminal-panel__stat-label">時長</span>
+              <span class="sessions-terminal-panel__stat-value">{{ formatDuration(selectedSession.durationMs) }}</span>
+            </div>
+            <div class="sessions-terminal-panel__stat">
+              <span class="sessions-terminal-panel__stat-label">次數</span>
+              <span class="sessions-terminal-panel__stat-value">{{ selectedSession.turnsCount }} 次</span>
+            </div>
+          </div>
+          <!-- Action buttons -->
+          <div
+            v-if="selectedSession.projectId && !['completed','failed','stopped'].includes(selectedSession.status)"
+            class="sessions-terminal-panel__actions"
+          >
             <button
-              class="cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-light transition-colors hover:bg-accent/20"
+              class="sessions-terminal-panel__action-btn"
               @click="openDelegation(selectedSession)"
             >
               傳送指令
             </button>
             <button
-              class="cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-light transition-colors hover:bg-accent/20"
+              class="sessions-terminal-panel__action-btn"
               @click="openTaskAssigner(selectedSession)"
             >
               指派任務
+            </button>
+            <button
+              class="sessions-terminal-panel__action-btn sessions-terminal-panel__action-btn--primary"
+              @click="handleRequestSummary(selectedSession)"
+            >
+              摘要報告
+            </button>
+          </div>
+          <div v-else class="sessions-terminal-panel__actions">
+            <button
+              class="sessions-terminal-panel__action-btn"
+              @click="handleRequestSummary(selectedSession)"
+            >
+              產生摘要
+            </button>
+            <button
+              v-if="!['completed', 'failed', 'stopped'].includes(selectedSession.status)"
+              class="sessions-terminal-panel__action-btn sessions-terminal-panel__action-btn--danger"
+              @click="handleStop(selectedSession.sessionId)"
+            >
+              停止
             </button>
           </div>
         </div>
@@ -453,101 +550,67 @@ async function handleRequestSummary(session: ActiveSession) {
     </div>
 
     <!-- ===== History tab ===== -->
-    <div v-if="activeViewTab === 'history'" class="flex flex-1 gap-4 overflow-hidden">
-      <div class="min-w-0 flex-1 overflow-y-auto">
+    <div v-if="activeViewTab === 'history'" class="sessions-body">
+      <div class="history-scroll-panel">
         <!-- Empty state -->
         <div
-          v-if="sessionsStore.history.length === 0"
-          class="flex flex-col items-center justify-center py-20 text-text-muted"
+          v-if="sessionsStore.resumableSessions.length === 0"
+          class="sessions-empty"
         >
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mb-3 opacity-30">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="sessions-empty__icon">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 6v6l4 2"/>
           </svg>
-          <p class="text-sm">尚無歷史紀錄</p>
+          <p class="sessions-empty__title">尚無可繼續的工作階段</p>
+          <p class="sessions-empty__subtitle">各專案工作目錄中的 Claude 對話將顯示於此</p>
         </div>
 
-        <!-- History list -->
+        <!-- History virtual list -->
         <VirtualList
           v-else
-          :items="sessionsStore.history"
+          :items="sessionsStore.resumableSessions"
           :item-height="56"
-          class="h-full"
+          class="history-virtual-list"
         >
           <template #default="{ item }: { item: any }">
             <div
-              class="mb-1.5 flex cursor-pointer items-center gap-3 rounded-lg border bg-bg-card px-4 py-3 text-sm transition-colors"
-              :class="historyPanelSession?.id === item.id ? 'border-accent shadow-[0_0_12px_rgba(108,92,231,0.1)]' : 'border-border-default hover:border-accent/40'"
+              class="history-row history-row--default"
               style="height: 56px"
-              @click="openHistoryDetail(item)"
+              @click="handleResumeConversation(item)"
             >
-              <!-- Status dot -->
-              <span
-                class="inline-block h-2 w-2 flex-shrink-0 rounded-full"
-                :class="{
-                  'bg-success': item.status === 'completed',
-                  'bg-danger': item.status === 'failed',
-                  'bg-text-muted': item.status === 'stopped',
-                }"
-              />
-
-              <!-- Agent + task -->
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="font-medium">{{ item.agent_id }}</span>
-                  <span
-                    v-if="item.parent_session_id"
-                    class="flex-shrink-0 rounded bg-info/10 px-1.5 py-0.5 text-[10px] text-info"
-                  >接續</span>
-                </div>
-                <div class="truncate text-xs text-text-muted">{{ item.task }}</div>
-              </div>
-
-              <!-- Linked task -->
-              <span
-                v-if="item.task_id && item.task_title"
-                class="max-w-[120px] cursor-pointer truncate text-xs text-accent-light hover:underline"
-                @click.stop="navigateToTask(item.task_id)"
-              >
-                {{ item.task_title }}
+              <!-- Project name badge -->
+              <span class="history-row__project-badge">
+                {{ item.projectName }}
               </span>
 
-              <!-- Resume button (only if Claude conversation ID was captured) -->
+              <!-- First message (task preview) -->
+              <span class="history-row__task">{{ item.firstMessage }}</span>
+
+              <!-- File size indicator -->
+              <span class="history-row__size">
+                {{ formatFileSize(item.fileSize) }}
+              </span>
+
+              <!-- Last modified time -->
+              <span class="history-row__time">
+                {{ formatTime(item.lastModified) }}
+              </span>
+
+              <!-- Resume button -->
               <button
-                v-if="item.claude_conversation_id"
-                class="flex-shrink-0 cursor-pointer rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-light transition-colors hover:bg-accent/20"
+                class="history-row__resume-btn"
                 title="繼續此工作階段"
-                @click.stop="handleResume(item)"
+                @click.stop="handleResumeConversation(item)"
               >
                 繼續
               </button>
-
-              <!-- Meta -->
-              <span class="text-xs text-text-muted">{{ formatTokens((item.input_tokens || 0) + (item.output_tokens || 0)) }} tok</span>
-              <span class="w-12 text-right text-xs text-text-muted">{{ formatDuration(item.duration_ms) }}</span>
-              <span class="rounded-md bg-bg-hover px-1.5 py-0.5 text-[10px] text-text-muted uppercase">{{ item.model }}</span>
-              <span class="w-[72px] text-right text-[11px] text-text-muted">{{ formatTime(item.started_at) }}</span>
             </div>
           </template>
         </VirtualList>
       </div>
-
-      <!-- History detail SidePanel -->
-      <SidePanel
-        v-if="historyPanelSession"
-        :session="historyPanelSession"
-        @close="historyPanelSession = null"
-      />
     </div>
 
-    <!-- Side panel for diff/details (active sessions) -->
-    <SidePanel
-      v-if="sidePanelSession"
-      :session="sidePanelSession"
-      @close="sidePanelSession = null"
-    />
-
-    <!-- Launcher modal -->
+    <!-- ── Launcher Modal ── -->
     <SessionLauncher
       :show="showLauncher"
       :remix-data="remixData"
@@ -555,48 +618,57 @@ async function handleRequestSummary(session: ActiveSession) {
       @launched="handleLaunched"
     />
 
-    <!-- Task assigner modal -->
+    <!-- ── Task Assigner Modal ── -->
     <Teleport to="body">
       <div
         v-if="showTaskAssigner && assignTargetSession"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        class="modal-overlay"
         @click.self="showTaskAssigner = false"
       >
-        <div class="w-[420px] rounded-xl border border-border-default bg-bg-secondary p-6">
-          <h3 class="mb-1 text-base font-semibold">指派任務</h3>
-          <p class="mb-4 text-xs text-text-muted">
-            將任務指派給 {{ assignTargetSession.agentName }}
-          </p>
-          <div v-if="assignableTasks.length === 0" class="py-4 text-center text-xs text-text-muted">
+        <div class="modal-panel modal-panel--md">
+          <!-- Modal header -->
+          <div class="modal-header">
+            <div class="modal-header__icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-light)" stroke-width="2">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="modal-header__title">指派任務</h3>
+              <p class="modal-header__subtitle">將任務指派給 {{ assignTargetSession.agentName }}</p>
+            </div>
+          </div>
+
+          <div v-if="assignableTasks.length === 0" class="modal-empty-list">
             此專案沒有可指派的任務
           </div>
-          <div v-else class="max-h-[300px] space-y-1.5 overflow-y-auto">
+          <div v-else class="modal-scroll-list">
             <button
               v-for="task in assignableTasks"
               :key="task.id"
-              class="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-left text-sm transition-colors hover:border-accent/40"
+              class="task-picker-item"
               @click="handleAssignTask(task.id)"
             >
               <span
-                class="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+                class="task-picker-item__dot"
                 :class="{
-                  'bg-text-muted': task.status === 'created',
-                  'bg-info': task.status === 'assigned',
-                  'bg-warning': task.status === 'in_progress',
-                  'bg-accent': task.status === 'in_review',
-                  'bg-danger': task.status === 'blocked',
+                  'task-picker-item__dot--created': task.status === 'created',
+                  'task-picker-item__dot--assigned': task.status === 'assigned',
+                  'task-picker-item__dot--in-progress': task.status === 'in_progress',
+                  'task-picker-item__dot--in-review': task.status === 'in_review',
+                  'task-picker-item__dot--blocked': task.status === 'blocked',
                 }"
               />
-              <div class="min-w-0 flex-1">
-                <div class="truncate font-medium">{{ task.title }}</div>
-                <div v-if="task.description" class="truncate text-[11px] text-text-muted">
+              <div class="task-picker-item__info">
+                <div class="task-picker-item__title">{{ task.title }}</div>
+                <div v-if="task.description" class="task-picker-item__desc">
                   {{ task.description }}
                 </div>
               </div>
-              <span class="flex-shrink-0 text-[10px] uppercase text-text-muted">{{ task.status }}</span>
+              <span class="task-picker-item__status">{{ task.status }}</span>
             </button>
           </div>
-          <div class="mt-4 flex justify-end">
+          <div class="modal-footer modal-footer--end">
             <BaseButton variant="ghost" size="sm" @click="showTaskAssigner = false">
               取消
             </BaseButton>
@@ -605,72 +677,80 @@ async function handleRequestSummary(session: ActiveSession) {
       </div>
     </Teleport>
 
-    <!-- Delegation modal -->
+    <!-- ── Delegation Modal ── -->
     <Teleport to="body">
       <div
         v-if="showDelegation && delegationSource"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        class="modal-overlay"
         @click.self="showDelegation = false"
       >
-        <div class="w-[480px] rounded-xl border border-border-default bg-bg-secondary p-6">
-          <h3 class="mb-1 text-base font-semibold">傳送指令給其他 Session</h3>
-          <p class="mb-4 text-xs text-text-muted">
-            從 <span class="font-medium text-text-primary">{{ delegationSource.agentName }}</span>
-            傳送指令，目標完成後結果會自動回傳
-          </p>
+        <div class="modal-panel modal-panel--lg">
+          <!-- Modal header -->
+          <div class="modal-header">
+            <div class="modal-header__icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-light)" stroke-width="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="modal-header__title">傳送指令給其他 Session</h3>
+              <p class="modal-header__subtitle">
+                從 <span class="modal-header__emphasis">{{ delegationSource.agentName }}</span> 傳送，完成後自動回傳結果
+              </p>
+            </div>
+          </div>
 
           <!-- Target session picker -->
-          <div class="mb-3">
-            <label class="mb-1.5 block text-xs font-medium text-text-muted">選擇目標 Session</label>
+          <div class="modal-field">
+            <label class="modal-field__label">選擇目標 Session</label>
             <div
               v-if="delegationTargets.length === 0"
-              class="rounded-lg border border-border-default bg-bg-primary px-3 py-4 text-center text-xs text-text-muted"
+              class="modal-empty-list"
             >
               同專案內沒有其他執行中的 Session
             </div>
-            <div v-else class="max-h-[180px] space-y-1.5 overflow-y-auto">
+            <div v-else class="modal-scroll-list modal-scroll-list--sm">
               <button
                 v-for="target in delegationTargets"
                 :key="target.sessionId"
-                class="flex w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors"
+                class="session-picker-item"
                 :class="
                   delegationTargetId === target.sessionId
-                    ? 'border-accent bg-accent/10'
-                    : 'border-border-default bg-bg-primary hover:border-accent/40'
+                    ? 'session-picker-item--selected'
+                    : 'session-picker-item--default'
                 "
                 @click="delegationTargetId = target.sessionId"
               >
                 <span
-                  class="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+                  class="session-picker-item__dot"
                   :class="{
-                    'bg-success': target.status === 'running',
-                    'bg-info': target.status === 'thinking',
-                    'bg-warning': target.status === 'awaiting_approval',
-                    'bg-accent': target.status === 'executing_tool',
-                    'bg-text-muted': true,
+                    'session-picker-item__dot--running': target.status === 'running',
+                    'session-picker-item__dot--thinking': target.status === 'thinking' || target.status === 'executing_tool',
+                    'session-picker-item__dot--waiting': target.status === 'awaiting_approval',
+                    'session-picker-item__dot--idle': !['running','thinking','executing_tool','awaiting_approval'].includes(target.status),
                   }"
                 />
-                <div class="min-w-0 flex-1">
-                  <div class="truncate font-medium">{{ target.agentName }}</div>
-                  <div class="truncate text-[11px] text-text-muted">{{ target.task }}</div>
+                <div class="session-picker-item__info">
+                  <div class="session-picker-item__name">{{ target.agentName }}</div>
+                  <div class="session-picker-item__task">{{ target.task }}</div>
                 </div>
-                <span class="flex-shrink-0 text-[10px] uppercase text-text-muted">{{ target.status }}</span>
+                <span class="session-picker-item__status">{{ target.status }}</span>
               </button>
             </div>
           </div>
 
-          <!-- Instruction input -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-xs font-medium text-text-muted">指令內容</label>
+          <!-- Instruction textarea -->
+          <div class="modal-field">
+            <label class="modal-field__label">指令內容</label>
             <textarea
               v-model="delegationInstruction"
               rows="3"
-              class="w-full resize-none rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted/50 focus:border-accent"
+              class="modal-textarea"
               placeholder="例如：請幫我完成 login 頁面的 UI 實作..."
             />
           </div>
 
-          <div class="flex justify-end gap-2">
+          <div class="modal-footer modal-footer--end">
             <BaseButton variant="ghost" size="sm" @click="showDelegation = false">
               取消
             </BaseButton>
@@ -688,3 +768,969 @@ async function handleRequestSummary(session: ActiveSession) {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* =========================================================
+   Sessions View — Root
+   ========================================================= */
+.sessions-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* =========================================================
+   Page Header
+   ========================================================= */
+.sessions-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-base, var(--color-bg-primary));
+  padding: 0 24px;
+}
+
+.sessions-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  padding-bottom: 0;
+}
+
+.sessions-header__title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--color-text-primary);
+}
+
+.sessions-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sessions-header__new-icon {
+  margin-right: 4px;
+}
+
+/* ── Pill group (group mode selector) ── */
+.sessions-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 3px;
+}
+
+.sessions-pill-group__item {
+  cursor: pointer;
+  border-radius: 5px;
+  border: none;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.sessions-pill-group__item--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.sessions-pill-group__item--inactive {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.sessions-pill-group__item--inactive:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Layout icon-button group ── */
+.sessions-layout-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-card);
+  padding: 3px;
+}
+
+.sessions-layout-group__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  cursor: pointer;
+  border-radius: 5px;
+  border: none;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.sessions-layout-group__btn--active {
+  background: var(--color-bg-active);
+  color: var(--color-accent-light);
+}
+
+.sessions-layout-group__btn--inactive {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.sessions-layout-group__btn--inactive:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+/* ── Tabs ── */
+.sessions-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 4px;
+}
+
+.sessions-tabs__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+
+.sessions-tabs__item--active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-light);
+}
+
+.sessions-tabs__item--inactive {
+  color: var(--color-text-muted);
+}
+
+.sessions-tabs__item--inactive:hover {
+  color: var(--color-text-secondary);
+}
+
+.sessions-tabs__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sessions-tabs__count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* =========================================================
+   Body (shared by active + history tabs)
+   ========================================================= */
+.sessions-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* =========================================================
+   Session Scroll Panel (active tab)
+   ========================================================= */
+.sessions-scroll-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.sessions-scroll-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sessions-scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sessions-scroll-panel::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 2px;
+}
+
+/* ── Section header ── */
+.sessions-section-header {
+  margin-bottom: 8px;
+  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-muted);
+}
+
+/* ── Group view ── */
+.sessions-group {
+  margin-bottom: 16px;
+}
+
+.sessions-group__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  padding: 6px 8px;
+  text-align: left;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.sessions-group__header:hover {
+  background: var(--color-bg-card);
+}
+
+.sessions-group__chevron {
+  display: inline-block;
+  width: 12px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+
+.sessions-group__chevron--open {
+  transform: rotate(90deg);
+}
+
+.sessions-group__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sessions-group__count {
+  border-radius: 9999px;
+  background: var(--color-bg-hover);
+  padding: 2px 7px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ── Empty state ── */
+.sessions-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  color: var(--color-text-muted);
+}
+
+.sessions-empty__icon {
+  margin-bottom: 12px;
+  opacity: 0.25;
+}
+
+.sessions-empty__title {
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.sessions-empty__subtitle {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.sessions-empty__action {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--color-accent-light);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+
+.sessions-empty__action:hover {
+  color: var(--color-accent);
+}
+
+/* =========================================================
+   Terminal Side Panel
+   ========================================================= */
+.sessions-terminal-panel {
+  display: flex;
+  flex-direction: column;
+  width: 480px;
+  min-width: 480px;
+  overflow: hidden;
+  border-left: 1px solid var(--color-border-default);
+  background: var(--color-bg-secondary, var(--color-bg-card));
+  scrollbar-width: thin;
+}
+
+.sessions-terminal-panel__header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-default);
+  padding: 12px 16px;
+}
+
+.sessions-terminal-panel__header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sessions-terminal-panel__agent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.sessions-terminal-panel__task {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status dot in terminal header */
+.sessions-terminal-panel__status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.sessions-terminal-panel__status-dot--running {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.sessions-terminal-panel__status-dot--thinking {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.sessions-terminal-panel__status-dot--tool {
+  background: var(--color-accent-light);
+}
+
+.sessions-terminal-panel__status-dot--waiting {
+  background: var(--color-warning);
+}
+
+.sessions-terminal-panel__status-dot--idle {
+  background: var(--color-text-muted);
+}
+
+/* Status badge pill */
+.sessions-terminal-panel__status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sessions-terminal-panel__status-badge--running {
+  background: rgba(0, 214, 143, 0.2);
+  color: var(--color-success);
+}
+
+.sessions-terminal-panel__status-badge--thinking {
+  background: rgba(108, 92, 231, 0.2);
+  color: var(--color-accent-light);
+}
+
+.sessions-terminal-panel__status-badge--waiting {
+  background: rgba(255, 170, 0, 0.2);
+  color: var(--color-warning);
+}
+
+.sessions-terminal-panel__status-badge--summarizing {
+  background: rgba(51, 154, 240, 0.2);
+  color: var(--color-info);
+}
+
+.sessions-terminal-panel__status-badge--idle {
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+}
+
+.sessions-terminal-panel__status-pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* Close button */
+.sessions-terminal-panel__close-btn {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.sessions-terminal-panel__close-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* Terminal body */
+.sessions-terminal-panel__body {
+  flex: 1;
+  min-height: 0;
+  background: #0a0b0f;
+}
+
+/* Terminal footer */
+.sessions-terminal-panel__footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border-default);
+  padding: 12px 16px;
+}
+
+.sessions-terminal-panel__stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.sessions-terminal-panel__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sessions-terminal-panel__stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.sessions-terminal-panel__stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sessions-terminal-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sessions-terminal-panel__action-btn {
+  flex: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-hover);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  transition: all 0.15s;
+}
+
+.sessions-terminal-panel__action-btn:hover {
+  background: var(--color-bg-active);
+  color: var(--color-text-primary);
+}
+
+.sessions-terminal-panel__action-btn--primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.sessions-terminal-panel__action-btn--primary:hover {
+  background: var(--color-accent-light);
+  border-color: var(--color-accent-light);
+  color: #fff;
+}
+
+.sessions-terminal-panel__action-btn--danger {
+  border-color: rgba(255, 107, 107, 0.3);
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--color-error, var(--color-danger, #ff6b6b));
+}
+
+.sessions-terminal-panel__action-btn--danger:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+/* =========================================================
+   History Scroll Panel
+   ========================================================= */
+.history-scroll-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.history-scroll-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-scroll-panel::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 2px;
+}
+
+/* ── History row ── */
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  padding: 0 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.history-row--default:hover {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-card);
+}
+
+.history-row__project-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(108, 92, 231, 0.15);
+  color: var(--color-accent-light);
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-row__task {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.history-row__size {
+  flex-shrink: 0;
+  width: 60px;
+  text-align: right;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--color-text-muted);
+}
+
+.history-row__time {
+  flex-shrink: 0;
+  width: 90px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.history-row__resume-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  background: rgba(108, 92, 231, 0.15);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--color-accent-light);
+  transition: background 0.15s;
+}
+
+.history-row__resume-btn:hover {
+  background: rgba(108, 92, 231, 0.25);
+}
+
+/* =========================================================
+   Modal — shared overlay + panel
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.modal-panel {
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-card);
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.modal-panel--md {
+  width: 480px;
+}
+
+.modal-panel--lg {
+  width: 520px;
+}
+
+/* Modal header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.modal-header__icon-wrap {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(108, 92, 231, 0.2);
+}
+
+.modal-header__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.modal-header__subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.modal-header__emphasis {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Modal field (label + control) */
+.modal-field {
+  margin-bottom: 16px;
+}
+
+.modal-field__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
+}
+
+/* Empty list placeholder */
+.modal-empty-list {
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-secondary, var(--color-bg-card));
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Scrollable list inside modal */
+.modal-scroll-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-scroll-list--sm {
+  max-height: 180px;
+}
+
+/* Modal footer */
+.modal-footer {
+  display: flex;
+  margin-top: 20px;
+}
+
+.modal-footer--end {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Modal textarea */
+.modal-textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-secondary, var(--color-bg-card));
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.modal-textarea::placeholder {
+  color: rgba(92, 94, 114, 0.5);
+}
+
+.modal-textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+/* =========================================================
+   Task Picker (inside task assigner modal)
+   ========================================================= */
+.task-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  cursor: pointer;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-secondary, var(--color-bg-card));
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.task-picker-item:hover {
+  border-color: rgba(108, 92, 231, 0.4);
+  background: var(--color-bg-hover);
+}
+
+.task-picker-item__dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.task-picker-item__dot--created {
+  background: var(--color-text-muted);
+}
+
+.task-picker-item__dot--assigned {
+  background: var(--color-info);
+}
+
+.task-picker-item__dot--in-progress {
+  background: var(--color-warning);
+}
+
+.task-picker-item__dot--in-review {
+  background: var(--color-accent);
+}
+
+.task-picker-item__dot--blocked {
+  background: var(--color-error, var(--color-danger, #ff6b6b));
+}
+
+.task-picker-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-picker-item__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.task-picker-item__desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.task-picker-item__status {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* =========================================================
+   Session Picker (inside delegation modal)
+   ========================================================= */
+.session-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  cursor: pointer;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-secondary, var(--color-bg-card));
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.session-picker-item--selected {
+  border-color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.session-picker-item--default:hover {
+  border-color: rgba(108, 92, 231, 0.4);
+  background: var(--color-bg-hover);
+}
+
+.session-picker-item__dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.session-picker-item__dot--running {
+  background: var(--color-success);
+}
+
+.session-picker-item__dot--thinking {
+  background: var(--color-accent);
+}
+
+.session-picker-item__dot--waiting {
+  background: var(--color-warning);
+}
+
+.session-picker-item__dot--idle {
+  background: var(--color-text-muted);
+}
+
+.session-picker-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-picker-item__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.session-picker-item__task {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.session-picker-item__status {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* VirtualList full height inside history panel */
+.history-virtual-list {
+  height: 100%;
+}
+
+/* =========================================================
+   Keyframe animations
+   ========================================================= */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+</style>

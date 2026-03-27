@@ -40,69 +40,231 @@ function submit() {
 
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+    class="modal-overlay"
     @click.self="emit('close')"
   >
-    <div class="w-[520px] rounded-xl border border-border-default bg-bg-secondary p-6">
-      <h3 class="mb-4 text-base font-semibold">建立新專案</h3>
+    <div class="modal">
+      <div class="modal__title">建立新專案</div>
 
-      <div class="mb-3">
-        <label class="mb-1 block text-xs text-text-muted">專案名稱</label>
+      <div class="modal__field">
+        <div class="modal__label">選擇模板</div>
+        <div class="modal__template-grid">
+          <button
+            v-for="t in templates"
+            :key="t.value"
+            class="modal__template-card"
+            :class="
+              template === t.value
+                ? 'modal__template-card--active'
+                : 'modal__template-card--idle'
+            "
+            @click="template = t.value"
+          >
+            <span class="modal__template-icon">{{
+              ({ blank: '📄', 'web-app': '🌐', 'mobile-app': '📱', 'api-service': '⚡', library: '📦' })[t.value]
+            }}</span>
+            <span class="modal__template-name">{{ t.label }}</span>
+            <span class="modal__template-desc">{{
+              ({ blank: '空白起始專案', 'web-app': 'React / Vue 前端應用', 'mobile-app': 'React Native / Flutter', 'api-service': 'Node.js / FastAPI 後端', library: 'NPM 套件 / SDK' })[t.value]
+            }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal__field">
+        <label class="modal__label">專案名稱</label>
         <input
           v-model="name"
-          class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-          placeholder="我的新專案"
+          class="modal__input"
+          placeholder="例如：MyAwesomeApp"
           @keydown.enter="submit"
         />
       </div>
 
-      <div class="mb-3">
-        <label class="mb-1 block text-xs text-text-muted">描述</label>
-        <textarea
-          v-model="description"
-          class="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-          rows="3"
-          placeholder="專案描述（選填）"
-        />
-      </div>
-
-      <div class="mb-3">
-        <label class="mb-1 block text-xs text-text-muted">工作目錄 <span class="text-red-400">*</span></label>
-        <div class="flex gap-2">
+      <div class="modal__field">
+        <label class="modal__label">工作目錄 <span class="modal__required">*</span></label>
+        <div class="modal__workdir-row">
           <input
             v-model="workDir"
-            class="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+            class="modal__input modal__input--flex"
             placeholder="C:\projects\my-project"
             @keydown.enter="submit"
           />
           <BaseButton variant="ghost" size="sm" @click="browseFolder">瀏覽</BaseButton>
         </div>
-        <p class="mt-1 text-[11px] text-text-muted">Session 將在此目錄下執行 Claude Code</p>
+        <p class="modal__hint">Session 將在此目錄下執行 Claude Code</p>
       </div>
 
-      <div class="mb-5">
-        <label class="mb-2 block text-xs text-text-muted">專案模板</label>
-        <div class="grid grid-cols-3 gap-2">
-          <button
-            v-for="t in templates"
-            :key="t.value"
-            class="cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-all"
-            :class="
-              template === t.value
-                ? 'border-accent bg-accent/10 text-accent-light'
-                : 'border-border-default bg-bg-primary text-text-secondary hover:border-border-light'
-            "
-            @click="template = t.value"
-          >
-            {{ t.label }}
-          </button>
-        </div>
+      <div class="modal__field">
+        <label class="modal__label">專案描述（選填）</label>
+        <textarea
+          v-model="description"
+          class="modal__input modal__input--textarea"
+          placeholder="簡短描述這個專案的目標與功能..."
+        />
       </div>
 
-      <div class="flex justify-end gap-2">
+      <div class="modal__actions">
         <BaseButton variant="ghost" size="sm" @click="emit('close')">取消</BaseButton>
         <BaseButton variant="primary" size="sm" @click="submit">建立專案</BaseButton>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Panel */
+.modal {
+  width: 480px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-light);
+  background-color: var(--color-bg-secondary, var(--color-bg-card));
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Fields */
+.modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.modal__required {
+  color: var(--color-error);
+}
+
+/* Inputs */
+.modal__input {
+  width: 100%;
+  border-radius: 7px;
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-card);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.modal__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.modal__input:focus {
+  border-color: var(--color-accent);
+}
+
+.modal__input--textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+
+.modal__input--flex {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+/* Work-dir row */
+.modal__workdir-row {
+  display: flex;
+  gap: 8px;
+}
+
+.modal__hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Template grid — 2×2 card layout */
+.modal__template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.modal__template-card {
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-default);
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  background: none;
+  font-family: inherit;
+}
+
+.modal__template-card--active {
+  border-color: var(--color-accent);
+  background-color: rgba(108, 92, 231, 0.1);
+}
+
+.modal__template-card--idle {
+  border-color: var(--color-border-default);
+  background-color: transparent;
+}
+
+.modal__template-card--idle:hover {
+  border-color: var(--color-border-light);
+  background-color: var(--color-bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+.modal__template-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.modal__template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.modal__template-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Actions */
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+</style>

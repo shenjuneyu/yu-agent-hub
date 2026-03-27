@@ -1,7 +1,7 @@
 # 系統架構
 
-> **版本**: v1.0
-> **最後更新**: 2026-03-24
+> **版本**: v1.2
+> **最後更新**: 2026-03-25
 
 ---
 
@@ -14,11 +14,11 @@
 ```
 ┌─────────────────────────────────────────┐
 │            Vue 3 Renderer               │
-│  Views (5) → Components → Stores (7)   │
+│  Views (8) → Components → Stores (8)   │
 │         ↕ IPC (contextBridge)           │
 ├─────────────────────────────────────────┤
 │          Electron Main Process          │
-│  Services (~14) → IPC Handlers (~10)    │
+│  Services (~16) → IPC Handlers (~12)    │
 │         ↕ node-pty / chokidar / sql.js  │
 ├─────────────────────────────────────────┤
 │            系統層                        │
@@ -57,21 +57,46 @@
 | FileWatcher | `file-watcher.ts` | 檔案監控 |
 | TrayService | `tray-service.ts` | 系統列圖示 |
 
-### Sprint 2 新增
+### Sprint 2 新增（已實作）
 
 | 服務 | 檔案 | 職責 |
 |------|------|------|
-| HookManager | `hook-manager.ts` | Hook 腳本管理、自動注入 |
-| SkillManager | `skill-manager.ts`* | Skill 模板管理、同步到子專案 |
+| HookManager | `hook-manager.ts` | 偵測技術棧、產生 stop-validator、寫入 hook settings |
 
-### Sprint 3 新增
+| 工具 | 檔案 | 職責 |
+|------|------|------|
+| SkillGenerator | `utils/skill-generator.ts` | Agent Skill + Workflow Skill 部署到子專案 |
+
+### Sprint 2 Workflow Skills（9 個）
+
+| Skill | 模板位置 | 核心產出 |
+|-------|---------|---------|
+| `/sprint-proposal` | `skill-templates/sprint-proposal/` | proposal/sprintN-proposal.md |
+| `/dev-plan` | `skill-templates/dev-plan/` | proposal/sprintN-dev-plan.md |
+| `/gate-record` | `skill-templates/gate-record/` | append dev-plan 第 10 節 Gate 紀錄 |
+| `/task-delegation` | `skill-templates/task-delegation/` | 第 6 節任務表 + .tasks/TN-xxx.md |
+| `/task-done` | `skill-templates/task-done/` | 更新任務狀態 + append 第 10 節 |
+| `/review` | `skill-templates/review/` | checklist + append Review 紀錄 |
+| `/pm-review` | `skill-templates/pm-review/` | 6 項 checklist + 摘要建議 |
+| `/sprint-retro` | `skill-templates/sprint-retro/` | 帶入第 10 節數據 → 回顧報告 |
+| `/pitfall-record` | `skill-templates/pitfall-record/` | append postmortem-log.md |
+
+### Sprint 3 新增（已實作）
 
 | 服務 | 檔案 | 職責 |
 |------|------|------|
-| ProjectSync | `project-sync.ts` | FileWatcher → DB 同步橋樑 |
-| MarkdownParser | `markdown-parser.ts` | 解析 dev-plan 第 10 節 + .tasks/*.md |
+| ProjectSync | `project-sync.ts` | chokidar 監聽子專案 → markdown-parser → DB upsert → eventBus |
+| MarkdownParser | `markdown-parser.ts` | 解析 .tasks/*.md 元資料表格 + dev-plan 第 10 節三張表格 |
 
-> *SkillManager 可能擴充自現有的 `skill-generator.ts`
+### Sprint 4 新增（已實作）
+
+| 項目 | 說明 |
+|------|------|
+| Agent: company-manager | 公司知識管理者（L1），跨子專案踩坑收集 → 與老闆討論 → 更新公司知識庫 |
+| PromptAssembler 擴充 | `assembleCompanyManagerContext()` — 注入已知子專案清單（workDir + 檔案路徑提示） |
+| SessionManager 擴充 | company-manager 強制使用 AgentHub 作為 workDir，不切換到子專案目錄 |
+| Skill: `/knowledge-feedback` | 掃描子專案 postmortem → 分類 → 提出公司規範修改建議（僅部署到 AgentHub） |
+| SkillGenerator 擴充 | `AGENTHUB_ONLY_SKILLS` 清單，排除公司專用 Skill 部署到子專案 |
 
 ## 已移除服務
 
@@ -101,10 +126,25 @@
 | settings | GET, UPDATE, GET_ALL |
 | git | GET_STATUS, GET_DIFF, GET_LOG, COMMIT, PUSH, PULL |
 | system | GET_HEALTH, SELECT_FOLDER, CLEAR_DATABASE |
+| hooks | GET_CONFIG, UPDATE_CONFIG |
+| project-sync | START, STOP, FULL, STATUS（push）|
 
 ### 已移除 IPC 模組
 
 sync, doc-sync, auth, browse, costs, objections
+
+### IPC 三方一致規則（強制）
+
+新增或修改 IPC 通道時，**以下三處必須同步更新**，缺一不可：
+
+| # | 檔案 | 內容 |
+|---|------|------|
+| 1 | `electron/types/ipc.ts` | IpcChannels 常數定義 |
+| 2 | `electron/preload.ts` | MaestroApi 型別 + contextBridge 實作 |
+| 3 | `src/composables/useIpc.ts` | useIpc() wrapper 函數 + return |
+
+> 三處名稱、參數型別、回傳型別必須完全一致。不一致 = runtime 炸。
+> 第四方：`src/env.d.ts` 的 MaestroApi 型別也須同步。
 
 ## DB Schema（保留）
 
@@ -122,3 +162,5 @@ sync, doc-sync, auth, browse, costs, objections
 | user_preferences | 使用者設定 |
 | sprint_reviews | Sprint 回顧 |
 | schema_migrations | DB 版本管理 |
+
+> Sprint 1 實際保留 11 張業務表 + schema_migrations = 12 張（含 migrations 基礎設施表）

@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentHub — Dashboard Mockup</title>
+  <style>
+    :root {
+      --color-bg-primary: #0f1117;
+      --color-bg-secondary: #161822;
+      --color-bg-card: #1c1e2e;
+      --color-bg-hover: #252840;
+      --color-bg-active: #2a2d45;
+      --color-border-default: #2e3148;
+      --color-border-light: #3a3d56;
+      --color-text-primary: #e4e4f0;
+      --color-text-secondary: #8b8da3;
+      --color-text-muted: #5c5e72;
+      --color-accent: #6c5ce7;
+      --color-accent-light: #a29bfe;
+      --color-success: #00d68f;
+      --color-success-dim: #00d68f33;
+      --color-warning: #ffaa00;
+      --color-warning-dim: #ffaa0033;
+      --color-danger: #ff6b6b;
+      --color-danger-dim: #ff6b6b33;
+      --color-info: #339af0;
+      --color-info-dim: #339af033;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ─── Layout ─────────────────────────────────────────────── */
+    .app-shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      width: 52px;
+      flex-shrink: 0;
+      background: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-default);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .sidebar-brand {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #6c5ce7, #22d3ee);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-divider {
+      width: 28px;
+      height: 1px;
+      background: var(--color-border-default);
+      margin: 4px 0;
+    }
+
+    .sidebar-item {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      font-size: 16px;
+      position: relative;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .sidebar-item:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-secondary);
+    }
+
+    .sidebar-item.active {
+      background: var(--color-bg-active);
+      color: var(--color-accent-light);
+    }
+
+    .sidebar-item.active::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      border-radius: 0 2px 2px 0;
+      background: var(--color-accent);
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+    }
+
+    .sidebar-version {
+      font-size: 9px;
+      color: var(--color-text-muted);
+      text-align: center;
+      line-height: 1.4;
+      padding: 4px 0;
+    }
+
+    .sidebar-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 9px;
+      color: var(--color-success);
+      background: var(--color-success-dim);
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin-top: 2px;
+    }
+
+    /* ─── Main Area ──────────────────────────────────────────── */
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── TopBar ─────────────────────────────────────────────── */
+    .topbar {
+      height: 48px;
+      flex-shrink: 0;
+      background: var(--color-bg-secondary);
+      border-bottom: 1px solid var(--color-border-default);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+    }
+
+    .topbar-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--color-border-default);
+      background: transparent;
+      color: var(--color-text-secondary);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .topbar-btn:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .topbar-time {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ─── State Switcher ─────────────────────────────────────── */
+    .state-switcher {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 20px;
+      background: var(--color-bg-primary);
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .state-switcher-label {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      margin-right: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .state-btn {
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--color-border-default);
+      background: transparent;
+      color: var(--color-text-secondary);
+      transition: all 0.15s;
+    }
+
+    .state-btn:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .state-btn.active {
+      background: var(--color-bg-active);
+      border-color: var(--color-accent);
+      color: var(--color-accent-light);
+    }
+
+    /* ─── Content ────────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb {
+      background: var(--color-border-default);
+      border-radius: 3px;
+    }
+
+    /* ─── Stat Cards Row ─────────────────────────────────────── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .stat-change {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-change.success { color: var(--color-success); }
+    .stat-change.info    { color: var(--color-info); }
+    .stat-change.muted   { color: var(--color-text-muted); }
+    .stat-change.warning { color: var(--color-warning); }
+
+    /* ─── Main Grid ──────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .left-col, .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ─── Card ───────────────────────────────────────────────── */
+    .card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-default);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .card-link {
+      font-size: 12px;
+      color: var(--color-accent-light);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .card-link:hover { text-decoration: underline; }
+
+    /* ─── Sprint Items ───────────────────────────────────────── */
+    .sprint-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .sprint-item {}
+
+    .sprint-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .sprint-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .sprint-gates {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sprint-goal {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      border-radius: 99px;
+      background: var(--color-bg-hover);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--color-success);
+    }
+
+    /* ─── Task Items ─────────────────────────────────────────── */
+    .task-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px;
+      border-radius: 8px;
+      transition: background 0.12s;
+    }
+
+    .task-item:hover { background: var(--color-bg-hover); }
+
+    .priority-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .priority-dot.critical { background: var(--color-danger); }
+    .priority-dot.high     { background: var(--color-warning); }
+    .priority-dot.medium   { background: var(--color-info); }
+    .priority-dot.low      { background: var(--color-text-muted); }
+
+    .task-name {
+      flex: 1;
+      font-size: 13px;
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .status-tag.active    { background: var(--color-warning-dim); color: var(--color-warning); }
+    .status-tag.pending   { background: #6c5ce733; color: var(--color-accent-light); }
+    .status-tag.review    { background: var(--color-info-dim); color: var(--color-info); }
+    .status-tag.done      { background: var(--color-success-dim); color: var(--color-success); }
+    .status-tag.blocked   { background: var(--color-danger-dim); color: var(--color-danger); }
+
+    /* ─── Activity Items ─────────────────────────────────────── */
+    .activity-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      transition: background 0.12s;
+    }
+
+    .activity-item:hover { background: var(--color-bg-hover); }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.completed { background: var(--color-success); }
+    .status-dot.failed    { background: var(--color-danger); }
+    .status-dot.stopped   { background: var(--color-text-muted); }
+    .status-dot.running   { background: var(--color-info); }
+
+    .activity-agent {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      min-width: 140px;
+    }
+
+    .activity-desc {
+      flex: 1;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-tokens {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* ─── Session Items ──────────────────────────────────────── */
+    .session-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .session-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--color-border-default);
+      background: var(--color-bg-primary);
+      transition: border-color 0.15s;
+    }
+
+    .session-item:hover { border-color: var(--color-border-light); }
+
+    .session-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .session-status-dot.running  { background: var(--color-success); }
+    .session-status-dot.thinking {
+      background: var(--color-accent);
+      box-shadow: 0 0 0 0 var(--color-accent);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    .session-status-dot.idle { background: var(--color-text-muted); }
+
+    @keyframes pulse-dot {
+      0%   { box-shadow: 0 0 0 0 #6c5ce766; }
+      70%  { box-shadow: 0 0 0 6px #6c5ce700; }
+      100% { box-shadow: 0 0 0 0 #6c5ce700; }
+    }
+
+    .session-body { flex: 1; min-width: 0; }
+
+    .session-agent {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 2px;
+    }
+
+    .session-task {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-meta {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .session-state {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .session-state.running  { color: var(--color-success); }
+    .session-state.thinking { color: var(--color-accent-light); }
+    .session-state.idle     { color: var(--color-text-muted); }
+
+    .session-tok {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ─── Gate Items ─────────────────────────────────────────── */
+    .gate-alert {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--color-warning-dim);
+      border: 1px solid #ffaa0055;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--color-warning);
+      font-weight: 500;
+    }
+
+    .gate-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .gate-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px;
+      border-radius: 8px;
+      transition: background 0.12s;
+    }
+
+    .gate-item:hover { background: var(--color-bg-hover); }
+
+    .gate-type {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--color-accent-light);
+      min-width: 26px;
+    }
+
+    .gate-type-name {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      min-width: 60px;
+    }
+
+    .gate-project {
+      flex: 1;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ─── Empty State ────────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      gap: 10px;
+      color: var(--color-text-muted);
+    }
+
+    .empty-state svg {
+      opacity: 0.4;
+    }
+
+    .empty-state-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .empty-state-desc {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ─── Skeleton ───────────────────────────────────────────── */
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .skeleton {
+      background: var(--color-bg-hover);
+      border-radius: 6px;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+    }
+
+    .skeleton-text {
+      height: 12px;
+      border-radius: 4px;
+    }
+
+    .skeleton-title {
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    .skeleton-value {
+      height: 32px;
+      width: 64px;
+      border-radius: 6px;
+    }
+
+    /* ─── Error State ────────────────────────────────────────── */
+    .error-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--color-danger);
+      background: var(--color-danger-dim);
+      margin-bottom: 12px;
+    }
+
+    .error-banner-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .error-banner-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-danger);
+      margin-bottom: 4px;
+    }
+
+    .error-banner-desc {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+    }
+
+    .error-retry-btn {
+      margin-top: 10px;
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--color-danger);
+      background: transparent;
+      color: var(--color-danger);
+      transition: background 0.15s;
+    }
+
+    .error-retry-btn:hover { background: var(--color-danger-dim); }
+
+    .error-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-danger);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    /* ─── State visibility helpers ───────────────────────────── */
+    [data-state] { display: none; }
+    [data-state].active { display: block; }
+    [data-state="grid"].active { display: grid; }
+    [data-state="flex"].active { display: flex; }
+
+    /* ─── Scrollbar global ───────────────────────────────────── */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-default) transparent;
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ─── Sidebar ─────────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">M</div>
+
+    <!-- Dashboard (active) -->
+    <div class="sidebar-item active" title="儀表板">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+    </div>
+
+    <!-- Sessions -->
+    <div class="sidebar-item" title="工作階段">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Projects -->
+    <div class="sidebar-item" title="專案">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+    </div>
+
+    <!-- Tasks -->
+    <div class="sidebar-item" title="任務">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+    </div>
+
+    <!-- Gates -->
+    <div class="sidebar-item" title="關卡">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+
+    <!-- Team -->
+    <div class="sidebar-item" title="團隊">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </div>
+
+    <!-- Knowledge -->
+    <div class="sidebar-item" title="知識庫">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Settings -->
+    <div class="sidebar-item" title="設定">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </div>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-version">
+      v0.1
+      <div class="sidebar-badge">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--color-success);display:inline-block;"></span>
+        2
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Main Area ────────────────────────────────────────────── -->
+  <div class="main-area">
+
+    <!-- TopBar -->
+    <div class="topbar">
+      <span class="topbar-title">儀表板</span>
+      <div class="topbar-spacer"></div>
+      <button class="topbar-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        新增工作階段
+      </button>
+      <span class="topbar-time" id="clock">--:--:--</span>
+    </div>
+
+    <!-- State Switcher -->
+    <div class="state-switcher">
+      <span class="state-switcher-label">預覽狀態</span>
+      <button class="state-btn active" onclick="switchState('normal')">正常</button>
+      <button class="state-btn" onclick="switchState('empty')">空狀態</button>
+      <button class="state-btn" onclick="switchState('loading')">Loading</button>
+      <button class="state-btn" onclick="switchState('error')">Error</button>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ══════════════ STATE: NORMAL ══════════════ -->
+      <div id="state-normal" class="state-panel active">
+
+        <!-- Stat Cards -->
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="stat-label">代理人</div>
+            <div class="stat-value">28</div>
+            <div class="stat-change muted">已載入</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">執行中</div>
+            <div class="stat-value">3</div>
+            <div class="stat-change success">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+              運行中
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">專案</div>
+            <div class="stat-value">4</div>
+            <div class="stat-change info">3 進行中</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">今日用量</div>
+            <div class="stat-value">125K</div>
+            <div class="stat-change muted">tok</div>
+          </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+
+          <!-- Left Column -->
+          <div class="left-col">
+
+            <!-- Sprint Card -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">進行中 Sprint</span>
+                <a class="card-link">查看全部</a>
+              </div>
+              <div class="sprint-list">
+
+                <div class="sprint-item">
+                  <div class="sprint-row">
+                    <span class="sprint-name">ChatPilot Sprint 3</span>
+                    <span class="sprint-gates">2 / 6 關卡</span>
+                  </div>
+                  <div class="sprint-goal">實作多輪對話記憶、整合 GPT-4o API、優化回應延遲</div>
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width: 33%"></div>
+                  </div>
+                </div>
+
+                <div class="sprint-item">
+                  <div class="sprint-row">
+                    <span class="sprint-name">LexMind Sprint 2</span>
+                    <span class="sprint-gates">4 / 6 關卡</span>
+                  </div>
+                  <div class="sprint-goal">建立文件解析引擎、完成合約摘要功能</div>
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width: 66%"></div>
+                  </div>
+                </div>
+
+                <div class="sprint-item">
+                  <div class="sprint-row">
+                    <span class="sprint-name">DataFlow Sprint 1</span>
+                    <span class="sprint-gates">1 / 6 關卡</span>
+                  </div>
+                  <div class="sprint-goal">架設資料管線骨架、定義 schema</div>
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width: 16%"></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Tasks Card -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">待處理任務</span>
+                <a class="card-link">查看全部</a>
+              </div>
+              <div class="task-list">
+                <div class="task-item">
+                  <span class="priority-dot critical"></span>
+                  <span class="task-name">實作登入頁面 UI — ChatPilot</span>
+                  <span class="status-tag active">進行中</span>
+                </div>
+                <div class="task-item">
+                  <span class="priority-dot high"></span>
+                  <span class="task-name">修復 API 回應格式錯誤</span>
+                  <span class="status-tag pending">待處理</span>
+                </div>
+                <div class="task-item">
+                  <span class="priority-dot high"></span>
+                  <span class="task-name">撰寫合約摘要測試案例 — LexMind</span>
+                  <span class="status-tag review">審查中</span>
+                </div>
+                <div class="task-item">
+                  <span class="priority-dot medium"></span>
+                  <span class="task-name">更新 README 文件與 API 文件</span>
+                  <span class="status-tag pending">待處理</span>
+                </div>
+                <div class="task-item">
+                  <span class="priority-dot medium"></span>
+                  <span class="task-name">設計 DataFlow schema — v1</span>
+                  <span class="status-tag blocked">阻塞</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity Card -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">最近活動</span>
+                <a class="card-link">查看全部</a>
+              </div>
+              <div class="activity-list">
+                <div class="activity-item">
+                  <span class="status-dot completed"></span>
+                  <span class="activity-agent">frontend-developer</span>
+                  <span class="activity-desc">完成登入頁面 HTML 結構與 Tailwind 樣式</span>
+                  <span class="activity-tokens">12.4K tok</span>
+                </div>
+                <div class="activity-item">
+                  <span class="status-dot failed"></span>
+                  <span class="activity-agent">backend-architect</span>
+                  <span class="activity-desc">API endpoint 測試失敗 — 500 Internal Server Error</span>
+                  <span class="activity-tokens">8.1K tok</span>
+                </div>
+                <div class="activity-item">
+                  <span class="status-dot completed"></span>
+                  <span class="activity-agent">qa-engineer</span>
+                  <span class="activity-desc">執行合約摘要功能 E2E 測試，通過 14/15</span>
+                  <span class="activity-tokens">5.7K tok</span>
+                </div>
+                <div class="activity-item">
+                  <span class="status-dot stopped"></span>
+                  <span class="activity-agent">data-engineer</span>
+                  <span class="activity-desc">Schema 設計暫停，等待需求確認</span>
+                  <span class="activity-tokens">2.2K tok</span>
+                </div>
+                <div class="activity-item">
+                  <span class="status-dot completed"></span>
+                  <span class="activity-agent">tech-writer</span>
+                  <span class="activity-desc">更新 API 文件初稿，新增 7 個 endpoint 說明</span>
+                  <span class="activity-tokens">3.9K tok</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /left-col -->
+
+          <!-- Right Column -->
+          <div class="right-col">
+
+            <!-- Active Sessions Card -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">活躍工作階段</span>
+                <a class="card-link">查看全部</a>
+              </div>
+              <div class="session-list">
+
+                <div class="session-item">
+                  <span class="session-status-dot running"></span>
+                  <div class="session-body">
+                    <div class="session-agent">frontend-developer</div>
+                    <div class="session-task">實作 ChatPilot 對話介面元件庫</div>
+                  </div>
+                  <div class="session-meta">
+                    <div class="session-state running">執行中</div>
+                    <div class="session-tok">18.2K tok</div>
+                  </div>
+                </div>
+
+                <div class="session-item">
+                  <span class="session-status-dot thinking"></span>
+                  <div class="session-body">
+                    <div class="session-agent">backend-architect</div>
+                    <div class="session-task">設計 LexMind 文件解析微服務架構</div>
+                  </div>
+                  <div class="session-meta">
+                    <div class="session-state thinking">思考中</div>
+                    <div class="session-tok">31.5K tok</div>
+                  </div>
+                </div>
+
+                <div class="session-item">
+                  <span class="session-status-dot running"></span>
+                  <div class="session-body">
+                    <div class="session-agent">qa-engineer</div>
+                    <div class="session-task">撰寫 API 整合測試腳本</div>
+                  </div>
+                  <div class="session-meta">
+                    <div class="session-state running">執行中</div>
+                    <div class="session-tok">9.8K tok</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Gates Card -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">審核關卡</span>
+                <a class="card-link">查看全部</a>
+              </div>
+              <div class="gate-alert">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-warning)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                3 個待處理關卡需要確認
+              </div>
+              <div class="gate-list">
+                <div class="gate-item">
+                  <span class="gate-type">G2</span>
+                  <span class="gate-type-name">技術審查</span>
+                  <span class="gate-project">ChatPilot Sprint 3 — 對話元件</span>
+                  <span class="status-tag active">待處理</span>
+                </div>
+                <div class="gate-item">
+                  <span class="gate-type">G3</span>
+                  <span class="gate-type-name">品質審查</span>
+                  <span class="gate-project">LexMind Sprint 2 — 摘要引擎</span>
+                  <span class="status-tag review">已提交</span>
+                </div>
+                <div class="gate-item">
+                  <span class="gate-type">G1</span>
+                  <span class="gate-type-name">規劃審查</span>
+                  <span class="gate-project">DataFlow Sprint 1 — Schema 設計</span>
+                  <span class="status-tag active">待處理</span>
+                </div>
+                <div class="gate-item">
+                  <span class="gate-type">G2</span>
+                  <span class="gate-type-name">技術審查</span>
+                  <span class="gate-project">LexMind Sprint 1 — 文件解析器</span>
+                  <span class="status-tag blocked">已退回</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /right-col -->
+
+        </div><!-- /main-grid -->
+      </div><!-- /state-normal -->
+
+
+      <!-- ══════════════ STATE: EMPTY ══════════════ -->
+      <div id="state-empty" class="state-panel" style="display:none">
+
+        <!-- Stat Cards empty -->
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="stat-label">代理人</div>
+            <div class="stat-value" style="color:var(--color-text-muted)">0</div>
+            <div class="stat-change muted">未載入</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">執行中</div>
+            <div class="stat-value" style="color:var(--color-text-muted)">0</div>
+            <div class="stat-change muted">無運行中</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">專案</div>
+            <div class="stat-value" style="color:var(--color-text-muted)">—</div>
+            <div class="stat-change muted">無專案</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">今日用量</div>
+            <div class="stat-value" style="color:var(--color-text-muted)">0</div>
+            <div class="stat-change muted">tok</div>
+          </div>
+        </div>
+
+        <div class="main-grid">
+          <div class="left-col">
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">進行中 Sprint</span></div>
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-muted)">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span class="empty-state-title">沒有進行中的 Sprint</span>
+                <span class="empty-state-desc">建立第一個 Sprint 來開始追蹤<br>你的開發進度</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">待處理任務</span></div>
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-muted)">
+                  <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span class="empty-state-title">沒有待處理任務</span>
+                <span class="empty-state-desc">所有任務都已完成，<br>或尚未建立任何任務</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">最近活動</span></div>
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-muted)">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                <span class="empty-state-title">尚無活動記錄</span>
+                <span class="empty-state-desc">啟動工作階段後，<br>活動記錄將顯示在此處</span>
+              </div>
+            </div>
+
+          </div>
+          <div class="right-col">
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">活躍工作階段</span></div>
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-muted)">
+                  <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+                <span class="empty-state-title">沒有活躍的工作階段</span>
+                <span class="empty-state-desc">點擊「新增工作階段」<br>來啟動第一個 Agent</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">審核關卡</span></div>
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-muted)">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>
+                </svg>
+                <span class="empty-state-title">沒有待審核的關卡</span>
+                <span class="empty-state-desc">所有關卡均已通過，<br>或尚未建立任何關卡</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /state-empty -->
+
+
+      <!-- ══════════════ STATE: LOADING ══════════════ -->
+      <div id="state-loading" class="state-panel" style="display:none">
+
+        <!-- Stat Cards skeleton -->
+        <div class="stat-row">
+          <div class="stat-card" style="gap:8px;display:flex;flex-direction:column">
+            <div class="skeleton skeleton-text" style="width:60px"></div>
+            <div class="skeleton skeleton-value"></div>
+            <div class="skeleton skeleton-text" style="width:80px"></div>
+          </div>
+          <div class="stat-card" style="gap:8px;display:flex;flex-direction:column">
+            <div class="skeleton skeleton-text" style="width:50px"></div>
+            <div class="skeleton skeleton-value"></div>
+            <div class="skeleton skeleton-text" style="width:70px"></div>
+          </div>
+          <div class="stat-card" style="gap:8px;display:flex;flex-direction:column">
+            <div class="skeleton skeleton-text" style="width:40px"></div>
+            <div class="skeleton skeleton-value"></div>
+            <div class="skeleton skeleton-text" style="width:90px"></div>
+          </div>
+          <div class="stat-card" style="gap:8px;display:flex;flex-direction:column">
+            <div class="skeleton skeleton-text" style="width:65px"></div>
+            <div class="skeleton skeleton-value"></div>
+            <div class="skeleton skeleton-text" style="width:30px"></div>
+          </div>
+        </div>
+
+        <div class="main-grid">
+          <div class="left-col">
+
+            <!-- Sprint skeleton -->
+            <div class="card">
+              <div class="card-header">
+                <div class="skeleton skeleton-title" style="width:120px"></div>
+                <div class="skeleton skeleton-text" style="width:50px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;justify-content:space-between">
+                    <div class="skeleton skeleton-text" style="width:160px"></div>
+                    <div class="skeleton skeleton-text" style="width:50px"></div>
+                  </div>
+                  <div class="skeleton skeleton-text" style="width:85%"></div>
+                  <div class="skeleton" style="height:4px;border-radius:99px;width:100%"></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;justify-content:space-between">
+                    <div class="skeleton skeleton-text" style="width:140px"></div>
+                    <div class="skeleton skeleton-text" style="width:50px"></div>
+                  </div>
+                  <div class="skeleton skeleton-text" style="width:70%"></div>
+                  <div class="skeleton" style="height:4px;border-radius:99px;width:100%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tasks skeleton -->
+            <div class="card">
+              <div class="card-header">
+                <div class="skeleton skeleton-title" style="width:100px"></div>
+                <div class="skeleton skeleton-text" style="width:50px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px" class="skeleton-row" style="padding:8px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:65%"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:45%"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity skeleton -->
+            <div class="card">
+              <div class="card-header">
+                <div class="skeleton skeleton-title" style="width:80px"></div>
+                <div class="skeleton skeleton-text" style="width:50px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:120px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:110px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:130px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton" style="width:7px;height:7px;border-radius:50%"></div>
+                  <div class="skeleton skeleton-text" style="width:100px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="right-col">
+
+            <!-- Sessions skeleton -->
+            <div class="card">
+              <div class="card-header">
+                <div class="skeleton skeleton-title" style="width:110px"></div>
+                <div class="skeleton skeleton-text" style="width:50px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="padding:10px;border-radius:8px;border:1px solid var(--color-border-default);display:flex;gap:10px;align-items:flex-start">
+                  <div class="skeleton" style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0"></div>
+                  <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                    <div class="skeleton skeleton-text" style="width:140px"></div>
+                    <div class="skeleton skeleton-text" style="width:85%"></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <div class="skeleton skeleton-text" style="width:50px"></div>
+                    <div class="skeleton skeleton-text" style="width:60px"></div>
+                  </div>
+                </div>
+                <div style="padding:10px;border-radius:8px;border:1px solid var(--color-border-default);display:flex;gap:10px;align-items:flex-start">
+                  <div class="skeleton" style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0"></div>
+                  <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                    <div class="skeleton skeleton-text" style="width:160px"></div>
+                    <div class="skeleton skeleton-text" style="width:70%"></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <div class="skeleton skeleton-text" style="width:50px"></div>
+                    <div class="skeleton skeleton-text" style="width:60px"></div>
+                  </div>
+                </div>
+                <div style="padding:10px;border-radius:8px;border:1px solid var(--color-border-default);display:flex;gap:10px;align-items:flex-start">
+                  <div class="skeleton" style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0"></div>
+                  <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                    <div class="skeleton skeleton-text" style="width:120px"></div>
+                    <div class="skeleton skeleton-text" style="width:90%"></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <div class="skeleton skeleton-text" style="width:50px"></div>
+                    <div class="skeleton skeleton-text" style="width:60px"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gates skeleton -->
+            <div class="card">
+              <div class="card-header">
+                <div class="skeleton skeleton-title" style="width:80px"></div>
+                <div class="skeleton skeleton-text" style="width:50px"></div>
+              </div>
+              <div class="skeleton" style="height:36px;border-radius:8px;margin-bottom:10px"></div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton skeleton-text" style="width:24px"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton skeleton-text" style="width:24px"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="skeleton skeleton-text" style="width:24px"></div>
+                  <div class="skeleton skeleton-text" style="width:60px"></div>
+                  <div class="skeleton skeleton-text" style="flex:1"></div>
+                  <div class="skeleton skeleton-text" style="width:55px"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /state-loading -->
+
+
+      <!-- ══════════════ STATE: ERROR ══════════════ -->
+      <div id="state-error" class="state-panel" style="display:none">
+
+        <div class="error-banner">
+          <div class="error-banner-icon" style="color:var(--color-danger)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div>
+            <div class="error-banner-title">無法載入儀表板資料</div>
+            <div class="error-banner-desc">
+              與後端服務的連線中斷。請確認 Electron 主程序正在運行，<br>
+              並檢查 IPC 通道是否正常初始化。<br>
+              錯誤代碼: <code style="font-family:monospace;color:var(--color-danger)">ERR_IPC_CHANNEL_CLOSED</code>
+            </div>
+            <button class="error-retry-btn">重試連線</button>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-card" style="border-color:var(--color-danger);opacity:0.5">
+            <div class="stat-label">代理人</div>
+            <div class="stat-value" style="color:var(--color-danger)">—</div>
+            <div class="stat-change" style="color:var(--color-danger);font-size:11px">載入失敗</div>
+          </div>
+          <div class="stat-card" style="border-color:var(--color-danger);opacity:0.5">
+            <div class="stat-label">執行中</div>
+            <div class="stat-value" style="color:var(--color-danger)">—</div>
+            <div class="stat-change" style="color:var(--color-danger);font-size:11px">載入失敗</div>
+          </div>
+          <div class="stat-card" style="border-color:var(--color-danger);opacity:0.5">
+            <div class="stat-label">專案</div>
+            <div class="stat-value" style="color:var(--color-danger)">—</div>
+            <div class="stat-change" style="color:var(--color-danger);font-size:11px">載入失敗</div>
+          </div>
+          <div class="stat-card" style="border-color:var(--color-danger);opacity:0.5">
+            <div class="stat-label">今日用量</div>
+            <div class="stat-value" style="color:var(--color-danger)">—</div>
+            <div class="stat-change" style="color:var(--color-danger);font-size:11px">載入失敗</div>
+          </div>
+        </div>
+
+        <div class="main-grid">
+          <div class="left-col">
+            <div class="error-card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="font-size:13px;font-weight:600;color:var(--color-danger)">Sprint 資料載入失敗</span>
+              </div>
+              <p style="font-size:12px;color:var(--color-text-muted);line-height:1.6">無法從資料庫讀取 Sprint 記錄。請確認資料庫連線正常。</p>
+            </div>
+            <div class="error-card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="font-size:13px;font-weight:600;color:var(--color-danger)">任務資料載入失敗</span>
+              </div>
+              <p style="font-size:12px;color:var(--color-text-muted);line-height:1.6">Task store 初始化失敗，IPC 呼叫 <code style="font-family:monospace">tasks:list</code> 無回應。</p>
+            </div>
+            <div class="error-card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="font-size:13px;font-weight:600;color:var(--color-danger)">活動記錄載入失敗</span>
+              </div>
+              <p style="font-size:12px;color:var(--color-text-muted);line-height:1.6">Event bus 無法讀取歷史活動記錄。</p>
+            </div>
+          </div>
+          <div class="right-col">
+            <div class="error-card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="font-size:13px;font-weight:600;color:var(--color-danger)">工作階段載入失敗</span>
+              </div>
+              <p style="font-size:12px;color:var(--color-text-muted);line-height:1.6">Session Manager 無法回應，無法取得活躍工作階段清單。</p>
+            </div>
+            <div class="error-card">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-danger);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="font-size:13px;font-weight:600;color:var(--color-danger)">關卡資料載入失敗</span>
+              </div>
+              <p style="font-size:12px;color:var(--color-text-muted);line-height:1.6">IPC 呼叫 <code style="font-family:monospace">gates:list</code> 逾時，請重試。</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /state-error -->
+
+    </div><!-- /content -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<script>
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const el = document.getElementById('clock');
+    if (el) el.textContent = h + ':' + m + ':' + s;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // State switcher
+  function switchState(state) {
+    // Hide all panels
+    document.querySelectorAll('.state-panel').forEach(function(el) {
+      el.style.display = 'none';
+    });
+
+    // Show target
+    var target = document.getElementById('state-' + state);
+    if (target) target.style.display = 'block';
+
+    // Update button styles
+    document.querySelectorAll('.state-btn').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    event.currentTarget.classList.add('active');
+  }
+</script>
+</body>
+</html>

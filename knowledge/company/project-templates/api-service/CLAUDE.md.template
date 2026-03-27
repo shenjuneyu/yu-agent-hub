@@ -12,73 +12,34 @@
 - **核心價值**: {一句話描述}
 - **開發平台**: {Windows / macOS / Linux}
 
-## 開發規則
+## 共用開發規則
 
-### 文件治理（最高原則）
+> 以下 2 份文件包含所有 Agent 必須遵循的共用規則，執行任務前**必須先閱讀**。
 
-1. **文件就是法律**: 程式碼必須與規範文件一致。不一致時以規範為準；規範有誤須先提案修改，經確認後才改程式碼。
-2. **原子性**: 每個 commit 必須同時包含程式碼變更與對應文件更新。
-3. **文件同步**: 功能增改刪必須同步更新 `.knowledge/` 與本索引。
-4. **先確認再開發**: 需求確認 → 架構設計確認 → 核可 → 開發。
-5. **公司規範本地化**: 引用公司規範（`company://`）時，若本地 `.knowledge/` 尚無對應文件，必須先建立一份本地副本再使用。未用到的不需複製。
-6. **需求備忘統一入口**: 老闆提出的額外需求、想法，統一記錄到 `proposal/product-roadmap-draft.md` 的「未排期 Backlog」。PM 負責分類與評估，正式納入開發前須經 G0 審核。
+| 文件 | 內容 |
+|------|------|
+| `.knowledge/company-rules.md` | 文件治理、文件層級、禁止憑空想像、命名骨架、Commit 紀律、依賴/環境變數規則 |
+| `.knowledge/team-workflow.md` | 團隊架構、指揮鏈、Sprint 流程、Gate、Review、上線/回滾 |
 
-### 文件層級
-
-| 層級 | 強制力 | 適用文件 |
-|------|--------|---------|
-| 🔴 規範 | 必須遵循，違反視為 bug | `coding-standards`, `api-design`, `data-model` |
-| 🟡 規格 | 開發依據，疑義找 PM | `feature-spec`, `acceptance-criteria` |
-| 🔵 參考 | 輔助理解 | `project-overview`, `tech-stack`, `architecture` |
-
-### 命名規範
+## 命名規範差異（覆蓋共用骨架）
 
 | 層 | 風格 | 範例 |
 |----|------|------|
-| 資料庫 | snake_case | `user_id`, `created_at` |
 | API URL | kebab-case | `/api/v1/user-profiles` |
-| API JSON 欄位 | snake_case | `trace_id`, `total_elements` |
-| 程式碼 | camelCase / PascalCase | `userId`, `UserService` |
+| API JSON | snake_case | `trace_id`, `total_elements` |
 
-### Commit 紀律（強制）
-
-1. **一事一 commit**: 每個 commit 只做一件事（一個功能、一個修復、一個重構）。禁止「大雜燴」commit。
-2. **commit 前必過 lint + type-check**: 通過後才能 commit。CI 紅燈 = 阻塞。
-3. **commit message 格式**: `<type>(<scope>): <summary>`，type 限 feat/fix/refactor/test/docs/chore。
-4. **禁止 force push 到共用分支**: main / develop / release 分支禁止 `--force`。個人分支可用。
-5. **WIP commit 禁止合併**: 含 `WIP` / `TODO` / `FIXME` 的 commit 不得出現在合併請求中。
-6. **lockfile 必須隨 package.json 一起 commit**: 修改依賴後 lockfile 未更新 = 未完成。
+> 無 Body 請求（GET / DELETE）**不送 Content-Type header**。
 
 ## 技術棧
 
 | 類型 | 技術 |
 |------|------|
-| 語言 | {Java / Python / TypeScript / Go} |
-| 框架 | {Spring Boot / FastAPI / Fastify / Express} |
+| 框架 | {Fastify / Express / FastAPI / Spring Boot} |
 | 資料庫 | {PostgreSQL / MySQL / MongoDB} |
 | ORM | {Prisma / TypeORM / SQLAlchemy} |
-| 快取 | {Redis / Memcached / 無} |
 | 認證 | {JWT / API Key / OAuth2} |
 | 測試 | {Vitest / Jest / Pytest} |
-| 套件管理 | {pnpm / npm / pip} |
 | 部署 | {Docker / Kubernetes} |
-
-## 目錄結構
-
-```
-{workDir}/
-├── src/
-│   ├── routes/          # 路由定義
-│   ├── controllers/     # 控制器
-│   ├── services/        # 業務邏輯
-│   ├── middleware/       # 認證、多租戶、Rate Limit
-│   ├── validators/      # 驗證 schema
-│   └── utils/
-├── prisma/              # DB Schema & Migration
-├── tests/
-├── .knowledge/
-└── ...
-```
 
 ## API 端點
 
@@ -90,70 +51,57 @@
 | PATCH | /api/v1/{resource}/:id | 更新 | P1 |
 | DELETE | /api/v1/{resource}/:id | 刪除 | P1 |
 
-> 無 Body 請求（GET / DELETE）**不送 Content-Type header**。
-
-## 資料模型
-
-{主要資料表，或見 `.knowledge/data-model.md`}
-
-## 認證與授權
-
-- **認證方式**: {JWT / API Key / OAuth2}
-- **權限模型**: {RBAC / 多租戶隔離 / 無}
-
-## 驗收標準
-
-{P0 功能驗收條件，或見 `.knowledge/acceptance-criteria.md`}
-
-## 常見踩坑紀錄
+## 踩坑紀錄
 
 | 問題 | 原因 | 正確做法 |
 |------|------|---------|
 | {問題描述} | {根因} | {解決方案} |
 
+## 可用指令（Slash Commands）
+
+> 以下指令已部署到 `.claude/commands/`。
+> **使用方式**：讀取對應的 `.claude/commands/{指令名}.md` 檔案，依照其中的步驟執行。
+> 例如：需要撰寫開發計畫書時，先 `Read .claude/commands/dev-plan.md`，然後按照文件中的步驟操作。
+
+| 指令 | 用途 | 使用時機 |
+|------|------|---------|
+| `/project-kickoff` | 初始化專案結構 | 專案建立後第一件事 |
+| `/product-diagnosis` | 產品六問診斷（G0 前置） | 提案前驗證產品方向 |
+| `/sprint-proposal` | 產出 Sprint 提案書 | Sprint 規劃階段 |
+| `/dev-plan` | 產出開發計畫書 | G0 通過後展開任務 |
+| `/task-dispatch` | 老闆派工，建立 .tasks/ 檔案 | 老闆分配任務時 |
+| `/task-delegation` | 拆解任務到計畫書第 6 節 | L1 拆解子任務時 |
+| `/task-status` | 更新任務狀態 | 任務進行中回報 |
+| `/task-done` | 標記任務完成 | 任務交付時 |
+| `/review` | L1 內部 Code Review | 程式碼完成後送審 |
+| `/pm-review` | PM 審核 Gate 提交 | L1 提交 Gate 後 |
+| `/gate-record` | 記錄 Gate 審查決策 | Gate 審查結果出爐時 |
+| `/pre-deploy` | 上線前檢查清單（G5） | 部署前最後確認 |
+| `/pitfall-record` | 記錄踩坑經驗 | 發現問題時立即記錄 |
+| `/pitfall-resolve` | 標記踩坑已解決 | 問題修復後 |
+| `/sprint-retro` | Sprint 回顧報告 | Sprint 結束時 |
+| `/harness-audit` | Harness 健康度稽核 | 定期檢查 |
+
 ## 專案文件索引
 
 | 文件 | 說明 |
 |------|------|
+| `.knowledge/company-rules.md` | 共用開發規則 |
+| `.knowledge/team-workflow.md` | 共用工作流程 |
 | `.knowledge/project-overview.md` | 專案概述 |
-| `.knowledge/tech-stack.md` | 技術棧 |
-| `.knowledge/api-design.md` | API 設計 |
-| `.knowledge/data-model.md` | 資料模型 |
+| `.knowledge/api-design.md` | API 設計（🔴 規範） |
+| `.knowledge/data-model.md` | 資料模型（🔴 規範） |
 | `.knowledge/acceptance-criteria.md` | 驗收標準 |
-
-## 團隊運作模式
-
-### 指揮鏈
-
-```
-老闆（最終決策者）
-  └─→ L1 部門領導（規劃 + Review + 回報）
-        └─→ L2 執行者（開發 + 測試 + 文件）
-```
-
-### 原則
-
-1. **逐級指揮**: 老闆 → L1 → L2，禁止跨級直接指揮
-2. **逐級回報**: L2 → L1 → 老闆，L2 不得跳過 L1 直接回報
-3. **L1 品管責任**: L1 負責內部 Review，確保品質後才提交 Gate
-4. **L2 專注執行**: L2 只負責被分派的任務範圍，不擅自擴大範圍
-
-### Sprint 執行流程
-
-Step 1-8 → 每個 Step 完成後 L1 內部 Review → Review 通過提交 Gate → PM 審核 → 老闆決策
-
-詳見 [Sprint 規劃 SOP](C:\agent-hub\knowledge\company\sop\sprint-planning.md)
 
 ## 公司知識庫
 
-> Agent 執行任務時遵循以下規範與 SOP。
+> **使用規則（company-rules.md 第 7 條）**：需要引用公司規範時，先檢查本地 `.knowledge/` 是否已有副本。若無，從下方來源路徑複製一份到 `.knowledge/` 再使用。不需要的規範不必複製。
 
-- [程式碼規範](C:\agent-hub\knowledge\company\standards\coding-standards.md)
-- [API 規範](C:\agent-hub\knowledge\company\standards\api-standards.md)
-- [安全規範](C:\agent-hub\knowledge\company\standards\security-standards.md)
-- [測試規範](C:\agent-hub\knowledge\company\standards\testing-standards.md)
-- [品質 Checklist](C:\agent-hub\knowledge\company\standards\quality-checklist.md)
-- [Code Review SOP](C:\agent-hub\knowledge\company\sop\code-review.md)
-- [部署 SOP](C:\agent-hub\knowledge\company\sop\deployment.md)
-- [Sprint 規劃 SOP](C:\agent-hub\knowledge\company\sop\sprint-planning.md)
-- [Agent 團隊資源表](C:\agent-hub\knowledge\company\agent-roster.md)（45 位 Agent，8 部門）
+| 規範 | 來源路徑 | 本地副本 |
+|------|---------|---------|
+| 程式碼規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/coding-standards.md` | `.knowledge/coding-standards.md` |
+| API 規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/api-standards.md` | `.knowledge/api-standards.md` |
+| 測試規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/testing-standards.md` | `.knowledge/testing-standards.md` |
+| 品質 Checklist | `{{AGENT_HUB_PATH}}/knowledge/company/standards/quality-checklist.md` | `.knowledge/quality-checklist.md` |
+| Code Review SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/code-review.md` | `.knowledge/code-review.md` |
+| Sprint 規劃 SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/sprint-planning.md` | `.knowledge/sprint-planning.md` |

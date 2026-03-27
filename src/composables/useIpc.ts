@@ -16,6 +16,8 @@ export function useIpc() {
     taskId?: string | null;
     interactive?: boolean;
     resumeSessionId?: string;
+    resumeConversationId?: string;
+    projectPath?: string;
   }) {
     return maestro.sessions.spawn(params);
   }
@@ -81,6 +83,10 @@ export function useIpc() {
     return maestro.sessions.getSummaries(sessionId);
   }
 
+  async function scanResumableSessions(limit?: number) {
+    return maestro.sessions.scanResumable(limit);
+  }
+
   // Agents
   async function listAgents(filters?: { department?: string; level?: string; search?: string }) {
     return maestro.agents.list(filters);
@@ -103,28 +109,28 @@ export function useIpc() {
     return maestro.tasks.list(filters);
   }
 
-  async function getTask(id: string) {
-    return maestro.tasks.get(id);
+  async function getTask(projectId: string, id: string) {
+    return maestro.tasks.get(projectId, id);
   }
 
-  async function updateTask(id: string, params: unknown) {
-    return maestro.tasks.update(id, params);
+  async function updateTask(projectId: string, id: string, params: unknown) {
+    return maestro.tasks.update(projectId, id, params);
   }
 
-  async function deleteTask(id: string) {
-    return maestro.tasks.delete(id);
+  async function deleteTask(projectId: string, id: string) {
+    return maestro.tasks.delete(projectId, id);
   }
 
-  async function transitionTask(taskId: string, toStatus: string) {
-    return maestro.tasks.transition({ taskId, toStatus });
+  async function transitionTask(projectId: string, taskId: string, toStatus: string) {
+    return maestro.tasks.transition({ projectId, taskId, toStatus });
   }
 
-  async function addTaskDependency(taskId: string, dependsOnId: string) {
-    return maestro.tasks.addDependency(taskId, dependsOnId);
+  async function addTaskDependency(projectId: string, taskId: string, dependsOnId: string) {
+    return maestro.tasks.addDependency(projectId, taskId, dependsOnId);
   }
 
-  async function removeTaskDependency(taskId: string, dependsOnId: string) {
-    return maestro.tasks.removeDependency(taskId, dependsOnId);
+  async function removeTaskDependency(projectId: string, taskId: string, dependsOnId: string) {
+    return maestro.tasks.removeDependency(projectId, taskId, dependsOnId);
   }
 
   async function getReadyTasks(projectId: string) {
@@ -262,28 +268,6 @@ export function useIpc() {
     return maestro.gates.initPipeline({ projectId, sprintId });
   }
 
-  // Costs
-  async function getCostOverview() {
-    return maestro.costs.getOverview();
-  }
-
-  async function getCostBreakdown(type: string) {
-    return maestro.costs.getBreakdown(type);
-  }
-
-  async function getCostBudget(projectId: string) {
-    return maestro.costs.getBudget(projectId);
-  }
-
-  async function setCostBudget(params: {
-    projectId: string;
-    dailyTokenLimit?: number;
-    totalTokenLimit?: number;
-    alertThreshold?: number;
-  }) {
-    return maestro.costs.setBudget(params);
-  }
-
   // Settings
   async function getSetting(key: string) {
     return maestro.settings.get(key);
@@ -295,19 +279,6 @@ export function useIpc() {
 
   async function getAllSettings() {
     return maestro.settings.getAll();
-  }
-
-  // Objections
-  async function listObjections() {
-    return maestro.objections.list();
-  }
-
-  async function resolveObjection(params: {
-    objectionId: string;
-    resolution: string;
-    resolvedBy: string;
-  }) {
-    return maestro.objections.resolve(params);
   }
 
   // Git
@@ -371,23 +342,6 @@ export function useIpc() {
     return maestro.git.deleteBranch(cwd, branchName, force);
   }
 
-  // Auth
-  async function authLogin() {
-    return maestro.auth.login();
-  }
-
-  async function authLogout() {
-    return maestro.auth.logout();
-  }
-
-  async function authGetProfile() {
-    return maestro.auth.getProfile();
-  }
-
-  async function authGetStatus() {
-    return maestro.auth.getStatus();
-  }
-
   // GitHub
   async function githubCreatePR(params: {
     owner: string;
@@ -423,90 +377,87 @@ export function useIpc() {
     return maestro.audit.query(params);
   }
 
-  // Notion Sync
-  async function notionLogin() {
-    return maestro.notion.login();
+  // Hooks
+  async function getHookConfig(workDir: string) {
+    return maestro.hooks.getConfig(workDir);
   }
 
-  async function notionDisconnect() {
-    return maestro.notion.disconnect();
+  async function updateHookConfig(params: { workDir: string; autoInject?: boolean; stopValidatorEnabled?: boolean }) {
+    return maestro.hooks.updateConfig(params);
   }
 
-  async function notionGetStatus() {
-    return maestro.notion.getStatus();
+  async function listHooks(params?: { projectPath?: string }) {
+    return maestro.hooks.list(params);
   }
 
-  async function notionVerify() {
-    return maestro.notion.verify();
+  async function getHook(params: { name: string; scope?: string; projectPath?: string }) {
+    return maestro.hooks.get(params);
   }
 
-  async function notionSetParentPage(pageId: string) {
-    return maestro.notion.setParentPage(pageId);
+  async function createHook(params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) {
+    return maestro.hooks.create(params);
   }
 
-  async function notionInitDatabases() {
-    return maestro.notion.initDatabases();
+  async function updateHook(params: { name: string; type: string; matcher: string; script: string; scope?: string; projectPath?: string }) {
+    return maestro.hooks.update(params);
   }
 
-  async function notionGetDbStatus() {
-    return maestro.notion.getDbStatus();
+  async function deleteHook(params: { name: string; scope?: string; projectPath?: string }) {
+    return maestro.hooks.delete(params);
   }
 
-  async function notionSyncPush(tableName?: string) {
-    return maestro.notion.syncPush(tableName);
+  async function toggleHook(params: { name: string; enabled: boolean; scope?: string; projectPath?: string }) {
+    return maestro.hooks.toggle(params);
   }
 
-  async function notionSyncPull(tableName?: string) {
-    return maestro.notion.syncPull(tableName);
+  async function getHookLogs(filters?: { hookName?: string; result?: string; limit?: number; offset?: number; projectPath?: string }) {
+    return maestro.hooks.getLogs(filters);
   }
 
-  async function notionSyncAll(options?: unknown) {
-    return maestro.notion.syncAll(options);
+  async function getHookStats(projectPath?: string) {
+    return maestro.hooks.getStats(projectPath);
   }
 
-  async function notionSchedulerStart(intervalMs?: number) {
-    return maestro.notion.schedulerStart(intervalMs);
+  // Skills
+  async function listSkills(projectPath?: string) {
+    return maestro.skills.list(projectPath ? { projectPath } : undefined);
   }
 
-  async function notionSchedulerStop() {
-    return maestro.notion.schedulerStop();
+  async function getSkill(name: string, scope?: string, projectPath?: string) {
+    return maestro.skills.get({ name, scope, projectPath });
   }
 
-  async function notionQueueFlush() {
-    return maestro.notion.queueFlush();
+  async function createSkill(params: { name: string; content: string; scope?: string; projectPath?: string }) {
+    return maestro.skills.create(params);
   }
 
-  function onSyncStatus(callback: (data: unknown) => void) {
-    maestro.on.syncStatus(callback);
+  async function updateSkill(params: { name: string; content: string; scope?: string; projectPath?: string }) {
+    return maestro.skills.update(params);
   }
 
-  // Doc Sync (Phase 6D)
-  async function docSyncGetStatus(scope: string, projectWorkDir?: string) {
-    return maestro.docSync.getStatus(scope, projectWorkDir);
+  async function deleteSkill(name: string, scope?: string, projectPath?: string) {
+    return maestro.skills.delete({ name, scope, projectPath });
   }
 
-  async function docSyncDiscover(scope: string, projectWorkDir?: string) {
-    return maestro.docSync.discover(scope, projectWorkDir);
+  async function deploySkill(name: string, projects: string[]) {
+    return maestro.skills.deploy({ name, projects });
   }
 
-  async function docSyncGetMappings(scope: string) {
-    return maestro.docSync.getMappings(scope);
+  async function toggleSkill(name: string, enabled: boolean, scope?: string, projectPath?: string) {
+    return maestro.skills.toggle({ name, enabled, scope, projectPath });
   }
 
-  async function docSyncSetRootPage(scope: string, pageId: string) {
-    return maestro.docSync.setRootPage(scope, pageId);
+  async function exportSkills(names: string[]) {
+    return maestro.skills.export({ names });
   }
 
-  async function docSyncPush(options: unknown) {
-    return maestro.docSync.push(options);
+  async function importSkills(bundle: unknown, onConflict: 'skip' | 'overwrite') {
+    return maestro.skills.import({ bundle: bundle as any, onConflict });
   }
 
-  async function docSyncPull(options: unknown) {
-    return maestro.docSync.pull(options);
-  }
-
-  async function docSyncSyncAll(options: unknown) {
-    return maestro.docSync.syncAll(options);
+  // Pitfall
+  async function getPitfallOverdue() {
+    return maestro.pitfall.getOverdue();
   }
 
   // PTY
@@ -543,6 +494,23 @@ export function useIpc() {
     maestro.on.delegationReport(callback);
   }
 
+  // Project Sync
+  async function startProjectSync(projectId: string, workDir: string) {
+    return maestro.projectSync.start({ projectId, workDir });
+  }
+
+  async function stopProjectSync(projectId: string) {
+    return maestro.projectSync.stop({ projectId });
+  }
+
+  async function fullProjectSync(projectId: string, workDir: string) {
+    return maestro.projectSync.fullSync({ projectId, workDir });
+  }
+
+  function onProjectSynced(callback: (data: { projectId: string; type: string; filePath?: string }) => void) {
+    maestro.on.projectSynced(callback);
+  }
+
   return {
     // System
     getHealth,
@@ -561,6 +529,7 @@ export function useIpc() {
     listDelegations,
     requestSummary,
     getSessionSummaries,
+    scanResumableSessions,
     // Agents
     listAgents,
     getAgent,
@@ -610,18 +579,10 @@ export function useIpc() {
     reviewGate,
     getGateChecklists,
     initGatePipeline,
-    // Costs
-    getCostOverview,
-    getCostBreakdown,
-    getCostBudget,
-    setCostBudget,
     // Settings
     getSetting,
     updateSetting,
     getAllSettings,
-    // Objections
-    listObjections,
-    resolveObjection,
     // Git
     gitGetStatus,
     gitGetDiff,
@@ -638,11 +599,6 @@ export function useIpc() {
     gitCreateBranch,
     gitCheckout,
     gitDeleteBranch,
-    // Auth
-    authLogin,
-    authLogout,
-    authGetProfile,
-    authGetStatus,
     // GitHub
     githubCreatePR,
     githubListPRs,
@@ -650,20 +606,29 @@ export function useIpc() {
     githubGetRepos,
     // Audit
     queryAuditLogs,
-    // Notion Sync
-    notionLogin,
-    notionDisconnect,
-    notionGetStatus,
-    notionVerify,
-    notionSetParentPage,
-    notionInitDatabases,
-    notionGetDbStatus,
-    notionSyncPush,
-    notionSyncPull,
-    notionSyncAll,
-    notionSchedulerStart,
-    notionSchedulerStop,
-    notionQueueFlush,
+    // Hooks
+    getHookConfig,
+    updateHookConfig,
+    listHooks,
+    getHook,
+    createHook,
+    updateHook,
+    deleteHook,
+    toggleHook,
+    getHookLogs,
+    getHookStats,
+    // Skills
+    listSkills,
+    getSkill,
+    createSkill,
+    updateSkill,
+    deleteSkill,
+    deploySkill,
+    toggleSkill,
+    exportSkills,
+    importSkills,
+    // Pitfall
+    getPitfallOverdue,
     // Events
     onSessionEvent,
     onSessionStatus,
@@ -671,14 +636,10 @@ export function useIpc() {
     onNotification,
     onAgentsReloaded,
     onDelegationReport,
-    onSyncStatus,
-    // Doc Sync
-    docSyncGetStatus,
-    docSyncDiscover,
-    docSyncGetMappings,
-    docSyncSetRootPage,
-    docSyncPush,
-    docSyncPull,
-    docSyncSyncAll,
+    // Project Sync
+    startProjectSync,
+    stopProjectSync,
+    fullProjectSync,
+    onProjectSynced,
   };
 }

@@ -19,6 +19,7 @@ export const IpcChannels = {
   SESSION_LIST_DELEGATIONS: 'session:list-delegations',
   SESSION_REQUEST_SUMMARY: 'session:request-summary',
   SESSION_GET_SUMMARIES: 'session:get-summaries',
+  SESSION_SCAN_RESUMABLE: 'session:scan-resumable',
 
   // Agents
   AGENT_LIST: 'agent:list',
@@ -57,6 +58,12 @@ export const IpcChannels = {
   PROJECT_INIT_CLAUDE_DIR: 'project:init-claude-dir',
   PROJECT_GET_CLAUDE_DIR: 'project:get-claude-dir',
 
+  // Project Sync
+  PROJECT_SYNC_START: 'project-sync:start',
+  PROJECT_SYNC_STOP: 'project-sync:stop',
+  PROJECT_SYNC_FULL: 'project-sync:full',
+  PROJECT_SYNC_STATUS: 'project-sync:status',
+
   // Knowledge
   KNOWLEDGE_LIST_TREE: 'knowledge:list-tree',
   KNOWLEDGE_READ_FILE: 'knowledge:read-file',
@@ -71,12 +78,6 @@ export const IpcChannels = {
   GATE_GET_CHECKLISTS: 'gate:get-checklists',
   GATE_INIT_PIPELINE: 'gate:init-pipeline',
 
-  // Costs
-  COST_GET_OVERVIEW: 'cost:get-overview',
-  COST_GET_BREAKDOWN: 'cost:get-breakdown',
-  COST_GET_BUDGET: 'cost:get-budget',
-  COST_SET_BUDGET: 'cost:set-budget',
-
   // Audit
   AUDIT_QUERY: 'audit:query',
 
@@ -85,9 +86,31 @@ export const IpcChannels = {
   SETTINGS_UPDATE: 'settings:update',
   SETTINGS_GET_ALL: 'settings:get-all',
 
-  // Objections
-  OBJECTION_LIST: 'objection:list',
-  OBJECTION_RESOLVE: 'objection:resolve',
+  // Hooks
+  HOOK_GET_CONFIG: 'hook:get-config',
+  HOOK_UPDATE_CONFIG: 'hook:update-config',
+  HOOK_LIST: 'hook:list',
+  HOOK_GET: 'hook:get',
+  HOOK_CREATE: 'hook:create',
+  HOOK_UPDATE: 'hook:update',
+  HOOK_DELETE: 'hook:delete',
+  HOOK_TOGGLE: 'hook:toggle',
+  HOOK_GET_LOGS: 'hook:getLogs',
+  HOOK_GET_STATS: 'hook:getStats',
+
+  // Skills
+  SKILL_LIST: 'skill:list',
+  SKILL_GET: 'skill:get',
+  SKILL_CREATE: 'skill:create',
+  SKILL_UPDATE: 'skill:update',
+  SKILL_DELETE: 'skill:delete',
+  SKILL_DEPLOY: 'skill:deploy',
+  SKILL_TOGGLE: 'skill:toggle',
+  SKILL_EXPORT: 'skill:export',
+  SKILL_IMPORT: 'skill:import',
+
+  // Pitfall
+  PITFALL_GET_OVERDUE: 'pitfall:getOverdue',
 
   // Git
   GIT_GET_STATUS: 'git:get-status',
@@ -106,12 +129,6 @@ export const IpcChannels = {
   GIT_CHECKOUT: 'git:checkout',
   GIT_DELETE_BRANCH: 'git:delete-branch',
 
-  // Auth
-  AUTH_LOGIN: 'auth:login',
-  AUTH_LOGOUT: 'auth:logout',
-  AUTH_GET_PROFILE: 'auth:get-profile',
-  AUTH_GET_STATUS: 'auth:get-status',
-
   // GitHub API
   GITHUB_CREATE_PR: 'github:create-pr',
   GITHUB_LIST_PRS: 'github:list-prs',
@@ -125,35 +142,6 @@ export const IpcChannels = {
   PTY_INPUT: 'pty:input',
   PTY_RESIZE: 'pty:resize',
 
-  // Notion Sync
-  NOTION_LOGIN: 'notion:login',
-  NOTION_DISCONNECT: 'notion:disconnect',
-  NOTION_GET_STATUS: 'notion:get-status',
-  NOTION_VERIFY: 'notion:verify',
-  NOTION_SET_PARENT_PAGE: 'notion:set-parent-page',
-  NOTION_INIT_DATABASES: 'notion:init-databases',
-  NOTION_GET_DB_STATUS: 'notion:get-db-status',
-  NOTION_SYNC_PUSH: 'notion:sync-push',
-  NOTION_SYNC_PULL: 'notion:sync-pull',
-  NOTION_SYNC_ALL: 'notion:sync-all',
-  SYNC_SCHEDULER_START: 'sync:scheduler-start',
-  SYNC_SCHEDULER_STOP: 'sync:scheduler-stop',
-  SYNC_QUEUE_FLUSH: 'sync:queue-flush',
-
-  // Doc Sync (Phase 6D)
-  DOC_SYNC_GET_STATUS: 'doc-sync:get-status',
-  DOC_SYNC_PUSH: 'doc-sync:push',
-  DOC_SYNC_PULL: 'doc-sync:pull',
-  DOC_SYNC_SET_ROOT_PAGE: 'doc-sync:set-root-page',
-  DOC_SYNC_DISCOVER: 'doc-sync:discover',
-  DOC_SYNC_GET_MAPPINGS: 'doc-sync:get-mappings',
-  DOC_SYNC_SYNC_ALL: 'doc-sync:sync-all',
-
-  // Browse (Phase 9F)
-  BROWSE_START: 'browse:start',
-  BROWSE_STOP: 'browse:stop',
-  BROWSE_STATUS: 'browse:status',
-
   // Push events (Main → Renderer)
   GATE_STATUS_CHANGED: 'gate:status-changed',
   SESSION_EVENT: 'session:event',
@@ -162,11 +150,19 @@ export const IpcChannels = {
   NOTIFICATION: 'notification',
   AGENTS_RELOADED: 'agents:reloaded',
   DELEGATION_REPORT: 'delegation:report',
-  SYNC_STATUS: 'sync:status',
 } as const;
 
 export interface IpcError {
   code: string;
   message: string;
   details?: Record<string, unknown>;
+}
+
+export interface ResumableSession {
+  conversationId: string;
+  projectPath: string;
+  projectName: string;
+  firstMessage: string;
+  lastModified: string;
+  fileSize: number;
 }
