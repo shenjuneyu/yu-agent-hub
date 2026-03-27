@@ -147,25 +147,65 @@ G0（需求確認）→ G1（設計審核）→ G2（程式碼審查）→ G3（
 
 AgentHub 是 **Claude Code 的上層管理框架**，所有 Agent 的實際工作都透過 Claude Code CLI 執行。
 
-| 必要項目 | 說明 |
-|---------|------|
-| **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** | Anthropic 官方 CLI 工具，AgentHub 的 AI 引擎。需先安裝並完成認證。 |
-| **Node.js >= 18** | Electron 與前端建置所需 |
-| **npm** | 套件管理 |
+| 必要項目 | 版本 | 說明 |
+|---------|------|------|
+| **[Node.js](https://nodejs.org/)** | >= 18 | Electron 與前端建置所需（建議 LTS 版本） |
+| **npm** | >= 9 | 隨 Node.js 安裝，套件管理 |
+| **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** | 最新版 | Anthropic 官方 CLI 工具，AgentHub 的 AI 引擎。需先安裝並完成認證。 |
+| **[Git](https://git-scm.com/)** | >= 2.30 | 版本控制，專案 clone 與 Agent 操作所需 |
+| **Python** | >= 3.8 | node-pty 原生模組編譯所需（Windows 需要） |
+| **C++ Build Tools** | — | node-pty 原生模組編譯所需（見下方平台說明） |
+
+### 平台安裝說明
+
+**Windows**
+```bash
+# 安裝 Windows Build Tools（管理員 PowerShell）
+npm install --global windows-build-tools
+# 或手動安裝 Visual Studio Build Tools（勾選「C++ 桌面開發」工作負載）
+```
+
+**macOS**
+```bash
+# 安裝 Xcode Command Line Tools
+xcode-select --install
+```
+
+**Linux (Ubuntu/Debian)**
+```bash
+sudo apt-get install -y build-essential python3
+```
 
 > **沒有 Claude Code，AgentHub 只是一個空殼 GUI。** 所有 Skill 執行、Hook 攔截、Agent 對話都依賴 Claude Code CLI。
 
 ## 快速開始
 
 ```bash
-# 1. 確認 Claude Code 已安裝
-claude --version
+# 1. 確認前置工具已安裝
+node --version    # >= 18
+claude --version  # Claude Code CLI
 
-# 2. 安裝 AgentHub
+# 2. Clone 專案
 git clone https://github.com/Stanshy/AgentHub.git
 cd AgentHub
+
+# 3. 安裝依賴
 npm install
+
+# 4. 啟動開發模式
 npm run dev
+```
+
+### 可用指令
+
+```bash
+npm run dev          # 啟動開發模式（Electron + Vite HMR）
+npm run build        # 打包（TypeScript 編譯 + Vite 建置）
+npm run typecheck    # TypeScript 型別檢查
+npm run test         # 單元測試（Vitest）
+npm run test:e2e     # E2E 測試（Playwright）
+npm run build:win    # 打包 Windows 安裝檔
+npm run build:mac    # 打包 macOS 安裝檔
 ```
 
 ---
