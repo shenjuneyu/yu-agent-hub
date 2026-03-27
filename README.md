@@ -177,6 +177,7 @@ AgentHub 的設計理念來自 **Claude Code Mastery** 課程中的 Harness Engi
 如果你想理解 AgentHub 背後的思維模型——為什麼用 Hook 而不是 prompt、為什麼 Skill 比 SOP 文件有效、為什麼 Gate 關卡能把 33% 的成功率拉到 99%——這門課程是最好的起點：
 
 **[Claude Code Mastery](https://github.com/Stanshy/Claude-code-mastery)** — 從零到自主 Agent 團隊的完整指南
+**[線上閱讀版](https://claude-code-mastery-site.vercel.app/)** — 網頁版，方便瀏覽
 
 涵蓋 8 個模組、23 章，從 Claude Code 基礎操作到五層進化模型（人工操作 → Prompt 工程 → Harness 工程 → 自主 Agent → Agent 團隊），其中 Module 6 專門講解 AgentHub 使用的 Harness Engineering 架構。
 
