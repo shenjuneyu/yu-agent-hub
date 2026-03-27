@@ -108,24 +108,107 @@ G0（需求確認）→ G1（設計審核）→ G2（程式碼審查）→ G3（
 
 ## 團隊架構
 
-你是老闆。下面是你的虛擬開發團隊：
+你是老闆。下面是你的虛擬開發公司——**9 個部門、46 個 Agent**：
+
+### 指揮鏈
 
 ```
 老闆（你）
-├── PM（產品經理）— 需求管理、Sprint 規劃、Gate 審核
-│   ├── feedback-synthesizer
-│   ├── sprint-prioritizer
-│   └── trend-researcher
-├── Tech Lead — 技術決策、Code Review、架構設計
-│   ├── frontend-developer
-│   ├── backend-architect
-│   ├── test-writer-fixer
-│   └── devops-automator
-└── Design Director — UI/UX 設計、設計系統維護
-    └── ui-designer
+├── L1 領導層（直接匯報老闆）
+│   ├── Product Manager        — 產品經理
+│   ├── Tech Lead              — 技術總監
+│   ├── Design Director        — 設計總監
+│   ├── Marketing Lead         — 行銷總監
+│   ├── QA Lead                — 測試總監
+│   ├── Project Lead           — 專案總監
+│   ├── Operations Lead        — 營運總監
+│   └── Company Manager        — 公司管理員
+│
+└── L2 執行層（向 L1 匯報，不得跳級找老闆）
 ```
 
-每個 Agent 有自己的職責、權限、回報對象。L2 不能跳過 L1 直接找老闆。就像真正的公司。
+### 完整部門名單
+
+**Product 產品部**
+| Agent | 職責 |
+|-------|------|
+| Product Manager | 需求管理、Sprint 規劃、Gate 審核 |
+| Feedback Synthesizer | 用戶反饋收集與分析 |
+| Sprint Prioritizer | 排定功能優先級 |
+| Trend Researcher | 市場趨勢研究 |
+
+**Engineering 工程部**
+| Agent | 職責 |
+|-------|------|
+| Tech Lead | 技術決策、Code Review、架構設計 |
+| Frontend Developer | 前端開發（Vue / React） |
+| Backend Architect | 後端架構與 API 開發 |
+| DevOps Automator | CI/CD、部署、基礎設施 |
+| AI Engineer | AI/ML 功能實作 |
+| Mobile App Builder | iOS / Android / React Native |
+| Rapid Prototyper | 快速原型與 MVP |
+
+**Design 設計部**
+| Agent | 職責 |
+|-------|------|
+| Design Director | UI/UX 設計、設計系統維護 |
+| UI Designer | 介面設計與元件庫 |
+| UX Researcher | 用戶研究與測試 |
+| Visual Storyteller | 視覺敘事與資訊圖表 |
+| Brand Guardian | 品牌一致性維護 |
+| Whimsy Injector | 注入愉悅的微互動體驗 |
+
+**Marketing 行銷部**
+| Agent | 職責 |
+|-------|------|
+| Marketing Lead | 行銷策略統籌 |
+| Content Creator | 跨平台內容生成 |
+| Growth Hacker | 用戶增長與病毒式傳播 |
+| Twitter Engager | Twitter/X 社群經營 |
+| Instagram Curator | Instagram 視覺內容策略 |
+| TikTok Strategist | TikTok 短影音策略 |
+| Reddit Community Builder | Reddit 社群建設 |
+| App Store Optimizer | ASO 關鍵字與轉換率優化 |
+
+**Testing 測試部**
+| Agent | 職責 |
+|-------|------|
+| QA Lead | 測試策略與品質把關 |
+| Test Writer Fixer | 撰寫測試、修復失敗 |
+| API Tester | API 端點測試 |
+| Performance Benchmarker | 效能壓測與基準測試 |
+| Test Results Analyzer | 測試結果分析與趨勢 |
+| Tool Evaluator | 工具與框架評估 |
+| Workflow Optimizer | 工作流程優化 |
+
+**Project Management 專案管理部**
+| Agent | 職責 |
+|-------|------|
+| Project Lead | 專案排程與里程碑 |
+| Project Shipper | 發佈協調與上線管理 |
+| Studio Producer | 跨部門資源協調 |
+| Experiment Tracker | A/B 測試與實驗追蹤 |
+
+**Studio Operations 營運部**
+| Agent | 職責 |
+|-------|------|
+| Operations Lead | 營運統籌 |
+| Company Manager | 跨專案知識管理 |
+| Harness Manager | Skill/Hook 建立與管理 |
+| Analytics Reporter | 數據分析與報告 |
+| Finance Tracker | 預算與成本管理 |
+| Infrastructure Maintainer | 系統監控與維運 |
+| Legal Compliance Checker | 法規合規檢查 |
+| Support Responder | 客戶支援 |
+| Context Manager | 上下文管理 |
+
+**Bonus 特殊角色**
+| Agent | 職責 |
+|-------|------|
+| Studio Coach | 團隊教練，流程改善建議 |
+| Joker | 創意發想，跳脫框架思考 |
+
+每個 Agent 有自己的職責定義檔（`agents/definitions/`）、權限範圍、回報對象。**L2 不能跳過 L1 直接找老闆，老闆不能跳過 L1 直接指揮 L2。** 就像真正的公司。
 
 ---
 
