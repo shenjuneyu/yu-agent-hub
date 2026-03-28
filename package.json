@@ -2,6 +2,7 @@
   "name": "maestro",
   "version": "0.1.0",
   "description": "AI Studio Desktop - One-person software company management platform",
+  "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

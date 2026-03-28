@@ -418,6 +418,10 @@ Tech Lead 剛完成 Code Review，PM 正在準備 Gate 審核，
 
 ---
 
+## Acknowledgements
+
+- Agent 架構設計參考 [contains-studio/agents](https://github.com/contains-studio/agents)
+
 ## License
 
 MIT
