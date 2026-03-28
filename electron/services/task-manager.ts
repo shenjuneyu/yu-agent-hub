@@ -71,52 +71,55 @@ class TaskManager {
     if (maybeId !== undefined) {
       // Composite key lookup
       rows = database.prepare(
-        'SELECT * FROM tasks WHERE project_id = ? AND id = ?',
+        'SELECT t.*, s.name as sprint_name FROM tasks t LEFT JOIN sprints s ON t.sprint_id = s.id WHERE t.project_id = ? AND t.id = ?',
         [projectIdOrId, maybeId],
       );
     } else {
       // Legacy: single id lookup (works for UUID-based tasks)
-      rows = database.prepare('SELECT * FROM tasks WHERE id = ?', [projectIdOrId]);
+      rows = database.prepare(
+        'SELECT t.*, s.name as sprint_name FROM tasks t LEFT JOIN sprints s ON t.sprint_id = s.id WHERE t.id = ?',
+        [projectIdOrId],
+      );
     }
     if (rows.length === 0) return null;
     return this.rowToTask(rows[0]);
   }
 
   list(filters?: TaskFilters): TaskRecord[] {
-    let sql = 'SELECT * FROM tasks WHERE 1=1';
+    let sql = 'SELECT t.*, s.name as sprint_name FROM tasks t LEFT JOIN sprints s ON t.sprint_id = s.id WHERE 1=1';
     const params: unknown[] = [];
 
     if (filters?.projectId) {
-      sql += ' AND project_id = ?';
+      sql += ' AND t.project_id = ?';
       params.push(filters.projectId);
     }
     if (filters?.sprintId) {
-      sql += ' AND sprint_id = ?';
+      sql += ' AND t.sprint_id = ?';
       params.push(filters.sprintId);
     }
     if (filters?.status) {
-      sql += ' AND status = ?';
+      sql += ' AND t.status = ?';
       params.push(filters.status);
     }
     if (filters?.assignedTo) {
-      sql += ' AND assigned_to = ?';
+      sql += ' AND t.assigned_to = ?';
       params.push(filters.assignedTo);
     }
     if (filters?.priority) {
-      sql += ' AND priority = ?';
+      sql += ' AND t.priority = ?';
       params.push(filters.priority);
     }
     if (filters?.parentTaskId) {
-      sql += ' AND parent_task_id = ?';
+      sql += ' AND t.parent_task_id = ?';
       params.push(filters.parentTaskId);
     }
     if (filters?.search) {
-      sql += ' AND (title LIKE ? OR description LIKE ?)';
+      sql += ' AND (t.title LIKE ? OR t.description LIKE ?)';
       const q = `%${filters.search}%`;
       params.push(q, q);
     }
 
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY t.created_at DESC';
 
     const rows = database.prepare(sql, params);
     return rows.map((r: any) => this.rowToTask(r));
@@ -521,6 +524,7 @@ class TaskManager {
       id: row.id,
       projectId: row.project_id,
       sprintId: row.sprint_id || null,
+      sprintName: row.sprint_name || null,
       parentTaskId: row.parent_task_id || null,
       title: row.title,
       description: row.description || '',

@@ -13,6 +13,7 @@ export interface TaskRecord {
   id: string;
   projectId: string;
   sprintId: string | null;
+  sprintName: string | null;
   parentTaskId: string | null;
   title: string;
   description: string;

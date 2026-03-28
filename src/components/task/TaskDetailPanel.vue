@@ -179,7 +179,7 @@ function formatDate(iso: string | null): string {
             </div>
             <div class="meta-item">
               <span class="meta-label">Sprint</span>
-              <span class="meta-value">{{ task.sprintId ?? '—' }}</span>
+              <span class="meta-value">{{ task.sprintName ?? '—' }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">預估工時</span>
