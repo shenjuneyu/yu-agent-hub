@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, onActivated, watch } from 'vue';
+import { ref, inject, nextTick, onMounted, onBeforeUnmount, onActivated, watch } from 'vue';
+import type { Ref } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -17,6 +18,9 @@ let fitAddon: FitAddon | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let initialized = false;
 let alive = true;
+
+// Injected from SessionsView — bumped when a collapsed group expands
+const refitSignal = inject<Ref<number>>('terminalRefitSignal', ref(0));
 
 function createTerminal() {
   return new Terminal({
@@ -60,7 +64,7 @@ async function initTerminal() {
   terminal.loadAddon(new WebLinksAddon());
 
   terminal.open(terminalRef.value);
-  fitAddon.fit();
+  try { fitAddon.fit(); } catch { /* ignore */ }
 
   // Replay output buffer from Main Process to restore terminal content
   if (!initialized) {
@@ -117,6 +121,13 @@ watch(
   },
 );
 
+// Re-fit when parent signals group expand (v-show toggled back to visible)
+watch(refitSignal, () => {
+  if (fitAddon && terminal) {
+    try { fitAddon.fit(); } catch { /* ignore */ }
+  }
+});
+
 // KeepAlive: re-fit terminal when component is re-activated
 onActivated(() => {
   if (fitAddon && terminal) {
@@ -125,7 +136,9 @@ onActivated(() => {
 });
 
 onMounted(() => {
-  initTerminal();
+  // Delay terminal init so parent flex/grid layout has stable dimensions.
+  // Without this, xterm measures wrong container size → garbled text ("破圖").
+  setTimeout(() => initTerminal(), 150);
 });
 
 onBeforeUnmount(() => {
@@ -136,10 +149,26 @@ onBeforeUnmount(() => {
   fitAddon = null;
 });
 
+function reinit() {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  terminal?.dispose();
+  terminal = null;
+  fitAddon = null;
+  initialized = false;
+  // Clear leftover DOM nodes from disposed terminal
+  if (terminalRef.value) {
+    terminalRef.value.innerHTML = '';
+  }
+  // Wait for DOM cleanup before re-initializing
+  nextTick(() => initTerminal());
+}
+
 defineExpose({
   fit: () => fitAddon?.fit(),
   focus: () => terminal?.focus(),
   clear: () => terminal?.clear(),
+  reinit,
 });
 </script>
 

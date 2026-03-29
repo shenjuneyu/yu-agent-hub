@@ -3,7 +3,7 @@ export default { name: 'SessionsView' };
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from 'vue';
+import { ref, computed, watch, onMounted, onActivated, onBeforeUnmount, nextTick, defineAsyncComponent, provide } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   useSessionsStore,
@@ -35,21 +35,17 @@ const route = useRoute();
 const ipc = useIpc();
 
 const scrollContainer = ref<HTMLElement | null>(null);
-const collapsedGroups = ref<Set<string>>(new Set());
+
+// Refit signal: incremented to force all xterm terminals to recalculate dimensions.
+// SessionTerminal injects this via 'terminalRefitSignal' key.
+const terminalRefitSignal = ref(0);
+provide('terminalRefitSignal', terminalRefitSignal);
 
 const groupOptions = computed<{ value: SessionGroupMode; label: string }[]>(() => [
   { value: 'none', label: t('sessions.groupNone') },
   { value: 'project', label: t('sessions.groupByProject') },
   { value: 'department', label: t('sessions.groupByDept') },
 ]);
-
-function toggleGroupCollapse(key: string) {
-  if (collapsedGroups.value.has(key)) {
-    collapsedGroups.value.delete(key);
-  } else {
-    collapsedGroups.value.add(key);
-  }
-}
 
 const showTaskAssigner = ref(false);
 const assignTargetSession = ref<ActiveSession | null>(null);
@@ -74,11 +70,24 @@ onMounted(() => {
       sessionsStore.selectSession(queryId);
     }
   }
-  // Restore scroll position
+  // Restore scroll position & bump refit so terminals render correctly on first mount
   nextTick(() => {
     if (scrollContainer.value) {
       scrollContainer.value.scrollTop = uiStore.getScrollPosition('/sessions');
     }
+    requestAnimationFrame(() => {
+      terminalRefitSignal.value++;
+    });
+  });
+});
+
+// KeepAlive: bump refit signal when navigating back to Sessions page
+// so all terminals recalculate dimensions (fixes first-render glitch)
+onActivated(() => {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      terminalRefitSignal.value++;
+    });
   });
 });
 
@@ -106,7 +115,6 @@ function navigateToTask(taskId: string) {
 }
 
 const layoutOptions = computed<{ value: LayoutMode; label: string; svg: string }[]>(() => [
-  { value: 'list', label: t('sessions.layoutList'), svg: '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2" rx="0.5"/><rect x="0" y="6" width="14" height="2" rx="0.5"/><rect x="0" y="11" width="14" height="2" rx="0.5"/></svg>' },
   { value: 'single', label: t('sessions.layoutSingle'), svg: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="1"/></svg>' },
   { value: 'dual', label: t('sessions.layoutDual'), svg: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="12" rx="1"/><rect x="8" y="1" width="5" height="12" rx="1"/></svg>' },
   { value: 'triple', label: t('sessions.layoutTriple'), svg: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="0.5" y="1" width="3.5" height="12" rx="1"/><rect x="5.25" y="1" width="3.5" height="12" rx="1"/><rect x="10" y="1" width="3.5" height="12" rx="1"/></svg>' },
@@ -127,6 +135,12 @@ function handleSelect(sessionId: string) {
 function handleLaunched() {
   showLauncher.value = false;
   remixData.value = null;
+  // Bump refit signal so newly created terminal recalculates dimensions
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      terminalRefitSignal.value++;
+    });
+  });
 }
 
 function handleRemix(session: ActiveSession) {
@@ -330,6 +344,7 @@ async function handleRequestSummary(session: ActiveSession) {
             class="sessions-tabs__badge"
           >{{ sessionsStore.activeCount }}</span>
         </button>
+        <!-- History tab — hidden until feature is ready
         <button
           class="sessions-tabs__item"
           :class="
@@ -345,6 +360,7 @@ async function handleRequestSummary(session: ActiveSession) {
             class="sessions-tabs__count"
           >{{ sessionsStore.resumableSessions.length }}</span>
         </button>
+        -->
       </div>
     </div>
 
@@ -386,19 +402,11 @@ async function handleRequestSummary(session: ActiveSession) {
             :key="group.key"
             class="sessions-group"
           >
-            <button
-              class="sessions-group__header"
-              @click="toggleGroupCollapse(group.key)"
-            >
-              <span
-                class="sessions-group__chevron"
-                :class="collapsedGroups.has(group.key) ? '' : 'sessions-group__chevron--open'"
-              >&#9658;</span>
+            <div class="sessions-group__header">
               <span class="sessions-group__label">{{ group.label }}</span>
               <span class="sessions-group__count">{{ group.sessions.length }}</span>
-            </button>
+            </div>
             <SessionGrid
-              v-show="!collapsedGroups.has(group.key)"
               :sessions="group.sessions"
               :layout="sessionsStore.layoutMode"
               :selected-session-id="sessionsStore.selectedSessionId"
@@ -433,122 +441,6 @@ async function handleRequestSummary(session: ActiveSession) {
         </div>
       </div>
 
-      <!-- ── Terminal Side Panel (list mode only) ── -->
-      <div
-        v-if="selectedSession && sessionsStore.layoutMode === 'list'"
-        class="sessions-terminal-panel"
-      >
-        <!-- Terminal header -->
-        <div class="sessions-terminal-panel__header">
-          <div class="sessions-terminal-panel__header-info">
-            <div class="sessions-terminal-panel__agent-row">
-              <span
-                class="sessions-terminal-panel__status-dot"
-                :class="{
-                  'sessions-terminal-panel__status-dot--running': selectedSession.status === 'running',
-                  'sessions-terminal-panel__status-dot--thinking': selectedSession.status === 'thinking' || selectedSession.status === 'starting',
-                  'sessions-terminal-panel__status-dot--tool': selectedSession.status === 'executing_tool',
-                  'sessions-terminal-panel__status-dot--waiting': selectedSession.status === 'awaiting_approval' || selectedSession.status === 'waiting_input',
-                  'sessions-terminal-panel__status-dot--idle': ['completed', 'failed', 'stopped'].includes(selectedSession.status),
-                }"
-              />
-              {{ selectedSession.agentName }}
-              <span
-                class="sessions-terminal-panel__status-badge"
-                :class="{
-                  'sessions-terminal-panel__status-badge--running': selectedSession.status === 'running',
-                  'sessions-terminal-panel__status-badge--thinking': ['thinking', 'starting', 'executing_tool'].includes(selectedSession.status),
-                  'sessions-terminal-panel__status-badge--waiting': ['awaiting_approval', 'waiting_input'].includes(selectedSession.status),
-                  'sessions-terminal-panel__status-badge--summarizing': selectedSession.status === 'summarizing',
-                  'sessions-terminal-panel__status-badge--idle': ['completed', 'failed', 'stopped'].includes(selectedSession.status),
-                }"
-              >
-                <span
-                  v-if="['running', 'thinking', 'starting', 'summarizing'].includes(selectedSession.status)"
-                  class="sessions-terminal-panel__status-pulse"
-                />
-                {{ { running: $t('sessions.statusLabels.running'), thinking: $t('sessions.statusLabels.thinking'), starting: $t('sessions.statusLabels.starting'), executing_tool: $t('sessions.statusLabels.executing_tool'), awaiting_approval: $t('sessions.statusLabels.awaiting_approval'), waiting_input: $t('sessions.statusLabels.waiting_input'), summarizing: $t('sessions.statusLabels.summarizing'), completed: $t('sessions.statusLabels.completed'), failed: $t('sessions.statusLabels.failed'), stopped: $t('sessions.statusLabels.stopped') }[selectedSession.status] || selectedSession.status }}
-              </span>
-            </div>
-            <div class="sessions-terminal-panel__task">{{ selectedSession.task }}</div>
-          </div>
-          <button
-            class="sessions-terminal-panel__close-btn"
-            @click="sessionsStore.selectSession(null)"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M2 2l10 10M12 2L2 12"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Terminal body -->
-        <div class="sessions-terminal-panel__body">
-          <SessionTerminal :key="selectedSession.ptyId" :pty-id="selectedSession.ptyId" :active="true" />
-        </div>
-
-        <!-- Terminal footer: stats + actions -->
-        <div class="sessions-terminal-panel__footer">
-          <!-- Stats row -->
-          <div class="sessions-terminal-panel__stats">
-            <div class="sessions-terminal-panel__stat">
-              <span class="sessions-terminal-panel__stat-label">Token</span>
-              <span class="sessions-terminal-panel__stat-value">{{ formatTokens(selectedSession.inputTokens + selectedSession.outputTokens) }}</span>
-            </div>
-            <div class="sessions-terminal-panel__stat">
-              <span class="sessions-terminal-panel__stat-label">Turns</span>
-              <span class="sessions-terminal-panel__stat-value">{{ selectedSession.turnsCount }}</span>
-            </div>
-            <div class="sessions-terminal-panel__stat">
-              <span class="sessions-terminal-panel__stat-label">{{ $t('sessions.duration') }}</span>
-              <span class="sessions-terminal-panel__stat-value">{{ formatDuration(selectedSession.durationMs) }}</span>
-            </div>
-            <div class="sessions-terminal-panel__stat">
-              <span class="sessions-terminal-panel__stat-label">{{ $t('sessions.turns') }}</span>
-              <span class="sessions-terminal-panel__stat-value">{{ selectedSession.turnsCount }}</span>
-            </div>
-          </div>
-          <!-- Action buttons -->
-          <div
-            v-if="selectedSession.projectId && !['completed','failed','stopped'].includes(selectedSession.status)"
-            class="sessions-terminal-panel__actions"
-          >
-            <button
-              class="sessions-terminal-panel__action-btn"
-              @click="openTaskAssigner(selectedSession)"
-            >
-              {{ $t('sessions.assignTask') }}
-            </button>
-            <button
-              class="sessions-terminal-panel__action-btn"
-              @click="handleRequestSummary(selectedSession)"
-            >
-              {{ $t('sessions.summaryReport') }}
-            </button>
-            <button
-              class="sessions-terminal-panel__action-btn sessions-terminal-panel__action-btn--primary"
-              @click="openDelegation(selectedSession)"
-            >
-              {{ $t('sessions.delegate') }}
-            </button>
-          </div>
-          <div v-else class="sessions-terminal-panel__actions">
-            <button
-              class="sessions-terminal-panel__action-btn"
-              @click="handleRequestSummary(selectedSession)"
-            >
-              {{ $t('sessions.generateSummary') }}
-            </button>
-            <button
-              v-if="!['completed', 'failed', 'stopped'].includes(selectedSession.status)"
-              class="sessions-terminal-panel__action-btn sessions-terminal-panel__action-btn--danger"
-              @click="handleStop(selectedSession.sessionId)"
-            >
-              {{ $t('sessions.stop') }}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ===== History tab ===== -->
@@ -778,7 +670,8 @@ async function handleRequestSummary(session: ActiveSession) {
 .sessions-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1004,31 +897,8 @@ async function handleRequestSummary(session: ActiveSession) {
   align-items: center;
   gap: 8px;
   width: 100%;
-  cursor: pointer;
-  border: none;
-  border-radius: var(--radius-sm, 6px);
-  background: transparent;
   padding: 6px 8px;
-  text-align: left;
   margin-bottom: 8px;
-  transition: background 0.15s;
-  font-family: inherit;
-}
-
-.sessions-group__header:hover {
-  background: var(--color-bg-card);
-}
-
-.sessions-group__chevron {
-  display: inline-block;
-  width: 12px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  transition: transform 0.15s;
-}
-
-.sessions-group__chevron--open {
-  transform: rotate(90deg);
 }
 
 .sessions-group__label {

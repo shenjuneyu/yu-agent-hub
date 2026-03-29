@@ -36,11 +36,7 @@ const gridClass = computed(() => {
   }
 });
 
-const gapClass = computed(() => {
-  return props.layout === 'list' ? 'session-grid--gap-list' : 'session-grid--gap-grid';
-});
-
-const isCompact = computed(() => props.layout === 'list');
+const gapClass = computed(() => 'session-grid--gap-grid');
 </script>
 
 <template>
@@ -54,7 +50,6 @@ const isCompact = computed(() => props.layout === 'list');
       :key="session.sessionId"
       :session="session"
       :selected="session.sessionId === selectedSessionId"
-      :compact="isCompact"
       @select="emit('select', $event)"
       @stop="emit('stop', $event)"
       @remix="emit('remix', $event)"
@@ -90,14 +85,6 @@ const isCompact = computed(() => props.layout === 'list');
 
 .session-grid--triple {
   grid-template-columns: repeat(3, 1fr);
-}
-
-.session-grid--list {
-  grid-template-columns: 1fr;
-}
-
-.session-grid--gap-list {
-  gap: 4px;
 }
 
 .session-grid--gap-grid {

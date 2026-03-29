@@ -80,8 +80,9 @@ export const useSessionsStore = defineStore('sessions', () => {
   const activeSessions = ref<ActiveSession[]>([]);
   const history = ref<SessionRecord[]>([]);
   const resumableSessions = ref<ResumableSession[]>([]);
+  const stored = localStorage.getItem('maestro-layout-mode') as LayoutMode | null;
   const layoutMode = ref<LayoutMode>(
-    (localStorage.getItem('maestro-layout-mode') as LayoutMode) || 'list',
+    stored && stored !== 'list' ? stored : 'single',
   );
   const selectedSessionId = ref<string | null>(null);
   const loading = ref(false);

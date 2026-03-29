@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StatusDot from '../common/StatusDot.vue';
 import SessionTerminal from './SessionTerminal.vue';
@@ -10,7 +10,6 @@ import { formatTokens } from '../../utils/format-tokens';
 const props = defineProps<{
   session: ActiveSession;
   selected?: boolean;
-  compact?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -60,76 +59,17 @@ const formattedDuration = computed(() => {
 const isRunning = computed(() => {
   return !['completed', 'failed', 'stopped'].includes(props.session.status);
 });
+
+const terminalComp = ref<InstanceType<typeof SessionTerminal> | null>(null);
+
+function refreshTerminal() {
+  terminalComp.value?.reinit();
+}
 </script>
 
 <template>
-  <!-- ── List row (compact mode) ── -->
-  <div
-    v-if="compact"
-    class="session-row"
-    :class="[
-      selected ? 'session-row--selected' : 'session-row--default',
-    ]"
-    @click="emit('select', session.sessionId)"
-  >
-    <!-- Status dot -->
-    <StatusDot :status="statusDotMapping" class="session-row__status-dot" />
-
-    <!-- Agent info -->
-    <div class="session-row__info">
-      <div class="session-row__agent-name">{{ session.agentName }}</div>
-      <div class="session-row__task">{{ session.task }}</div>
-    </div>
-
-    <!-- Meta: linked task -->
-    <span
-      v-if="linkedTask"
-      class="session-row__linked-task"
-      @click.stop="emit('navigateToTask', linkedTask.id)"
-    >
-      {{ linkedTask.title }}
-    </span>
-
-    <!-- Model tag -->
-    <span
-      class="session-row__model-tag"
-      :class="{
-        'session-row__model-tag--haiku': session.model?.includes('haiku'),
-        'session-row__model-tag--sonnet': session.model?.includes('sonnet'),
-        'session-row__model-tag--opus': session.model?.includes('opus'),
-        'session-row__model-tag--unknown': !session.model,
-      }"
-    >{{ session.model }}</span>
-
-    <!-- Token + turns stats -->
-    <div class="session-row__stats">
-      <span class="session-row__stat-tokens">{{ formattedTokens }} tok</span>
-      <span class="session-row__stat-turns">T{{ session.turnsCount }}</span>
-    </div>
-
-    <!-- Stop / Remix action -->
-    <button
-      v-if="isRunning"
-      class="session-row__btn session-row__btn--stop"
-      :title="isSummarizing ? $t('sessions.card.forceStop') : $t('sessions.card.stop')"
-      @click.stop="emit('stop', session.sessionId)"
-    >
-      <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="1.5"/></svg>
-      <span v-if="isSummarizing" class="session-row__btn-label">{{ $t('sessions.card.forceStopLabel') }}</span>
-    </button>
-    <button
-      v-if="!isRunning"
-      class="session-row__btn session-row__btn--remix"
-      :title="$t('sessions.card.remix')"
-      @click.stop="emit('remix', session)"
-    >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-    </button>
-  </div>
-
   <!-- ── Card (single / dual / triple grid modes) ── -->
   <div
-    v-else
     class="session-card"
     :class="[
       selected ? 'session-card--selected' : 'session-card--default',
@@ -189,214 +129,35 @@ const isRunning = computed(() => {
 
     <!-- Terminal mini preview -->
     <div class="session-card__terminal">
-      <SessionTerminal :pty-id="session.ptyId" :active="selected" />
+      <SessionTerminal ref="terminalComp" :pty-id="session.ptyId" :active="selected" />
+      <!-- Refresh button — reinitializes terminal to fix rendering glitch -->
+      <button
+        class="session-card__refresh-btn"
+        :title="$t('sessions.card.refresh', '刷新')"
+        @click.stop="refreshTerminal"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
     </div>
 
-    <!-- Card footer -->
+    <!-- Card footer: status + duration -->
     <div class="session-card__footer">
-      <!-- Stats -->
-      <div class="session-card__stats">
-        <span class="session-card__stat">
-          <span class="session-card__stat-label">tok</span>
-          <span class="session-card__stat-value">{{ formattedTokens }}</span>
-        </span>
-        <span class="session-card__stat">
-          <span class="session-card__stat-label">T</span>
-          <span class="session-card__stat-value">{{ session.turnsCount }}</span>
-        </span>
-        <span class="session-card__stat">
-          <span class="session-card__stat-value">{{ formattedDuration }}</span>
-        </span>
-      </div>
-      <!-- Action buttons -->
-      <div v-if="session.projectId && isRunning" class="session-card__footer-actions">
-        <button
-          class="session-card__footer-btn session-card__footer-btn--accent"
-          @click.stop="emit('delegation', session)"
-        >
-          {{ $t('sessions.card.delegate') }}
-        </button>
-        <button
-          class="session-card__footer-btn session-card__footer-btn--accent"
-          @click.stop="emit('assignTask', session)"
-        >
-          {{ $t('sessions.card.assignTask') }}
-        </button>
-      </div>
-      <button
-        class="session-card__footer-btn session-card__footer-btn--summary"
-        :class="session.projectId && isRunning ? 'session-card__footer-btn--no-margin' : 'session-card__footer-btn--auto-margin'"
-        :title="$t('sessions.card.summaryTitle')"
-        @click.stop="emit('requestSummary', session)"
-      >
-        {{ $t('sessions.card.summary') }}
-      </button>
+      <span
+        class="session-card__status-tag"
+        :class="{
+          'session-card__status-tag--running': session.status === 'running',
+          'session-card__status-tag--thinking': ['thinking', 'starting', 'executing_tool', 'summarizing'].includes(session.status),
+          'session-card__status-tag--waiting': ['awaiting_approval', 'waiting_input'].includes(session.status),
+          'session-card__status-tag--idle': ['completed', 'failed', 'stopped'].includes(session.status),
+        }"
+      >{{ { running: $t('sessions.statusLabels.running'), thinking: $t('sessions.statusLabels.thinking'), starting: $t('sessions.statusLabels.starting'), executing_tool: $t('sessions.statusLabels.executing_tool'), awaiting_approval: $t('sessions.statusLabels.awaiting_approval'), waiting_input: $t('sessions.statusLabels.waiting_input'), summarizing: $t('sessions.statusLabels.summarizing'), completed: $t('sessions.statusLabels.completed'), failed: $t('sessions.statusLabels.failed'), stopped: $t('sessions.statusLabels.stopped') }[session.status] || session.status }}</span>
+      <span class="session-card__duration">{{ formattedDuration }}</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* ── Shared token resets ── */
-
-/* ── Session Row (compact / list mode) ── */
-.session-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: var(--radius-lg);
-  border: 1px solid transparent;
-  padding: 10px 14px;
-  cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
-}
-
-.session-row--selected {
-  border-color: var(--color-accent);
-  background-color: var(--color-bg-active);
-  box-shadow: 0 0 0 1px rgba(108, 92, 231, 0.2), 0 2px 8px rgba(108, 92, 231, 0.1);
-}
-
-.session-row--default {
-  border-color: transparent;
-  background-color: var(--color-bg-card);
-}
-
-.session-row--default:hover {
-  border-color: var(--color-border-light);
-  background-color: var(--color-bg-hover);
-}
-
-.session-row__status-dot {
-  flex-shrink: 0;
-}
-
-.session-row__info {
-  min-width: 0;
-  flex: 1;
-}
-
-.session-row__agent-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.session-row__task {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.session-row__linked-task {
-  flex-shrink: 0;
-  max-width: 130px;
-  cursor: pointer;
-  font-size: 11px;
-  color: var(--color-accent-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.session-row__linked-task:hover {
-  text-decoration: underline;
-}
-
-.session-row__model-tag {
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  padding: 2px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.session-row__model-tag--haiku {
-  background-color: rgba(0, 214, 143, 0.2);
-  color: var(--color-success);
-}
-
-.session-row__model-tag--sonnet {
-  background-color: rgba(51, 154, 240, 0.2);
-  color: var(--color-info);
-}
-
-.session-row__model-tag--opus {
-  background-color: rgba(255, 170, 0, 0.2);
-  color: var(--color-warning);
-}
-
-.session-row__model-tag--unknown {
-  background-color: var(--color-bg-hover);
-  color: var(--color-text-muted);
-}
-
-.session-row__stats {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.session-row__stat-tokens {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.session-row__stat-turns {
-  font-size: 10px;
-  color: var(--color-text-muted);
-}
-
-.session-row__btn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
-  margin-left: 4px;
-}
-
-.session-row__btn--stop {
-  gap: 4px;
-  padding: 0 6px;
-}
-
-.session-row__btn--stop:hover {
-  background-color: rgba(255, 107, 107, 0.2);
-  color: var(--color-danger);
-}
-
-.session-row__btn--remix {
-  width: 24px;
-  padding: 0;
-}
-
-.session-row__btn--remix:hover {
-  background-color: rgba(108, 92, 231, 0.2);
-  color: var(--color-accent-light);
-}
-
-.session-row__btn-label {
-  font-size: 10px;
-}
-
-/* ── Session Card (grid modes) ── */
+/* ── Session Card ── */
 .session-card {
   display: flex;
   flex-direction: column;
@@ -546,12 +307,6 @@ const isRunning = computed(() => {
   text-decoration: underline;
 }
 
-.session-card__terminal {
-  min-height: 130px;
-  flex: 1;
-  background-color: #0a0b0f;
-}
-
 .session-card__footer {
   display: flex;
   align-items: center;
@@ -560,74 +315,71 @@ const isRunning = computed(() => {
   padding: 8px 14px;
 }
 
-.session-card__stats {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.session-card__stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.session-card__stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  opacity: 0.6;
-}
-
-.session-card__stat-value {
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.session-card__footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.session-card__footer-btn {
-  cursor: pointer;
+.session-card__status-tag {
   border-radius: var(--radius-sm);
   padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  transition: background-color 150ms ease;
+  font-size: 10px;
+  font-weight: 600;
 }
 
-.session-card__footer-btn--accent {
-  border: 1px solid rgba(108, 92, 231, 0.3);
-  background-color: rgba(108, 92, 231, 0.1);
+.session-card__status-tag--running {
+  background-color: rgba(0, 214, 143, 0.15);
+  color: var(--color-success);
+}
+
+.session-card__status-tag--thinking {
+  background-color: rgba(108, 92, 231, 0.15);
   color: var(--color-accent-light);
 }
 
-.session-card__footer-btn--accent:hover {
-  background-color: rgba(108, 92, 231, 0.2);
+.session-card__status-tag--waiting {
+  background-color: rgba(255, 170, 0, 0.15);
+  color: var(--color-warning);
 }
 
-.session-card__footer-btn--summary {
-  border: 1px solid var(--color-border-default);
-  background: transparent;
+.session-card__status-tag--idle {
+  background-color: var(--color-bg-hover);
   color: var(--color-text-muted);
 }
 
-.session-card__footer-btn--summary:hover {
-  border-color: rgba(108, 92, 231, 0.4);
-  color: var(--color-accent-light);
-}
-
-.session-card__footer-btn--auto-margin {
+.session-card__duration {
   margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
-.session-card__footer-btn--no-margin {
-  margin-left: 0;
+.session-card__refresh-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 17, 23, 0.7);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.session-card__terminal {
+  position: relative;
+  min-height: 130px;
+  flex: 1;
+  background-color: #0a0b0f;
+}
+
+.session-card__terminal:hover .session-card__refresh-btn {
+  opacity: 1;
+}
+
+.session-card__refresh-btn:hover {
+  background: rgba(108, 92, 231, 0.3);
+  color: var(--color-accent-light);
 }
 </style>
