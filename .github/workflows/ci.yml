@@ -1,20 +1,20 @@
 name: ci
 on:
-push:
-branches: [ main, feature/** ]
-pull_request:
-branches: [ main ]
+  push:
+    branches: [main, feature/**]
+  pull_request:
+    branches: [main]
 jobs:
-lint-test:
-runs-on: windows-latest
-steps:
-- uses: actions/checkout@v4
-- uses: actions/setup-node@v4
-with:
-node-version: 20
-- name: Install deps (no scripts)
-run: npm ci --ignore-scripts
-- name: IPC guard
-run: node scripts/ipc-guard.js
-- name: Unit tests
-run: npm run test --if-present
+  lint-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps (no scripts)
+        run: npm ci --ignore-scripts
+      - name: IPC guard
+        run: node scripts/ipc-guard.js
+      - name: Unit tests
+        run: npm run test --if-present
