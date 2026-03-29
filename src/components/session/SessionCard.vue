@@ -369,8 +369,7 @@ function refreshTerminal() {
 
 .session-card__terminal {
   position: relative;
-  min-height: 130px;
-  flex: 1;
+  height: 360px;
   background-color: #0a0b0f;
 }
 

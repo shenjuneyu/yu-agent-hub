@@ -16,6 +16,7 @@ import { getKnowledgeDir } from '../utils/paths';
 import { logger } from '../utils/logger';
 import { hookManager } from '../services/hook-manager';
 import { skillManager } from '../services/skill-manager';
+import { projectSync } from '../services/project-sync';
 import { IpcChannels } from '../types';
 import type {
   ProjectRecord,
@@ -143,7 +144,7 @@ export function registerProjectHandlers(): void {
         logger.warn('Failed to deploy company rules', err);
       }
 
-      // Inject hooks + deploy skills asynchronously (don't block UI)
+      // Inject hooks + deploy skills + start file watcher asynchronously (don't block UI)
       const workDirForAsync = params.workDir;
       setImmediate(() => {
         try {
@@ -166,6 +167,17 @@ export function registerProjectHandlers(): void {
           }
         } catch (err) {
           logger.warn('Failed to deploy skills for new project', err);
+        }
+
+        // Start file watcher + initial sync so sprints/gates are discovered immediately
+        try {
+          projectSync.startWatch(id, workDirForAsync);
+          projectSync.fullSync(id, workDirForAsync).catch((err) => {
+            logger.warn(`Initial fullSync failed for new project ${id}`, err);
+          });
+          logger.info(`Project sync started for new project ${id}`);
+        } catch (err) {
+          logger.warn('Failed to start project sync for new project', err);
         }
       });
     }
@@ -194,7 +206,15 @@ export function registerProjectHandlers(): void {
   ipcMain.handle(IpcChannels.PROJECT_GET, (_e, id: string) => {
     const rows = database.prepare('SELECT * FROM projects WHERE id = ?', [id]);
     if (rows.length === 0) return null;
-    return rowToProject(rows[0]);
+    const project = rowToProject(rows[0]);
+    // Auto-sync: ensure watcher is running and trigger fullSync when project is opened
+    if (project.workDir) {
+      projectSync.startWatch(id, project.workDir);
+      projectSync.fullSync(id, project.workDir).catch((err) => {
+        logger.warn(`Auto fullSync failed for project ${id}`, err);
+      });
+    }
+    return project;
   });
 
   ipcMain.handle(IpcChannels.PROJECT_UPDATE, (_e, id: string, params: ProjectUpdateParams) => {
