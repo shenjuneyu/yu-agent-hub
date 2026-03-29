@@ -161,7 +161,7 @@ class GateKeeper {
           gateId,
           decision: 'approved',
           reviewer: 'system',
-          comment: `（自動審核：${rule.name}）`,
+          comment: `(Auto-approved: ${rule.name})`,
         });
         auditLogger.log(
           'gate.auto_approved',
@@ -250,7 +250,7 @@ class GateKeeper {
         const prevGate = sprintGates.find((r: any) => r.gate_type === prevType);
         if (!prevGate || prevGate.status !== 'approved') {
           throw new Error(
-            `無法提交 ${gate.gate_type}：前一關 ${prevType} 尚未通過審核`,
+            `Cannot submit ${gate.gate_type}: previous gate ${prevType} has not been approved`,
           );
         }
       }
@@ -414,7 +414,7 @@ class GateKeeper {
     try {
       this.submit({
         gateId: nextGate.id,
-        submittedBy: 'system（自動送審：所有任務已完成）',
+        submittedBy: 'system(auto-submit: all tasks completed)',
         checklist,
       });
       // Re-fetch：submit() 內 tryAutoApprove() 可能已改變狀態
