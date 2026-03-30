@@ -47,22 +47,26 @@
 |------|------|---------|
 | {問題描述} | {根因} | {解決方案} |
 
-## 可用指令（Slash Commands）
+## 可用指令（Slash Commands）— 強制使用
 
 > 以下指令已部署到 `.claude/commands/`。
 > **使用方式**：讀取對應的 `.claude/commands/{指令名}.md` 檔案，依照其中的步驟執行。
-> 例如：需要撰寫開發計畫書時，先 `Read .claude/commands/dev-plan.md`，然後按照文件中的步驟操作。
+>
+> **強制規則：遇到下列「使用時機」描述的場景時，必須執行對應指令，不得跳過或手動替代。**
+> 違反此規則等同未完成任務。
 
-| 指令 | 用途 | 使用時機 |
-|------|------|---------|
+| 指令 | 用途 | 使用時機（遇到即必須執行） |
+|------|------|--------------------------|
 | `/project-kickoff` | 初始化專案結構 | 專案建立後第一件事 |
 | `/product-diagnosis` | 產品六問診斷（G0 前置） | 提案前驗證產品方向 |
 | `/sprint-proposal` | 產出 Sprint 提案書 | Sprint 規劃階段 |
 | `/dev-plan` | 產出開發計畫書 | G0 通過後展開任務 |
 | `/task-dispatch` | 老闆派工，建立 .tasks/ 檔案 | 老闆分配任務時 |
 | `/task-delegation` | 拆解任務到計畫書第 6 節 | L1 拆解子任務時 |
-| `/task-status` | 更新任務狀態 | 任務進行中回報 |
-| `/task-done` | 標記任務完成 | 任務交付時 |
+| `/task-start` | 標記任務為進行中 | Agent 開始執行任務時 |
+| `/task-status` | 更新任務狀態 | 任務狀態變更時（blocked、assigned 等） |
+| `/task-done` | 標記任務完成（待審查） | 任務交付時 |
+| `/task-approve` | L1 審核通過，標記為 done | L1 Review 通過後 |
 | `/review` | L1 內部 Code Review | 程式碼完成後送審 |
 | `/pm-review` | PM 審核 Gate 提交 | L1 提交 Gate 後 |
 | `/gate-record` | 記錄 Gate 審查決策 | Gate 審查結果出爐時 |
@@ -86,9 +90,9 @@
 
 | 規範 | 來源路徑 | 本地副本 |
 |------|---------|---------|
-| 程式碼規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/coding-standards.md` | `.knowledge/coding-standards.md` |
-| API 規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/api-standards.md` | `.knowledge/api-standards.md` |
-| 測試規範 | `{{AGENT_HUB_PATH}}/knowledge/company/standards/testing-standards.md` | `.knowledge/testing-standards.md` |
-| 品質 Checklist | `{{AGENT_HUB_PATH}}/knowledge/company/standards/quality-checklist.md` | `.knowledge/quality-checklist.md` |
-| Code Review SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/code-review.md` | `.knowledge/code-review.md` |
-| Sprint 規劃 SOP | `{{AGENT_HUB_PATH}}/knowledge/company/sop/sprint-planning.md` | `.knowledge/sprint-planning.md` |
+| 程式碼規範 | `{{AGENT_HUB_PATH}}/.knowledge/company/standards/coding-standards.md` | `.knowledge/coding-standards.md` |
+| API 規範 | `{{AGENT_HUB_PATH}}/.knowledge/company/standards/api-standards.md` | `.knowledge/api-standards.md` |
+| 測試規範 | `{{AGENT_HUB_PATH}}/.knowledge/company/standards/testing-standards.md` | `.knowledge/testing-standards.md` |
+| 品質 Checklist | `{{AGENT_HUB_PATH}}/.knowledge/company/standards/quality-checklist.md` | `.knowledge/quality-checklist.md` |
+| Code Review SOP | `{{AGENT_HUB_PATH}}/.knowledge/company/sop/code-review.md` | `.knowledge/code-review.md` |
+| Sprint 規劃 SOP | `{{AGENT_HUB_PATH}}/.knowledge/company/sop/sprint-planning.md` | `.knowledge/sprint-planning.md` |

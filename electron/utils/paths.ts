@@ -35,9 +35,9 @@ export function getAgentsDir(): string {
 
 export function getKnowledgeDir(): string {
   if (app.isPackaged) {
-    return join(process.resourcesPath, 'knowledge');
+    return join(process.resourcesPath, '.knowledge');
   }
-  return join(getProjectRoot(), 'knowledge');
+  return join(getProjectRoot(), '.knowledge');
 }
 
 export function getMigrationsDir(): string {
