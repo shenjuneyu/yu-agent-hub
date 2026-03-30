@@ -142,7 +142,7 @@ function formatDate(dateStr: string): string {
             class="gate-icon"
             :class="gate.status"
           >
-            {{ gate.gateType }}
+            {{ /^G\d$/.test(gate.gateType) ? gate.gateType : '✓' }}
           </div>
 
           <!-- Gate card -->

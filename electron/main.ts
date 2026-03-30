@@ -117,37 +117,22 @@ function createWindow(): void {
   }
 }
 
+/** Safe send: skip if window is destroyed (prevents crash on app quit) */
+function safeSend(channel: string, data: unknown): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
 function setupEventForwarding(): void {
   // Forward eventBus events to renderer via webContents
-  eventBus.onSessionEvent((event) => {
-    mainWindow?.webContents.send(IpcChannels.SESSION_EVENT, event);
-  });
-
-  eventBus.onSessionStatus((change) => {
-    mainWindow?.webContents.send(IpcChannels.SESSION_STATUS, change);
-  });
-
-  eventBus.onPtyData((data) => {
-    mainWindow?.webContents.send(IpcChannels.PTY_DATA, data);
-  });
-
-  eventBus.on('agents:reloaded', (data) => {
-    mainWindow?.webContents.send(IpcChannels.AGENTS_RELOADED, data);
-  });
-
-  eventBus.on('delegation:report', (data) => {
-    mainWindow?.webContents.send(IpcChannels.DELEGATION_REPORT, data);
-  });
-
-  // 9D: Forward gate review events to renderer
-  eventBus.on('gate:reviewed', (data) => {
-    mainWindow?.webContents.send('gate:status-changed', data);
-  });
-
-  // Sprint 3: Forward project file-sync events to renderer
-  eventBus.onFileSynced((data) => {
-    mainWindow?.webContents.send(IpcChannels.PROJECT_SYNC_STATUS, data);
-  });
+  eventBus.onSessionEvent((event) => safeSend(IpcChannels.SESSION_EVENT, event));
+  eventBus.onSessionStatus((change) => safeSend(IpcChannels.SESSION_STATUS, change));
+  eventBus.onPtyData((data) => safeSend(IpcChannels.PTY_DATA, data));
+  eventBus.on('agents:reloaded', (data) => safeSend(IpcChannels.AGENTS_RELOADED, data));
+  eventBus.on('delegation:report', (data) => safeSend(IpcChannels.DELEGATION_REPORT, data));
+  eventBus.on('gate:reviewed', (data) => safeSend('gate:status-changed', data));
+  eventBus.onFileSynced((data) => safeSend(IpcChannels.PROJECT_SYNC_STATUS, data));
 }
 
 app.whenReady().then(async () => {

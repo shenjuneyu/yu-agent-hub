@@ -126,10 +126,16 @@ const statusColor: Record<string, string> = {
   done: 'var(--color-success)',
 };
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, includeTime = false): string {
   if (!iso) return '—';
   try {
     const d = new Date(iso);
+    if (includeTime) {
+      return d.toLocaleString('zh-TW', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+    }
     return d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
   } catch {
     return iso;
@@ -187,11 +193,11 @@ function formatDate(iso: string | null): string {
             </div>
             <div class="meta-item">
               <span class="meta-label">{{ t("taskboard.detailPanel.startedAt") }}</span>
-              <span class="meta-value">{{ task.startedAt ? formatDate(task.startedAt) : '—' }}</span>
+              <span class="meta-value">{{ task.startedAt ? formatDate(task.startedAt, true) : '—' }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">{{ t("taskboard.detailPanel.completedAt") }}</span>
-              <span class="meta-value">{{ task.completedAt ? formatDate(task.completedAt) : '—' }}</span>
+              <span class="meta-value">{{ task.completedAt ? formatDate(task.completedAt, true) : '—' }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">{{ t("taskboard.detailPanel.createdAt") }}</span>

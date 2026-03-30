@@ -68,16 +68,37 @@ allowed-tools: Read, Edit, Glob, Grep, Bash
 - [ ] 驗收標準全部滿足
 - [ ] 無 Critical/High 等級 Bug
 
+### 對文件正確性（doc-integrity）
+
+> 檢查 dev-plan 和 .tasks/ 檔案的格式與內容一致性。
+> **觸發時機**：每次 `/review` 時自動附加執行，不需手動指定。
+
+#### dev-plan 檢查
+- [ ] 第 10 節存在且包含三個子表格（任務完成紀錄、Review 紀錄、Gate 紀錄）
+- [ ] Gate 紀錄的決策值符合規範（`✅ 通過` / `❌ 駁回` / `⚠️ 附條件通過`，不可用純文字或英文）
+- [ ] 日期格式為 `YYYY-MM-DD`
+- [ ] 第 6 節任務表與 `.tasks/` 目錄的任務數量一致
+
+#### task 文件檢查（逐一掃描 `.tasks/sprint-{N}/*.md`）
+- [ ] metadata 表必要欄位齊全：ID、狀態、Sprint、建立時間、開始時間、完工時間
+- [ ] 狀態值為合法英文值（created / assigned / in_progress / in_review / done / blocked / rejected）
+- [ ] 事件紀錄區塊（`## 事件紀錄`）存在且至少有一筆紀錄
+- [ ] 事件紀錄 timestamp 格式為 ISO 8601（`YYYY-MM-DDTHH:mm:ss.sssZ`）
+- [ ] 狀態為 `done` 的任務，驗收標準全部打勾（`- [x]`，無殘留 `- [ ]`）
+- [ ] 狀態為 `in_progress` 以上的任務，`開始時間` 不得為 `—`
+- [ ] 狀態為 `done` / `in_review` 的任務，`完工時間` 不得為 `—`
+
 ## 執行步驟
 
 1. 偵測或確認 review type（若為 auto 則執行自動偵測）
 2. 根據步驟類型選擇 review 組合（可能多種）
-3. 逐項檢查每個 checklist，標記 ✅ 或 ❌ 並說明
-4. 統計結果：
+3. **自動附加「對文件正確性」檢查** — 每次 review 必定執行 doc-integrity checklist
+4. 逐項檢查每個 checklist，標記 ✅ 或 ❌ 並說明
+5. 統計結果：
    - 🔴 Blocker: {count}
    - 🟠 Major: {count}
    - 🟡 Minor: {count}
-5. 判定：0 Blocker + 0 Major = 通過
+6. 判定：0 Blocker + 0 Major = 通過
 
 ## 結果記錄
 
