@@ -343,6 +343,9 @@
       "done": "完成"
     },
     "priorityLabels": {
+      "P0": "P0 緊急",
+      "P1": "P1 重要",
+      "P2": "P2 一般",
       "critical": "緊急",
       "high": "高",
       "medium": "中",

@@ -42,6 +42,9 @@ async function onSprintChange() {
 }
 
 const priorityColor: Record<string, string> = {
+  P0: 'bg-danger',
+  P1: 'bg-warning',
+  P2: 'bg-info',
   critical: 'bg-danger',
   high: 'bg-warning',
   medium: 'bg-info',
@@ -49,6 +52,9 @@ const priorityColor: Record<string, string> = {
 };
 
 const priorityLabel = computed<Record<string, string>>(() => ({
+  P0: t('taskboard.priorityLabels.P0'),
+  P1: t('taskboard.priorityLabels.P1'),
+  P2: t('taskboard.priorityLabels.P2'),
   critical: t('taskboard.priorityLabels.critical'),
   high: t('taskboard.priorityLabels.high'),
   medium: t('taskboard.priorityLabels.medium'),
@@ -56,6 +62,9 @@ const priorityLabel = computed<Record<string, string>>(() => ({
 }));
 
 const tagColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | 'red'> = {
+  P0: 'red',
+  P1: 'yellow',
+  P2: 'blue',
   critical: 'red',
   high: 'yellow',
   medium: 'blue',

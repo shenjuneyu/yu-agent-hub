@@ -343,6 +343,9 @@
       "done": "Done"
     },
     "priorityLabels": {
+      "P0": "P0 Critical",
+      "P1": "P1 High",
+      "P2": "P2 Normal",
       "critical": "Critical",
       "high": "High",
       "medium": "Medium",

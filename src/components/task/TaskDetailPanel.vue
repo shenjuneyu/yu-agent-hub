@@ -103,6 +103,9 @@ function priorityLabel(key: string): string {
 }
 
 const priorityColor: Record<string, 'red' | 'yellow' | 'blue' | 'purple'> = {
+  P0: 'red',
+  P1: 'yellow',
+  P2: 'blue',
   critical: 'red',
   high: 'yellow',
   medium: 'blue',

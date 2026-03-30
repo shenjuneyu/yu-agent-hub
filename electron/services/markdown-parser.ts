@@ -194,6 +194,38 @@ function cellOrNull(value: string | undefined): string | null {
   return value;
 }
 
+/**
+ * Extract start/completion timestamps from the event log section.
+ * Looks for patterns like:
+ *   ### 2026-03-30T11:00:00.000Z — 狀態變更 → in_progress
+ *   ### 2026-03-30T12:30:00.000Z — 狀態變更 → done
+ */
+function parseEventTimestamps(content: string): {
+  firstStarted: string | null;
+  lastCompleted: string | null;
+} {
+  let firstStarted: string | null = null;
+  let lastCompleted: string | null = null;
+
+  // Match event log entries: ### {ISO timestamp} — 狀態變更 → {status}
+  const eventPattern = /^###\s+(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s*—\s*狀態變更\s*→\s*(\S+)/gm;
+  let match: RegExpExecArray | null;
+
+  while ((match = eventPattern.exec(content)) !== null) {
+    const timestamp = match[1];
+    const status = match[2];
+
+    if (status === 'in_progress' && !firstStarted) {
+      firstStarted = timestamp;
+    }
+    if (status === 'done' || status === 'in_review') {
+      lastCompleted = timestamp;
+    }
+  }
+
+  return { firstStarted, lastCompleted };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -293,6 +325,16 @@ export function parseTaskFile(content: string): ParsedTask | null {
     const rawPriority = meta['優先級'] || '';
     const priority = rawPriority || 'medium';
 
+    // Resolve timestamps: prefer metadata fields, fallback to event log
+    let startedAt = cellOrNull(meta['開始時間']);
+    let completedAt = cellOrNull(meta['完工時間']);
+
+    if (!startedAt || !completedAt) {
+      const { firstStarted, lastCompleted } = parseEventTimestamps(content);
+      if (!startedAt) startedAt = firstStarted;
+      if (!completedAt) completedAt = lastCompleted;
+    }
+
     return {
       id,
       title,
@@ -304,8 +346,8 @@ export function parseTaskFile(content: string): ParsedTask | null {
       tags: cellOrNull(meta['標籤']),
       estimatedHours: estimatedHours !== null && !isNaN(estimatedHours) ? estimatedHours : null,
       createdAt: cellOrNull(meta['建立時間']),
-      startedAt: cellOrNull(meta['開始時間']),
-      completedAt: cellOrNull(meta['完工時間']),
+      startedAt,
+      completedAt,
       description: extractTaskBody(content),
       dependsOn: cellOrNull(meta['依賴']),
     };
