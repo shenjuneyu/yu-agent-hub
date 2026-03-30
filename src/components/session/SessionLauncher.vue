@@ -108,8 +108,8 @@ const departmentLabel = computed<Record<string, string>>(() => ({
   product: t('agents.departments.product'),
   marketing: t('agents.departments.marketing'),
   testing: t('agents.departments.testing'),
-  'project-management': t('agents.departments.projectManagement'),
-  'studio-operations': t('agents.departments.studioOperations'),
+  'project-management': t('agents.departments.project-management'),
+  'studio-operations': t('agents.departments.studio-operations'),
   company: t('agents.departments.company'),
   bonus: t('agents.departments.bonus'),
 }));
