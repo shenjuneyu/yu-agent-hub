@@ -382,7 +382,7 @@ export function parseDevPlanSection10(content: string): ParsedDevPlanSection10 {
     const gateRecords = gateRows
       .filter((row) => row.length >= 2 && row[0])
       .map((row) => ({
-        gateType: row[0] ?? '',
+        gateType: (row[0]?.match(/G\d+/)?.[0]) ?? row[0] ?? '',
         decision: row[2] ?? row[1] ?? '',
         submittedBy: null,
         reviewer: null,

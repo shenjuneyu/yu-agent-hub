@@ -431,6 +431,29 @@ class ProjectSyncService {
         logger.warn(`ProjectSync: failed to clean up removed gates`, err);
       }
     }
+
+    // Deduplicate: keep only the newest gate per gate_type (remove duplicates)
+    if (sprintId) {
+      try {
+        database.run(
+          `DELETE FROM gates
+           WHERE project_id = ? AND sprint_id = ?
+             AND id NOT IN (
+               SELECT id FROM (
+                 SELECT id, ROW_NUMBER() OVER (
+                   PARTITION BY gate_type ORDER BY
+                     CASE status WHEN 'approved' THEN 0 WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END,
+                     created_at DESC
+                 ) AS rn
+                 FROM gates WHERE project_id = ? AND sprint_id = ?
+               ) WHERE rn = 1
+             )`,
+          [projectId, sprintId, projectId, sprintId],
+        );
+      } catch (err) {
+        logger.warn(`ProjectSync: failed to deduplicate gates`, err);
+      }
+    }
   }
 
   private upsertGates(
