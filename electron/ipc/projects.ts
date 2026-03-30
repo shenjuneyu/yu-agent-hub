@@ -39,8 +39,8 @@ function rowToProject(row: any): ProjectRecord {
 
 /**
  * Deploy shared company rules to child project .knowledge/ directory.
- * Source: knowledge/company/standards/project-rules.md → .knowledge/company-rules.md
- * Source: knowledge/company/standards/team-workflow.md → .knowledge/team-workflow.md
+ * Source: .knowledge/company/standards/project-rules.md → .knowledge/company-rules.md
+ * Source: .knowledge/company/standards/team-workflow.md → .knowledge/team-workflow.md
  */
 function scaffoldCompanyRules(workDir: string): string[] {
   const created: string[] = [];

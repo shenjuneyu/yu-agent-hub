@@ -113,10 +113,10 @@ class HookManager {
       return this.templateCache.get(templateName)!;
     }
 
-    // 模板路徑：knowledge/company/hook-templates/ 或 app 內建
+    // 模板路徑：.knowledge/company/hook-templates/ 或 app 內建
     const paths = [
-      join(process.cwd(), 'knowledge', 'company', 'hook-templates', templateName),
-      join(__dirname, '..', '..', 'knowledge', 'company', 'hook-templates', templateName),
+      join(process.cwd(), '.knowledge', 'company', 'hook-templates', templateName),
+      join(__dirname, '..', '..', '.knowledge', 'company', 'hook-templates', templateName),
     ];
 
     for (const p of paths) {

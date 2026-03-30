@@ -139,12 +139,12 @@ export interface WorkflowSkillResult {
 }
 
 /**
- * Locate the knowledge/company/skill-templates/ directory by trying multiple candidate paths.
+ * Locate the .knowledge/company/skill-templates/ directory by trying multiple candidate paths.
  */
 function findSkillTemplatesDir(): string | null {
   const candidates = [
-    join(process.cwd(), 'knowledge', 'company', 'skill-templates'),
-    join(__dirname, '..', '..', 'knowledge', 'company', 'skill-templates'),
+    join(process.cwd(), '.knowledge', 'company', 'skill-templates'),
+    join(__dirname, '..', '..', '.knowledge', 'company', 'skill-templates'),
   ];
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
@@ -158,7 +158,7 @@ function findSkillTemplatesDir(): string | null {
 const AGENTHUB_ONLY_SKILLS = new Set(['knowledge-feedback']);
 
 /**
- * Deploy workflow SKILL.md files from knowledge/company/skill-templates/ into the
+ * Deploy workflow SKILL.md files from .knowledge/company/skill-templates/ into the
  * child project at {workDir}/.claude/skills/{skill-name}/SKILL.md.
  *
  * Uses the same hash-based anti-overwrite mechanism as generateSkillFile().
