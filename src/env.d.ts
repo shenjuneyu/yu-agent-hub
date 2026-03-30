@@ -26,6 +26,7 @@ interface MaestroApi {
       activeSessions: number;
     }>;
     selectFolder: () => Promise<string | null>;
+    clearDatabase: () => Promise<{ deletedCounts: Record<string, number> }>;
   };
   sessions: {
     spawn: (params: {
@@ -35,6 +36,7 @@ interface MaestroApi {
       maxTurns?: number;
       projectId?: string | null;
       taskId?: string | null;
+      interactive?: boolean;
       parentSessionId?: string;
       resumeSessionId?: string;
       resumeConversationId?: string;
@@ -272,25 +274,6 @@ interface MaestroApi {
     createBranch: (cwd: string, branchName: string, checkout?: boolean) => Promise<{ success: boolean }>;
     checkout: (cwd: string, branchName: string) => Promise<{ success: boolean }>;
     deleteBranch: (cwd: string, branchName: string, force?: boolean) => Promise<{ success: boolean }>;
-  };
-  github: {
-    createPR: (params: {
-      owner: string;
-      repo: string;
-      title: string;
-      body?: string;
-      head: string;
-      base: string;
-    }) => Promise<unknown>;
-    listPRs: (owner: string, repo: string, state?: string) => Promise<unknown[]>;
-    createIssue: (params: {
-      owner: string;
-      repo: string;
-      title: string;
-      body?: string;
-      labels?: string[];
-    }) => Promise<unknown>;
-    getRepos: (page?: number, perPage?: number) => Promise<unknown[]>;
   };
   pty: {
     input: (ptyId: string, data: string) => void;

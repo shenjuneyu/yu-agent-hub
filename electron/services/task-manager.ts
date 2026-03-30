@@ -7,12 +7,10 @@ import { logger } from '../utils/logger';
 import type {
   TaskRecord,
   TaskStatus,
-  TaskPriority,
   TaskCreateParams,
   TaskUpdateParams,
   TaskTransitionParams,
   TaskFilters,
-  DelegationCommand,
 } from '../types';
 
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
@@ -244,32 +242,6 @@ class TaskManager {
         return dep && dep.status === 'done';
       });
     });
-  }
-
-  /**
-   * @deprecated DelegationCommand JSON format removed in favour of skill-based task creation.
-   * Tasks are now created via /task-delegation or /task-dispatch skills → .tasks/ files → project-sync.
-   * Kept for backward compatibility; no active callers.
-   */
-  createFromDelegations(
-    delegations: DelegationCommand[],
-    projectId: string,
-    sprintId?: string | null,
-    parentTaskId?: string | null,
-    createdBy?: string,
-  ): TaskRecord[] {
-    return delegations.map((d) =>
-      this.create({
-        projectId,
-        sprintId,
-        parentTaskId,
-        title: d.task,
-        description: d.context || '',
-        assignedTo: d.targetAgent,
-        createdBy: createdBy || null,
-        priority: (d.priority as TaskPriority) || 'medium',
-      }),
-    );
   }
 
   /**

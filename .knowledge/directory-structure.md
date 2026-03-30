@@ -1,7 +1,7 @@
 # 目錄結構說明
 
-> **版本**: v1.1
-> **最後更新**: 2026-03-25
+> **版本**: v1.2
+> **最後更新**: 2026-03-30
 
 ---
 
@@ -12,7 +12,6 @@ AgentHub/
 ├── electron/                    # Electron Main Process
 ├── src/                         # Vue 3 Renderer
 ├── agents/                      # Agent 定義 (YAML)
-├── knowledge/                   # 知識庫（公司級）
 ├── tests/                       # 單元測試
 ├── e2e/                         # E2E 測試
 ├── .knowledge/                  # 專案級技術規範
@@ -101,31 +100,32 @@ src/
 ├── components/
 │   ├── common/                  # 通用元件
 │   │   ├── BaseButton.vue
-│   │   ├── BaseCard.vue
 │   │   ├── BaseModal.vue
 │   │   ├── BaseTag.vue
-│   │   ├── BaseToggle.vue
 │   │   ├── ErrorToast.vue
 │   │   ├── ProgressBar.vue
 │   │   ├── StatCard.vue
 │   │   ├── StatusDot.vue
 │   │   ├── ToastContainer.vue
-│   │   └── VirtualList.vue
+│   │   ├── VirtualList.vue
+│   │   └── index.ts
 │   ├── session/                 # Session 相關
 │   │   ├── SessionCard.vue
 │   │   ├── SessionGrid.vue
 │   │   ├── SessionLauncher.vue
-│   │   ├── SessionTerminal.vue
-│   │   └── SidePanel.vue
+│   │   └── SessionTerminal.vue
 │   ├── gate/                    # Gate 相關
 │   │   ├── GateChecklistPanel.vue
-│   │   ├── GatePipeline.vue
 │   │   └── GateReviewBanner.vue
 │   ├── project/                 # 專案相關
 │   │   ├── ProjectCard.vue
 │   │   └── ProjectCreateModal.vue
-│   ├── agent/                   # Agent 相關
-│   │   └── AgentCard.vue
+│   ├── harness/                 # Harness（Skill/Hook/觸發紀錄）
+│   │   ├── HookTab.vue
+│   │   ├── SkillTab.vue
+│   │   └── TriggerLogsTab.vue
+│   ├── task/                    # 任務相關
+│   │   └── TaskDetailPanel.vue
 │   └── layout/                  # 佈局
 │       ├── SidebarNav.vue
 │       └── TopBar.vue
@@ -138,15 +138,7 @@ src/
 ## 知識庫與規劃
 
 ```
-knowledge/                       # 公司級知識庫（部署到子專案）
-└── company/
-    ├── sop/                     # 標準作業程序
-    ├── standards/               # 編碼/API/安全標準
-    ├── templates/               # 提案書/計畫書/Review 範本
-    ├── project-templates/       # 專案類型模板（web-app/api-service/...）
-    └── skill-templates/         # Sprint 2 新增：Skill 模板
-
-.knowledge/                      # 專案級規範（本專案自用）
+.knowledge/                      # 專案級規範 + 公司知識庫（唯一來源）
 ├── project-overview.md
 ├── architecture.md
 ├── directory-structure.md       # 本文件
@@ -154,10 +146,16 @@ knowledge/                       # 公司級知識庫（部署到子專案）
 ├── testing-standards.md
 ├── quality-checklist.md
 ├── postmortem-log.md
-└── company/                     # 公司規範本地副本
-    ├── sop/
-    ├── standards/
-    └── templates/
+├── doc-governance.md
+├── team-hierarchy.md
+└── company/                     # 公司規範（部署到子專案）
+    ├── sop/                     # 標準作業程序
+    ├── standards/               # 編碼/API/安全標準
+    ├── templates/               # 提案書/計畫書/Review 範本
+    ├── project-templates/       # 專案類型模板（web-app/api-service/...）
+    ├── skill-templates/         # Skill 模板（部署到子專案 .claude/skills/）
+    ├── hook-templates/          # Hook 模板（部署到子專案 .claude/settings.json）
+    └── agent-roster.md          # Agent 名單
 
 proposal/                        # Sprint 規劃
 ├── sprint1-proposal.md

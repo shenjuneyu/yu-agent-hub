@@ -3,7 +3,9 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
-import BaseTag from '../common/BaseTag.vue';
+import SessionAgentSelector from './SessionAgentSelector.vue';
+import SessionTaskSelector from './SessionTaskSelector.vue';
+import SessionConfigPanel from './SessionConfigPanel.vue';
 import { useAgentsStore } from '../../stores/agents';
 import { useSessionsStore } from '../../stores/sessions';
 import { useTasksStore, type TaskRecord } from '../../stores/tasks';
@@ -85,12 +87,6 @@ const tasksByProject = computed(() => {
   return groups;
 });
 
-function projectName(projectId: string): string {
-  if (projectId === '__none__') return t('sessions.launcher.unassignedProject');
-  const p = projectsStore.projects.find((p) => p.id === projectId);
-  return p?.name || projectId.slice(0, 8);
-}
-
 const selectedAgent = computed(() =>
   selectedAgentId.value ? agentsStore.getById(selectedAgentId.value) : null,
 );
@@ -105,6 +101,18 @@ const modelOptions = computed(() => [
   { value: 'sonnet', label: 'Sonnet', desc: t('sessions.launcher.modelSonnet') },
   { value: 'haiku', label: 'Haiku', desc: t('sessions.launcher.modelHaiku') },
 ]);
+
+const departmentLabel = computed<Record<string, string>>(() => ({
+  engineering: t('agents.departments.engineering'),
+  design: t('agents.departments.design'),
+  product: t('agents.departments.product'),
+  marketing: t('agents.departments.marketing'),
+  testing: t('agents.departments.testing'),
+  'project-management': t('agents.departments.projectManagement'),
+  'studio-operations': t('agents.departments.studioOperations'),
+  company: t('agents.departments.company'),
+  bonus: t('agents.departments.bonus'),
+}));
 
 watch(
   () => props.show,
@@ -173,23 +181,21 @@ async function loadPromptPreview() {
   }
 }
 
-function onTaskSelect() {
+function onTaskSelect(taskId: string) {
+  selectedTaskId.value = taskId === 'null' ? null : taskId;
   if (!selectedTaskId.value) return;
-  const t = availableTasks.value.find((t) => t.id === selectedTaskId.value);
-  if (t) {
-    // Auto-fill task description if empty
+  const found = availableTasks.value.find((t) => t.id === selectedTaskId.value);
+  if (found) {
     if (!task.value.trim()) {
-      task.value = t.description || t.title;
+      task.value = found.description || found.title;
     }
-    // Auto-fill project from task
-    if (!props.preselectedProjectId && t.projectId) {
-      selectedProjectId.value = t.projectId;
+    if (!props.preselectedProjectId && found.projectId) {
+      selectedProjectId.value = found.projectId;
     }
-    // Auto-fill agent if not locked and task has assignedTo
-    if (!agentLocked.value && t.assignedTo) {
-      const agent = agentsStore.getById(t.assignedTo);
+    if (!agentLocked.value && found.assignedTo) {
+      const agent = agentsStore.getById(found.assignedTo);
       if (agent) {
-        selectedAgentId.value = t.assignedTo;
+        selectedAgentId.value = found.assignedTo;
         model.value = agent.model;
       }
     }
@@ -219,8 +225,8 @@ async function launch() {
   }
 }
 
-function onProjectSelectChange() {
-  if (selectedProjectId.value === '__create__') {
+function onProjectChange(value: string) {
+  if (value === '__create__') {
     showCreateProject.value = true;
     selectedProjectId.value = null;
     newProjectName.value = '';
@@ -228,6 +234,7 @@ function onProjectSelectChange() {
     newProjectTemplate.value = 'web-app';
   } else {
     showCreateProject.value = false;
+    selectedProjectId.value = value === 'null' ? null : value;
   }
 }
 
@@ -264,198 +271,66 @@ async function createProject() {
   }
 }
 
-function onAgentChange() {
-  const agent = agentsStore.getById(selectedAgentId.value);
+function onAgentChange(value: string) {
+  selectedAgentId.value = value;
+  const agent = agentsStore.getById(value);
   if (agent) {
     model.value = agent.model;
   }
   showPromptPreview.value = false;
 }
-
-const departmentLabel = computed<Record<string, string>>(() => ({
-  engineering: t('agents.departments.engineering'),
-  design: t('agents.departments.design'),
-  product: t('agents.departments.product'),
-  marketing: t('agents.departments.marketing'),
-  testing: t('agents.departments.testing'),
-  'project-management': t('agents.departments.projectManagement'),
-  'studio-operations': t('agents.departments.studioOperations'),
-  company: t('agents.departments.company'),
-  bonus: t('agents.departments.bonus'),
-}));
 </script>
 
 <template>
   <BaseModal :show="show" :title="$t('sessions.launcher.title')" @close="emit('close')">
     <div class="launcher">
       <!-- Agent Selection -->
-      <div class="launcher__field">
-        <label class="launcher__label">{{ $t('sessions.launcher.selectAgent') }}</label>
-        <div v-if="agentLocked && selectedAgent" class="launcher__agent-locked">
-          <span class="launcher__agent-locked-name">{{ agentsStore.displayName(selectedAgent) }}</span>
-          <span class="launcher__agent-locked-id">({{ selectedAgent.id }})</span>
-        </div>
-        <select
-          v-else
-          v-model="selectedAgentId"
-          class="launcher__select"
-          @change="onAgentChange"
-        >
-          <option value="" disabled>{{ $t('sessions.launcher.selectAgentPlaceholder') }}</option>
-          <optgroup
-            v-for="[dept, agents] in agentsStore.agentsByDepartment"
-            :key="dept"
-            :label="departmentLabel[dept] || dept"
-          >
-            <option v-for="agent in agents" :key="agent.id" :value="agent.id">
-              {{ agentsStore.displayName(agent) }} ({{ agent.level }})
-            </option>
-          </optgroup>
-        </select>
-      </div>
+      <SessionAgentSelector
+        :selected-agent-id="selectedAgentId"
+        :agent-locked="agentLocked"
+        :selected-agent="selectedAgent"
+        :department-label="departmentLabel"
+        @update:selected-agent-id="onAgentChange"
+      />
 
-      <!-- Selected agent info -->
-      <div v-if="selectedAgent" class="launcher__agent-info">
-        <BaseTag :color="selectedAgent.color as any">{{ selectedAgent.level }}</BaseTag>
-        <BaseTag>{{ departmentLabel[selectedAgent.department] || selectedAgent.department }}</BaseTag>
-        <span class="launcher__agent-model">{{ selectedAgent.model }}</span>
-      </div>
+      <!-- Project + Task Selection -->
+      <SessionTaskSelector
+        :preselected-project-id="props.preselectedProjectId"
+        :selected-project-id="selectedProjectId"
+        :show-create-project="showCreateProject"
+        :new-project-name="newProjectName"
+        :new-project-work-dir="newProjectWorkDir"
+        :new-project-template="newProjectTemplate"
+        :creating-project="creatingProject"
+        :template-options="templateOptions"
+        :projects="projectsStore.projects"
+        :selected-task-id="selectedTaskId"
+        :filtered-tasks="filteredTasks"
+        :tasks-by-project="tasksByProject"
+        :effective-project-id="effectiveProjectId"
+        @project-change="onProjectChange"
+        @task-change="onTaskSelect"
+        @update:new-project-name="newProjectName = $event"
+        @update:new-project-work-dir="newProjectWorkDir = $event"
+        @update:new-project-template="newProjectTemplate = $event"
+        @select-work-dir="selectWorkDir"
+        @create-project="createProject"
+        @cancel-create="showCreateProject = false"
+      />
 
-      <!-- Project Selection -->
-      <div v-if="!props.preselectedProjectId" class="launcher__field">
-        <label class="launcher__label">{{ $t('sessions.launcher.project') }}</label>
-        <select
-          v-model="selectedProjectId"
-          class="launcher__select"
-          @change="onProjectSelectChange"
-        >
-          <option :value="null">{{ $t('sessions.launcher.allProjects') }}</option>
-          <option v-for="p in projectsStore.projects" :key="p.id" :value="p.id">
-            {{ p.name }}
-          </option>
-          <option value="__create__">+ {{ $t('projects.newProject') }}</option>
-        </select>
-
-        <!-- 9E: 內嵌專案建立表單 -->
-        <div v-if="showCreateProject" class="launcher__create-project">
-          <div class="launcher__field">
-            <label class="launcher__label launcher__label--sm">{{ $t('projects.modal.nameLabel') }}</label>
-            <input
-              v-model="newProjectName"
-              type="text"
-              :placeholder="$t('projects.modal.namePlaceholder')"
-              class="launcher__input launcher__input--sm"
-            />
-          </div>
-          <div class="launcher__field">
-            <label class="launcher__label launcher__label--sm">{{ $t('projects.modal.workDirLabel') }}</label>
-            <div class="launcher__workdir-row">
-              <input
-                v-model="newProjectWorkDir"
-                type="text"
-                readonly
-                :placeholder="$t('sessions.launcher.selectFolder')"
-                class="launcher__input launcher__input--sm launcher__input--flex"
-              />
-              <BaseButton size="sm" @click="selectWorkDir">{{ $t('common.browse') }}</BaseButton>
-            </div>
-          </div>
-          <div class="launcher__field">
-            <label class="launcher__label launcher__label--sm">{{ $t('projects.modal.selectTemplate') }}</label>
-            <select v-model="newProjectTemplate" class="launcher__select launcher__select--sm">
-              <option v-for="t in templateOptions" :key="t.value" :value="t.value">
-                {{ t.label }}
-              </option>
-            </select>
-          </div>
-          <div class="launcher__create-project-actions">
-            <BaseButton
-              size="sm"
-              variant="primary"
-              :disabled="!newProjectName.trim() || !newProjectWorkDir.trim() || creatingProject"
-              @click="createProject"
-            >
-              {{ creatingProject ? $t('sessions.launcher.creating') : $t('projects.modal.create') }}
-            </BaseButton>
-            <BaseButton size="sm" variant="ghost" @click="showCreateProject = false">
-              {{ $t('common.cancel') }}
-            </BaseButton>
-          </div>
-        </div>
-      </div>
-
-      <!-- Associated Task (optional) -->
-      <div class="launcher__field">
-        <label class="launcher__label">{{ $t('sessions.launcher.associatedTask') }}</label>
-        <select
-          v-model="selectedTaskId"
-          class="launcher__select"
-          @change="onTaskSelect"
-        >
-          <option :value="null">{{ $t('sessions.launcher.noTask') }}</option>
-          <!-- 已選專案：直接列出該專案的任務 -->
-          <template v-if="effectiveProjectId">
-            <option v-for="t in filteredTasks" :key="t.id" :value="t.id">
-              {{ t.title }} ({{ t.status }})
-            </option>
-          </template>
-          <!-- 未選專案：按專案分組顯示全部 -->
-          <template v-else>
-            <optgroup
-              v-for="[pid, tasks] in tasksByProject"
-              :key="pid"
-              :label="projectName(pid)"
-            >
-              <option v-for="t in tasks" :key="t.id" :value="t.id">
-                {{ t.title }} ({{ t.status }})
-              </option>
-            </optgroup>
-          </template>
-        </select>
-      </div>
-
-      <!-- Task -->
-      <div class="launcher__field">
-        <label class="launcher__label">{{ $t('sessions.launcher.taskDesc') }}</label>
-        <textarea
-          v-model="task"
-          rows="2"
-          class="launcher__textarea"
-          :placeholder="$t('sessions.launcher.taskPlaceholder')"
-        />
-      </div>
-
-      <!-- Model + Max Turns -->
-      <div class="launcher__grid-2">
-        <div class="launcher__field">
-          <label class="launcher__label">{{ $t('sessions.launcher.model') }}</label>
-          <select v-model="model" class="launcher__select">
-            <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }} - {{ opt.desc }}
-            </option>
-          </select>
-        </div>
-        <div class="launcher__field">
-          <label class="launcher__label">{{ $t('sessions.launcher.maxTurns') }}</label>
-          <input
-            v-model.number="maxTurns"
-            type="number"
-            min="1"
-            max="100"
-            class="launcher__input"
-          />
-        </div>
-      </div>
-
-      <!-- Prompt Preview -->
-      <div class="launcher__field">
-        <button class="launcher__preview-btn" @click="loadPromptPreview">
-          {{ showPromptPreview ? $t('sessions.launcher.hidePrompt') : $t('sessions.launcher.previewPrompt') }}
-        </button>
-        <div v-if="showPromptPreview" class="launcher__prompt-preview">
-          <pre class="launcher__prompt-pre">{{ promptPreview }}</pre>
-        </div>
-      </div>
+      <!-- Config: task desc + model + max turns + prompt preview -->
+      <SessionConfigPanel
+        :task="task"
+        :model="model"
+        :max-turns="maxTurns"
+        :show-prompt-preview="showPromptPreview"
+        :prompt-preview="promptPreview"
+        :model-options="modelOptions"
+        @update:task="task = $event"
+        @update:model="model = $event"
+        @update:max-turns="maxTurns = $event"
+        @toggle-preview="loadPromptPreview"
+      />
     </div>
 
     <template #footer>
@@ -475,197 +350,6 @@ const departmentLabel = computed<Record<string, string>>(() => ({
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-/* ── Field + label ── */
-.launcher__field {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.launcher__label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.launcher__label--sm {
-  font-size: 11px;
-}
-
-/* ── Inputs ── */
-.launcher__input {
-  width: 100%;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-default);
-  background-color: var(--color-bg-hover);
-  padding: 8px 12px;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 150ms ease;
-}
-
-.launcher__input--sm {
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
-.launcher__input--flex {
-  flex: 1;
-  min-width: 0;
-}
-
-.launcher__input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.launcher__input:focus {
-  border-color: var(--color-accent);
-}
-
-.launcher__select {
-  width: 100%;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-default);
-  background-color: var(--color-bg-hover);
-  padding: 8px 12px;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 150ms ease;
-}
-
-.launcher__select--sm {
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
-.launcher__select:focus {
-  border-color: var(--color-accent);
-}
-
-.launcher__textarea {
-  width: 100%;
-  resize: none;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-default);
-  background-color: var(--color-bg-hover);
-  padding: 8px 12px;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 150ms ease;
-}
-
-.launcher__textarea::placeholder {
-  color: var(--color-text-muted);
-}
-
-.launcher__textarea:focus {
-  border-color: var(--color-accent);
-}
-
-/* ── Agent locked display ── */
-.launcher__agent-locked {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(108, 92, 231, 0.3);
-  background-color: rgba(108, 92, 231, 0.05);
-  padding: 8px 12px;
-}
-
-.launcher__agent-locked-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.launcher__agent-locked-id {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-/* ── Agent info tags row ── */
-.launcher__agent-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.launcher__agent-model {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-/* ── Create project inline form ── */
-.launcher__create-project {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(108, 92, 231, 0.3);
-  background-color: rgba(108, 92, 231, 0.05);
-  padding: 12px;
-}
-
-.launcher__workdir-row {
-  display: flex;
-  gap: 6px;
-}
-
-.launcher__create-project-actions {
-  display: flex;
-  gap: 6px;
-}
-
-/* ── Two-column grid ── */
-.launcher__grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-/* ── Prompt preview ── */
-.launcher__preview-btn {
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  color: var(--color-accent-light);
-  padding: 0;
-  text-align: left;
-}
-
-.launcher__preview-btn:hover {
-  text-decoration: underline;
-}
-
-.launcher__prompt-preview {
-  margin-top: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-default);
-  background-color: var(--color-bg-base);
-  padding: 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.launcher__prompt-pre {
-  white-space: pre-wrap;
 }
 
 /* ── Footer ── */

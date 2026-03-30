@@ -129,15 +129,6 @@ export const IpcChannels = {
   GIT_CHECKOUT: 'git:checkout',
   GIT_DELETE_BRANCH: 'git:delete-branch',
 
-  // GitHub API
-  GITHUB_CREATE_PR: 'github:create-pr',
-  GITHUB_LIST_PRS: 'github:list-prs',
-  GITHUB_CREATE_ISSUE: 'github:create-issue',
-  GITHUB_GET_REPOS: 'github:get-repos',
-
-  // Orchestration
-  ORCH_EXECUTE_TASK: 'orch:execute-task',
-
   // PTY
   PTY_INPUT: 'pty:input',
   PTY_RESIZE: 'pty:resize',

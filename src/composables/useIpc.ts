@@ -342,36 +342,6 @@ export function useIpc() {
     return maestro.git.deleteBranch(cwd, branchName, force);
   }
 
-  // GitHub
-  async function githubCreatePR(params: {
-    owner: string;
-    repo: string;
-    title: string;
-    body?: string;
-    head: string;
-    base: string;
-  }) {
-    return maestro.github.createPR(params);
-  }
-
-  async function githubListPRs(owner: string, repo: string, state?: string) {
-    return maestro.github.listPRs(owner, repo, state);
-  }
-
-  async function githubCreateIssue(params: {
-    owner: string;
-    repo: string;
-    title: string;
-    body?: string;
-    labels?: string[];
-  }) {
-    return maestro.github.createIssue(params);
-  }
-
-  async function githubGetRepos(page?: number, perPage?: number) {
-    return maestro.github.getRepos(page, perPage);
-  }
-
   // Audit
   async function queryAuditLogs(params?: unknown) {
     return maestro.audit.query(params);
@@ -599,11 +569,6 @@ export function useIpc() {
     gitCreateBranch,
     gitCheckout,
     gitDeleteBranch,
-    // GitHub
-    githubCreatePR,
-    githubListPRs,
-    githubCreateIssue,
-    githubGetRepos,
     // Audit
     queryAuditLogs,
     // Hooks

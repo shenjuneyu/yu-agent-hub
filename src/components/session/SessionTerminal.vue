@@ -18,6 +18,8 @@ let fitAddon: FitAddon | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let initialized = false;
 let alive = true;
+let writeBuffer = '';
+let writeRafId: number | null = null;
 
 // Injected from SessionsView — bumped when a collapsed group expands
 const refitSignal = inject<Ref<number>>('terminalRefitSignal', ref(0));
@@ -90,11 +92,20 @@ async function initTerminal() {
   });
 
   // Listen for PTY data from this session
-  // Note: ipcRenderer.on listeners accumulate and cannot be individually removed
-  // from the renderer side. The `alive` flag ensures stale listeners become no-ops.
+  // Buffer writes and flush once per animation frame to prevent rendering overload
+  // when Claude Code outputs large amounts of text rapidly.
   ipc.onPtyData((ptyData) => {
     if (alive && ptyData.ptyId === props.ptyId && terminal) {
-      terminal.write(ptyData.data);
+      writeBuffer += ptyData.data;
+      if (writeRafId === null) {
+        writeRafId = requestAnimationFrame(() => {
+          if (terminal && writeBuffer) {
+            terminal.write(writeBuffer);
+            writeBuffer = '';
+          }
+          writeRafId = null;
+        });
+      }
     }
   });
 
@@ -109,6 +120,13 @@ async function initTerminal() {
     }
   });
   resizeObserver.observe(terminalRef.value);
+
+  // Safety net: refit after layout fully settles (fixes first-load garbled text)
+  setTimeout(() => {
+    if (fitAddon && terminal) {
+      try { fitAddon.fit(); } catch { /* ignore */ }
+    }
+  }, 300);
 }
 
 // Re-fit when active state changes (e.g., switching tabs)
@@ -161,6 +179,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   alive = false;
+  if (writeRafId !== null) cancelAnimationFrame(writeRafId);
+  writeRafId = null;
+  writeBuffer = '';
   resizeObserver?.disconnect();
   terminal?.dispose();
   terminal = null;

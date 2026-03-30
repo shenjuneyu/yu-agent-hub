@@ -25,22 +25,80 @@ import type {
   BudgetStatus,
 } from '../types';
 
-function rowToProject(row: any): ProjectRecord {
+// Budget defaults
+const DEFAULT_DAILY_USD_LIMIT = 5.0;
+const DEFAULT_TOTAL_USD_LIMIT = 50.0;
+const DEFAULT_DAILY_TOKEN_LIMIT = 500000;
+const DEFAULT_TOTAL_TOKEN_LIMIT = 10000000;
+
+// Percentage thresholds for budget alert levels
+const BUDGET_ALERT_WARNING_PCT = 80;
+const BUDGET_ALERT_CRITICAL_PCT = 90;
+const BUDGET_ALERT_EXCEEDED_PCT = 100;
+
+// sql.js getAsObject() returns `any` by design — typed via interface cast below
+interface ProjectRow {
+  id: string;
+  name: string;
+  description: string | null;
+  work_dir: string | null;
+  status: ProjectRecord['status'];
+  created_at: string;
+  updated_at: string;
+}
+
+interface TaskStatusRow {
+  status: string;
+  count: number;
+}
+
+interface CostAggRow {
+  total_tokens: number;
+  total_usd: number;
+}
+
+interface SprintRow {
+  id: string;
+  name: string;
+}
+
+interface GateAggRow {
+  total: number;
+  approved: number;
+}
+
+interface GateRow {
+  gate_type: string;
+  status: string;
+}
+
+interface BudgetRow {
+  daily_token_limit: number | null;
+  total_token_limit: number | null;
+}
+
+interface TokenSumRow {
+  total: number;
+}
+
+function rowToProject(row: unknown): ProjectRecord {
+  // sql.js Statement.getAsObject() returns `any`; cast through unknown for safety
+  const r = row as ProjectRow;
   return {
-    id: row.id,
-    name: row.name,
-    description: row.description || '',
-    workDir: row.work_dir || null,
-    status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: r.id,
+    name: r.name,
+    description: r.description || '',
+    workDir: r.work_dir || null,
+    status: r.status,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   };
 }
 
 /**
  * Deploy shared company rules to child project .knowledge/ directory.
- * Source: knowledge/company/standards/project-rules.md → .knowledge/company-rules.md
- * Source: knowledge/company/standards/team-workflow.md → .knowledge/team-workflow.md
+ * Source: .knowledge/company/standards/project-rules.md → .knowledge/company-rules.md
+ * Source: .knowledge/company/standards/team-workflow.md → .knowledge/team-workflow.md
  */
 function scaffoldCompanyRules(workDir: string): string[] {
   const created: string[] = [];
@@ -191,7 +249,7 @@ export function registerProjectHandlers(): void {
     // Create default budget (token-based)
     database.run(
       `INSERT INTO project_budgets (project_id, daily_limit, total_limit, daily_token_limit, total_token_limit) VALUES (?, ?, ?, ?, ?)`,
-      [id, 5.0, 50.0, 500000, 10000000],
+      [id, DEFAULT_DAILY_USD_LIMIT, DEFAULT_TOTAL_USD_LIMIT, DEFAULT_DAILY_TOKEN_LIMIT, DEFAULT_TOTAL_TOKEN_LIMIT],
     );
 
     const rows = database.prepare('SELECT * FROM projects WHERE id = ?', [id]);
@@ -200,7 +258,7 @@ export function registerProjectHandlers(): void {
 
   ipcMain.handle(IpcChannels.PROJECT_LIST, () => {
     const rows = database.prepare('SELECT * FROM projects ORDER BY created_at DESC');
-    return rows.map((r: any) => rowToProject(r));
+    return rows.map((r) => rowToProject(r));
   });
 
   ipcMain.handle(IpcChannels.PROJECT_GET, (_e, id: string) => {
@@ -252,7 +310,8 @@ export function registerProjectHandlers(): void {
     let tasksDone = 0;
     let tasksInProgress = 0;
     let totalTasks = 0;
-    for (const row of taskRows as any[]) {
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    for (const row of taskRows as unknown as TaskStatusRow[]) {
       totalTasks += row.count;
       if (row.status === 'done') tasksDone = row.count;
       if (row.status === 'in_progress') tasksInProgress += row.count;
@@ -266,8 +325,10 @@ export function registerProjectHandlers(): void {
        FROM claude_sessions WHERE project_id = ?`,
       [projectId],
     );
-    const totalTokens = (costRows[0] as any)?.total_tokens || 0;
-    const totalCostUsd = (costRows[0] as any)?.total_usd || 0;
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    const costRow = costRows[0] as unknown as CostAggRow | undefined;
+    const totalTokens = costRow?.total_tokens || 0;
+    const totalCostUsd = costRow?.total_usd || 0;
 
     // Active sprints + gate progress (approved gates / total gates)
     let activeSprint: { name: string; progressPct: number; activeCount: number } | null = null;
@@ -275,8 +336,10 @@ export function registerProjectHandlers(): void {
       `SELECT id, name FROM sprints WHERE project_id = ? AND status = 'active' ORDER BY created_at DESC`,
       [projectId],
     );
-    if (sprintRows.length > 0) {
-      const ids = sprintRows.map((r: any) => r.id);
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    const typedSprintRows = sprintRows as unknown as SprintRow[];
+    if (typedSprintRows.length > 0) {
+      const ids = typedSprintRows.map((r) => r.id);
       const ph = ids.map(() => '?').join(',');
       const gateAgg = database.prepare(
         `SELECT COUNT(*) as total,
@@ -284,21 +347,23 @@ export function registerProjectHandlers(): void {
          FROM gates WHERE sprint_id IN (${ph})`,
         ids,
       );
-      const total = (gateAgg[0] as any)?.total || 0;
-      const approved = (gateAgg[0] as any)?.approved || 0;
+      // sql.js getAsObject() returns `any`; cast through unknown for safety
+      const gateAggRow = gateAgg[0] as unknown as GateAggRow | undefined;
+      const total = gateAggRow?.total || 0;
+      const approved = gateAggRow?.approved || 0;
       const progressPct = total > 0 ? Math.round((approved / total) * 100) : 0;
 
-      const name = sprintRows.length === 1
-        ? (sprintRows[0] as any).name
-        : `${sprintRows.length} 個 Sprint 進行中`;
-      activeSprint = { name, progressPct, activeCount: sprintRows.length };
+      const name = typedSprintRows.length === 1
+        ? typedSprintRows[0].name
+        : `${typedSprintRows.length} 個 Sprint 進行中`;
+      activeSprint = { name, progressPct, activeCount: typedSprintRows.length };
     }
 
     // Latest gate — scope to active sprints if any exist
     let latestGate: { type: string; status: string } | null = null;
-    let gateRows: any[];
-    if (sprintRows.length > 0) {
-      const sprintIds = sprintRows.map((r: any) => r.id);
+    let gateRows: unknown[];
+    if (typedSprintRows.length > 0) {
+      const sprintIds = typedSprintRows.map((r) => r.id);
       const ph = sprintIds.map(() => '?').join(',');
       gateRows = database.prepare(
         `SELECT gate_type, status FROM gates WHERE project_id = ? AND sprint_id IN (${ph}) ORDER BY created_at DESC LIMIT 1`,
@@ -311,7 +376,8 @@ export function registerProjectHandlers(): void {
       );
     }
     if (gateRows.length > 0) {
-      const gate = gateRows[0] as any;
+      // sql.js getAsObject() returns `any`; cast through unknown for safety
+      const gate = gateRows[0] as unknown as GateRow;
       latestGate = { type: gate.gate_type, status: gate.status };
     }
 
@@ -325,12 +391,10 @@ export function registerProjectHandlers(): void {
       [projectId],
     );
 
-    const dailyTokenLimit = budgetRows.length > 0
-      ? (budgetRows[0] as any).daily_token_limit || 500000
-      : 500000;
-    const totalTokenLimit = budgetRows.length > 0
-      ? (budgetRows[0] as any).total_token_limit || 10000000
-      : 10000000;
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    const budgetRow = budgetRows[0] as unknown as BudgetRow | undefined;
+    const dailyTokenLimit = budgetRow?.daily_token_limit || DEFAULT_DAILY_TOKEN_LIMIT;
+    const totalTokenLimit = budgetRow?.total_token_limit || DEFAULT_TOTAL_TOKEN_LIMIT;
 
     // Get today's token usage
     const today = new Date().toISOString().split('T')[0];
@@ -339,22 +403,24 @@ export function registerProjectHandlers(): void {
        WHERE project_id = ? AND started_at >= ?`,
       [projectId, today],
     );
-    const dailyTokensUsed = (dailyRows[0] as any)?.total || 0;
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    const dailyTokensUsed = (dailyRows[0] as unknown as TokenSumRow | undefined)?.total || 0;
 
     // Get total token usage
     const totalRows = database.prepare(
       `SELECT COALESCE(SUM(input_tokens + output_tokens), 0) as total FROM claude_sessions WHERE project_id = ?`,
       [projectId],
     );
-    const totalTokensUsed = (totalRows[0] as any)?.total || 0;
+    // sql.js getAsObject() returns `any`; cast through unknown for safety
+    const totalTokensUsed = (totalRows[0] as unknown as TokenSumRow | undefined)?.total || 0;
 
     const dailyPct = dailyTokenLimit > 0 ? Math.round((dailyTokensUsed / dailyTokenLimit) * 100) : 0;
     const totalPct = totalTokenLimit > 0 ? Math.round((totalTokensUsed / totalTokenLimit) * 100) : 0;
 
     let alertLevel: BudgetStatus['alertLevel'] = 'normal';
-    if (dailyPct >= 100 || totalPct >= 100) alertLevel = 'exceeded';
-    else if (dailyPct >= 90 || totalPct >= 90) alertLevel = 'critical';
-    else if (dailyPct >= 80 || totalPct >= 80) alertLevel = 'warning';
+    if (dailyPct >= BUDGET_ALERT_EXCEEDED_PCT || totalPct >= BUDGET_ALERT_EXCEEDED_PCT) alertLevel = 'exceeded';
+    else if (dailyPct >= BUDGET_ALERT_CRITICAL_PCT || totalPct >= BUDGET_ALERT_CRITICAL_PCT) alertLevel = 'critical';
+    else if (dailyPct >= BUDGET_ALERT_WARNING_PCT || totalPct >= BUDGET_ALERT_WARNING_PCT) alertLevel = 'warning';
 
     return { dailyTokensUsed, dailyTokenLimit, dailyPct, totalTokensUsed, totalTokenLimit, totalPct, alertLevel };
   });
@@ -365,7 +431,8 @@ export function registerProjectHandlers(): void {
     (_e, projectId: string): { success: boolean; created: string[]; error?: string } => {
       try {
         const rows = database.prepare('SELECT work_dir FROM projects WHERE id = ?', [projectId]);
-        const workDir = rows[0]?.work_dir as string | null;
+        // sql.js getAsObject() returns `any`; cast through unknown for safety
+        const workDir = (rows[0] as unknown as { work_dir: string | null } | undefined)?.work_dir ?? null;
         if (!workDir) return { success: false, created: [], error: '專案沒有工作目錄' };
 
         const claudeDir = join(workDir, '.claude');
@@ -409,7 +476,8 @@ export function registerProjectHandlers(): void {
     (_e, projectId: string): { exists: boolean; files: Array<{ path: string; type: 'file' | 'dir' }> } => {
       try {
         const rows = database.prepare('SELECT work_dir FROM projects WHERE id = ?', [projectId]);
-        const workDir = rows[0]?.work_dir as string | null;
+        // sql.js getAsObject() returns `any`; cast through unknown for safety
+        const workDir = (rows[0] as unknown as { work_dir: string | null } | undefined)?.work_dir ?? null;
         if (!workDir) return { exists: false, files: [] };
 
         const claudeDir = join(workDir, '.claude');

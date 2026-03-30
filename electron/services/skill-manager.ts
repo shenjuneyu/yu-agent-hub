@@ -43,7 +43,7 @@ export interface SkillDetail {
 
 class SkillManager {
   private get systemSkillsDir(): string {
-    return join(process.cwd(), 'knowledge', 'company', 'skill-templates');
+    return join(process.cwd(), '.knowledge', 'company', 'skill-templates');
   }
 
   private get userSkillsDir(): string {
@@ -54,7 +54,7 @@ class SkillManager {
    * Scan skill directories and return a flat list with scope metadata.
    *
    * Always scans:
-   *   - knowledge/company/skill-templates/  → source=system, scope=global
+   *   - .knowledge/company/skill-templates/  → source=system, scope=global
    *   - knowledge/user/skill-templates/     → source=user, scope=global
    *
    * Project-scoped skills (source=user, scope=project):
