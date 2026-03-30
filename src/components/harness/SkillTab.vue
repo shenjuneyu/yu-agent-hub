@@ -192,9 +192,8 @@ function projLabel(path?: string): string {
   return parts[parts.length - 1] || path;
 }
 
-function onEditSkill(skill: SkillItem) {
+function onEditSkill(_skill: SkillItem) {
   // Placeholder — will be wired to IPC in a future sprint
-  console.log('[SkillTab] onEditSkill', skill.name);
 }
 </script>
 
