@@ -40,12 +40,16 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
    - 預估工時（可選，如 `2h`）
    - 驗收標準（checkbox list）
 
-2. **讀取當前 Sprint 的 dev-plan**：
+2. **取得真實時間（必要，不可跳過）**：
+!`node -e "console.log(new Date().toISOString())"`
+   > ⚠️ **禁止自行編造時間**。Agent 不知道真實時間，必須透過上述指令取得。將輸出存為變數 `$NOW` 供後續步驟使用（用於 `建立時間` 和事件紀錄的 timestamp）。
+
+3. **讀取當前 Sprint 的 dev-plan**：
 !`ls -t proposal/sprint*-dev-plan.md 2>/dev/null | head -1`
 
-3. **偵測當前專案名稱**（從 CLAUDE.md 或 dev-plan 標題提取）
+4. **偵測當前專案名稱**（從 CLAUDE.md 或 dev-plan 標題提取）
 
-4. **為每個任務建立 `.tasks/sprint-{N}/{ID}-{kebab-case}.md`**，使用以下格式：
+5. **為每個任務建立 `.tasks/sprint-{N}/{ID}-{kebab-case}.md`**，使用以下格式：
 
 > **⚠️ Sprint 子目錄規則**：
 > - 從 dev-plan 標題或 Sprint 資訊判斷當前 Sprint 編號
@@ -77,7 +81,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 | 狀態 | assigned |
 | 依賴 | {依賴任務 ID，無則填 —} |
 | 預估 | {預估工時，無則填 —} |
-| 建立時間 | {ISO timestamp} |
+| 建立時間 | $NOW |
 | 開始時間 | — |
 | 完工時間 | — |
 
@@ -95,16 +99,16 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ## 事件紀錄
 
-### {timestamp} — 建立任務（assigned）
+### $NOW — 建立任務（assigned）
 由老闆透過 /task-dispatch 派工
 ```
 
-5. **更新 dev-plan 第 6 節任務表**（append 新任務行）：
+6. **更新 dev-plan 第 6 節任務表**（append 新任務行）：
 ```
 | {ID} | {說明} | {負責} | {依賴} | {預估} |
 ```
 
-6. **輸出摘要**：
+7. **輸出摘要**：
 ```
 ✅ 已建立 N 個任務：
 - T3: 移除 19 個服務 → backend-architect (P0, 依賴 T2)
