@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { database } from './database';
@@ -54,6 +54,120 @@ class MessageBroker {
   registerCallbacks(cb: BrokerCallbacks): void {
     this.callbacks = cb;
     logger.info('MessageBroker: callbacks registered');
+
+    // Start watching JSON inbox for incoming messages from Claude Code Teams
+    this.startInboxWatcher();
+  }
+
+  // ─── JSON Inbox Watcher (Claude Code Teams → PTY injection) ───────────────
+
+  private inboxWatcher: FSWatcher | null = null;
+  private lastInboxState = new Map<string, number>(); // filename → last known message count
+
+  /**
+   * Watch ~/.claude/teams/default/inboxes/ for new messages.
+   * When a new unread message appears, inject it into the target agent's active PTY session.
+   */
+  private startInboxWatcher(): void {
+    const inboxDir = join(homedir(), '.claude', 'teams', 'default', 'inboxes');
+    if (!existsSync(inboxDir)) {
+      mkdirSync(inboxDir, { recursive: true });
+    }
+
+    // Initialize state
+    this.scanInboxDir(inboxDir);
+
+    try {
+      this.inboxWatcher = watch(inboxDir, { persistent: false }, (_eventType, filename) => {
+        if (!filename || !filename.endsWith('.json')) return;
+        // Debounce: wait 500ms for write to complete
+        setTimeout(() => this.checkInboxFile(inboxDir, filename), 500);
+      });
+      logger.info('MessageBroker: inbox watcher started');
+    } catch (err) {
+      logger.warn('MessageBroker: failed to start inbox watcher', err);
+    }
+  }
+
+  private scanInboxDir(inboxDir: string): void {
+    try {
+      const { readdirSync } = require('fs') as typeof import('fs');
+      for (const file of readdirSync(inboxDir)) {
+        if (!file.endsWith('.json')) continue;
+        try {
+          const entries = JSON.parse(readFileSync(join(inboxDir, file), 'utf-8'));
+          this.lastInboxState.set(file, Array.isArray(entries) ? entries.length : 0);
+        } catch {
+          this.lastInboxState.set(file, 0);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  private checkInboxFile(inboxDir: string, filename: string): void {
+    if (!this.callbacks) return;
+
+    try {
+      const filePath = join(inboxDir, filename);
+      if (!existsSync(filePath)) return;
+
+      const entries = JSON.parse(readFileSync(filePath, 'utf-8'));
+      if (!Array.isArray(entries)) return;
+
+      const prevCount = this.lastInboxState.get(filename) || 0;
+      if (entries.length <= prevCount) {
+        this.lastInboxState.set(filename, entries.length);
+        return;
+      }
+
+      // New messages detected — process only the new ones
+      const newMessages = entries.slice(prevCount);
+      this.lastInboxState.set(filename, entries.length);
+
+      const agentId = filename.replace('.json', '');
+
+      for (const msg of newMessages) {
+        if (msg.read) continue;
+        // Skip messages we sent ourselves (already delivered via PTY)
+        if (msg.messageId) continue;
+
+        logger.info(`InboxWatcher: new message for ${agentId} from ${msg.from}`);
+
+        // Try to inject into active session
+        const session = this.callbacks.findActiveSessionByAgent(agentId, msg.project || null);
+        if (session) {
+          const formatted = [
+            '',
+            `--- [來自 ${msg.from} 的訊息] ---`,
+            '',
+            msg.text || msg.message || '(空訊息)',
+            '',
+          ].join('\n');
+
+          try {
+            const isIdle = session.interactive && ['running', 'waiting_input'].includes(session.status);
+            if (isIdle) {
+              ptyWriteAndSubmit(session.ptyProcess as any, formatted);
+            } else {
+              session.pendingMessages.push(formatted);
+            }
+          } catch (err) {
+            logger.warn(`InboxWatcher: PTY injection failed for ${agentId}`, err);
+            session.pendingMessages.push(
+              `\n--- [來自 ${msg.from} 的訊息] ---\n\n${msg.text || ''}\n`,
+            );
+          }
+
+          // Mark as read in JSON
+          msg.read = true;
+        }
+      }
+
+      // Write back with read flags
+      writeFileSync(filePath, JSON.stringify(entries, null, 2), 'utf-8');
+    } catch (err) {
+      logger.warn(`InboxWatcher: error processing ${filename}`, err);
+    }
   }
 
   // ─── Send ──────────────────────────────────────────────────────────────────
