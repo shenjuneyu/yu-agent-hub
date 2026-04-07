@@ -214,13 +214,17 @@ export const useTasksStore = defineStore('tasks', () => {
     // Listen for direct task status transitions (from session auto-transition, API calls, etc.)
     onTaskUpdated((data) => {
       if (!currentProjectId.value || currentProjectId.value === data.projectId) {
-        // Update in-memory task immediately for instant UI feedback
-        const task = tasks.value.find((t) => t.id === data.taskId);
-        if (task) {
-          task.status = data.toStatus as TaskStatus;
-          task.updatedAt = new Date().toISOString();
+        if (data.toStatus) {
+          // Status transition — update in-memory task immediately
+          const task = tasks.value.find((t) => t.id === data.taskId);
+          if (task) {
+            task.status = data.toStatus as TaskStatus;
+            task.updatedAt = new Date().toISOString();
+          } else {
+            fetchTasks();
+          }
         } else {
-          // Task not in current list, do a full refresh
+          // Non-status update (title, priority, etc.) — full refresh
           fetchTasks();
         }
       }

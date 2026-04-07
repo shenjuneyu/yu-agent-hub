@@ -11,12 +11,25 @@ const projectsStore = useProjectsStore();
 
 const filterProject = ref('');
 const filterStatus = ref('');
+const filterAgent = ref('');
 const selectedMessage = ref<MessageRecord | null>(null);
+
+const uniqueAgents = computed(() => {
+  const agents = new Set<string>();
+  for (const m of messagesStore.messages) {
+    agents.add(m.fromAgent);
+    agents.add(m.toAgent);
+  }
+  return [...agents].sort();
+});
 
 const filteredMessages = computed(() => {
   let list = messagesStore.messages;
   if (filterProject.value) {
     list = list.filter((m) => m.projectId === filterProject.value);
+  }
+  if (filterAgent.value) {
+    list = list.filter((m) => m.fromAgent === filterAgent.value || m.toAgent === filterAgent.value);
   }
   if (filterStatus.value === 'unread') {
     list = list.filter((m) => m.status !== 'read');
@@ -105,6 +118,13 @@ onMounted(async () => {
           <option value="">{{ t('messages.allMessages') }}</option>
           <option value="unread">{{ t('messages.unread') }}</option>
           <option value="read">{{ t('messages.read') }}</option>
+        </select>
+        <select
+          v-model="filterAgent"
+          class="flex-1 rounded bg-bg-tertiary px-2 py-1 text-xs text-text-primary"
+        >
+          <option value="">{{ t('messages.allAgents') }}</option>
+          <option v-for="a in uniqueAgents" :key="a" :value="a">{{ a }}</option>
         </select>
         <select
           v-model="filterProject"

@@ -145,6 +145,10 @@ class TaskManager {
     values.push(id);
 
     database.run(`UPDATE tasks SET ${fields.join(', ')} WHERE project_id = ? AND id = ?`, values);
+
+    // Emit event for real-time UI updates
+    eventBus.emit('task:updated', { projectId, taskId: id, fromStatus: null, toStatus: null });
+
     return this.getById(projectId, id);
   }
 
@@ -201,7 +205,12 @@ class TaskManager {
       this.triggerSummaryForTask(task.projectId, task.id);
     }
 
-    // 9C: 任務完成 → 檢查 Sprint 是否所有任務 done
+    // 9C: 任務完成 → 自動解鎖下游任務（sequential execution strategy）
+    if (params.toStatus === 'done') {
+      this.unlockDownstreamTasks(task.projectId, task.id);
+    }
+
+    // 9D: 任務完成 → 檢查 Sprint 是否所有任務 done
     if (params.toStatus === 'done') {
       const updatedTask = this.getById(task.projectId, task.id);
       if (updatedTask?.sprintId) {
@@ -501,6 +510,41 @@ class TaskManager {
       }
     } catch (err) {
       logger.warn('Failed to trigger summary for task sessions', err);
+    }
+  }
+
+  /**
+   * When a task completes, find downstream tasks that depend on it.
+   * If all their dependencies are now done, auto-transition them from 'created' → 'assigned'.
+   * This implements CrewAI-style sequential execution strategy.
+   */
+  private unlockDownstreamTasks(projectId: string, completedTaskId: string): void {
+    try {
+      // Find tasks that depend on the completed task
+      const downstream = database.prepare(
+        `SELECT DISTINCT task_id FROM task_dependencies WHERE project_id = ? AND depends_on = ?`,
+        [projectId, completedTaskId],
+      );
+
+      for (const row of downstream as any[]) {
+        const task = this.getById(projectId, row.task_id);
+        if (!task || task.status !== 'created') continue;
+
+        // Check if ALL dependencies are now done
+        const deps = this.getDependencies(projectId, task.id);
+        const allDone = deps.every((depId) => {
+          const dep = this.getById(projectId, depId);
+          return dep && dep.status === 'done';
+        });
+
+        if (allDone && task.assignedTo) {
+          // Auto-transition to 'assigned' — ready to be picked up
+          this.transition({ projectId, taskId: task.id, toStatus: 'assigned' });
+          logger.info(`Task ${task.id} auto-unlocked: all dependencies done → assigned`);
+        }
+      }
+    } catch (err) {
+      logger.warn('unlockDownstreamTasks failed (non-fatal)', err);
     }
   }
 
