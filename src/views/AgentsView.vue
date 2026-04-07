@@ -2,10 +2,13 @@
 import { onMounted, ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAgentsStore } from '../stores/agents';
+import { useIpc } from '../composables/useIpc';
 import BaseTag from '../components/common/BaseTag.vue';
+import SessionLauncher from '../components/session/SessionLauncher.vue';
 
 const { t, locale } = useI18n();
 const agentsStore = useAgentsStore();
+const ipc = useIpc();
 
 // Force re-render agent cards when locale changes (store functions read i18n.global.locale)
 const localeKey = computed(() => locale.value);
@@ -14,6 +17,45 @@ const searchInput = ref('');
 const filterDepartment = ref('');
 const filterLevel = ref('');
 const collapsedDepts = ref<Set<string>>(new Set());
+
+// Detail panel
+const selectedAgentDetail = ref<any>(null);
+const detailLoading = ref(false);
+const showLauncher = ref(false);
+const launchAgentId = ref('');
+
+async function selectAgent(agentId: string) {
+  detailLoading.value = true;
+  try {
+    selectedAgentDetail.value = await ipc.getAgent(agentId);
+  } catch (err) {
+    console.error('Failed to load agent detail', err);
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+function closeDetail() {
+  selectedAgentDetail.value = null;
+}
+
+function launchSession(agentId: string) {
+  launchAgentId.value = agentId;
+  showLauncher.value = true;
+}
+
+function formatCost(usd: number): string {
+  if (usd < 0.01) return '<$0.01';
+  return `$${usd.toFixed(2)}`;
+}
+
+function formatDuration(ms: number): string {
+  if (!ms) return '-';
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  return `${min}m ${sec % 60}s`;
+}
 
 onMounted(async () => {
   if (agentsStore.agents.length === 0) await agentsStore.fetchAll();
@@ -187,6 +229,8 @@ const departmentEntries = computed(() => {
               v-for="agent in dept.agents"
               :key="agent.id"
               class="agent-card"
+              :class="{ 'agent-card-active': selectedAgentDetail?.id === agent.id }"
+              @click="selectAgent(agent.id)"
             >
               <!-- Row 1: Icon + Name + ID -->
               <div class="agent-row1">
@@ -214,6 +258,95 @@ const departmentEntries = computed(() => {
         </div>
       </div>
     </div>
+    <!-- Agent Detail Panel (slide-in) -->
+    <Transition name="slide">
+      <div v-if="selectedAgentDetail" class="agent-detail-panel">
+        <div class="detail-header">
+          <span class="detail-emoji">{{ agentsStore.agentIcon(selectedAgentDetail) }}</span>
+          <div class="detail-name-block">
+            <div class="detail-name">{{ agentsStore.displayName(selectedAgentDetail) }}</div>
+            <div class="detail-id">{{ selectedAgentDetail.id }}</div>
+          </div>
+          <button class="detail-close" @click="closeDetail">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="detail-actions">
+          <button class="detail-action-btn primary" @click="launchSession(selectedAgentDetail.id)">
+            {{ $t('agents.detail.launchSession') }}
+          </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="detail-stats">
+          <div class="detail-stat">
+            <span class="detail-stat-value">{{ selectedAgentDetail.sessionCount }}</span>
+            <span class="detail-stat-label">Sessions</span>
+          </div>
+          <div class="detail-stat">
+            <span class="detail-stat-value">{{ formatCost(selectedAgentDetail.totalCost) }}</span>
+            <span class="detail-stat-label">{{ $t('agents.detail.totalCost') }}</span>
+          </div>
+          <div class="detail-stat">
+            <span class="detail-stat-value">{{ selectedAgentDetail.level }}</span>
+            <span class="detail-stat-label">{{ $t('agents.detail.level') }}</span>
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="detail-section">
+          <div class="detail-section-title">{{ $t('agents.detail.info') }}</div>
+          <div class="detail-info-row">
+            <span class="detail-info-label">{{ $t('agents.detail.department') }}</span>
+            <span>{{ $t(`agents.departments.${selectedAgentDetail.department}`) }}</span>
+          </div>
+          <div class="detail-info-row">
+            <span class="detail-info-label">{{ $t('agents.detail.model') }}</span>
+            <BaseTag :color="modelColor[selectedAgentDetail.model] ?? 'blue'">{{ selectedAgentDetail.model }}</BaseTag>
+          </div>
+          <div v-if="selectedAgentDetail.reportsTo" class="detail-info-row">
+            <span class="detail-info-label">{{ $t('agents.detail.reportsTo') }}</span>
+            <span>{{ selectedAgentDetail.reportsTo }}</span>
+          </div>
+          <div v-if="selectedAgentDetail.manages?.length > 0" class="detail-info-row">
+            <span class="detail-info-label">{{ $t('agents.detail.manages') }}</span>
+            <span>{{ selectedAgentDetail.manages.join(', ') }}</span>
+          </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div v-if="selectedAgentDetail.recentSessions?.length > 0" class="detail-section">
+          <div class="detail-section-title">{{ $t('agents.detail.recentSessions') }}</div>
+          <div v-for="s in selectedAgentDetail.recentSessions" :key="s.id" class="detail-session-item">
+            <div class="detail-session-row">
+              <BaseTag :color="s.status === 'completed' ? 'green' : s.status === 'failed' ? 'red' : 'blue'" size="sm">{{ s.status }}</BaseTag>
+              <span class="detail-session-cost">{{ formatCost(s.costUsd || 0) }}</span>
+              <span class="detail-session-time">{{ formatDuration(s.durationMs) }}</span>
+            </div>
+            <div class="detail-session-task">{{ (s.task || '').slice(0, 60) }}</div>
+          </div>
+        </div>
+
+        <!-- Memory -->
+        <div v-if="selectedAgentDetail.memories?.length > 0" class="detail-section">
+          <div class="detail-section-title">{{ $t('agents.detail.memory') }}</div>
+          <div v-for="m in selectedAgentDetail.memories" :key="m.key" class="detail-memory-item">
+            <span class="detail-memory-key">{{ m.key }}</span>
+            <span class="detail-memory-value">{{ m.value }}</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Session Launcher -->
+    <SessionLauncher
+      :show="showLauncher"
+      :preselected-agent-id="launchAgentId"
+      @close="showLauncher = false"
+      @launched="showLauncher = false"
+    />
   </div>
 </template>
 
@@ -624,4 +757,190 @@ const departmentEntries = computed(() => {
 .agents-sk-tag   { width: 32px; height: 18px; border-radius: 4px; }
 .agents-sk-desc  { width: 100%; height: 10px; }
 .agents-sk-desc-short { width: 75%; height: 10px; }
+
+/* ── Active card highlight ── */
+.agent-card-active {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+/* ── Detail Panel ── */
+.agent-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 360px;
+  height: 100vh;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border-default);
+  z-index: 100;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+}
+
+.slide-enter-active, .slide-leave-active { transition: transform 200ms ease; }
+.slide-enter-from, .slide-leave-to { transform: translateX(100%); }
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-emoji { font-size: 28px; }
+
+.detail-name-block { flex: 1; min-width: 0; }
+
+.detail-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.detail-id {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: 'SF Mono', monospace;
+}
+
+.detail-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.detail-close:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+.detail-actions { display: flex; gap: 8px; }
+
+.detail-action-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 100ms;
+}
+
+.detail-action-btn.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+.detail-action-btn:hover { opacity: 0.85; }
+
+.detail-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-stat {
+  flex: 1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.detail-stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-stat-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.detail-section { display: flex; flex-direction: column; gap: 6px; }
+
+.detail-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.detail-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.detail-info-label { color: var(--color-text-muted); }
+
+.detail-session-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.detail-session-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.detail-session-cost {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-session-time {
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.detail-session-task {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-memory-item {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.detail-memory-key {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.detail-memory-value {
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>

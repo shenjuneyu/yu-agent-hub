@@ -442,6 +442,18 @@
       "studio-operations": "Studio Operations",
       "company": "Company Management",
       "bonus": "Special"
+    },
+    "detail": {
+      "launchSession": "Launch Session",
+      "totalCost": "Total Cost",
+      "level": "Level",
+      "info": "Information",
+      "department": "Department",
+      "model": "Model",
+      "reportsTo": "Reports To",
+      "manages": "Manages",
+      "recentSessions": "Recent Sessions",
+      "memory": "Memory"
     }
   },
   "harness": {

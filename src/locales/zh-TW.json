@@ -442,6 +442,18 @@
       "studio-operations": "工作室營運",
       "company": "公司管理",
       "bonus": "特殊"
+    },
+    "detail": {
+      "launchSession": "啟動工作階段",
+      "totalCost": "總成本",
+      "level": "層級",
+      "info": "基本資訊",
+      "department": "部門",
+      "model": "模型",
+      "reportsTo": "匯報給",
+      "manages": "管理",
+      "recentSessions": "最近工作階段",
+      "memory": "工作記憶"
     }
   },
   "harness": {
