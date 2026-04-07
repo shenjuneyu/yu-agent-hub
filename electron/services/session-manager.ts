@@ -32,6 +32,7 @@ import {
   resolveSpawnCwd,
 } from './session-spawn-helpers';
 import { DelegationManager } from './session-delegation';
+import { messageBroker } from './message-broker';
 import type {
   SpawnParams,
   SpawnResult,
@@ -93,8 +94,45 @@ class SessionManager {
   private readonly MIN_SUMMARY_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
   /**
-   * Detect the claude CLI path.
+   * Register MessageBroker callbacks so it can find sessions and auto-spawn.
+   * Must be called after detectClaude().
    */
+  setupMessageBroker(): void {
+    messageBroker.registerCallbacks({
+      findActiveSessionByAgent: (agentId, projectId) => this.findActiveByAgent(agentId, projectId),
+      spawnSession: (agentId, task, projectId) => {
+        const result = this.spawn({ agentId, task, projectId, interactive: true });
+        return result.sessionId;
+      },
+      getSession: (sessionId) => {
+        const s = this.sessions.get(sessionId);
+        if (!s) return undefined;
+        return {
+          sessionId: s.sessionId,
+          agentId: s.agentId,
+          status: s.status,
+          interactive: s.interactive,
+          ptyProcess: s.ptyProcess,
+          pendingMessages: s.pendingMessages,
+          projectId: s.projectId,
+        };
+      },
+    });
+  }
+
+  /**
+   * Find an active session for a given agent (optionally scoped to a project).
+   */
+  findActiveByAgent(agentId: string, projectId?: string | null): ManagedSession | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.agentId !== agentId) continue;
+      if (['completed', 'failed', 'stopped'].includes(session.status)) continue;
+      if (projectId && session.projectId && session.projectId !== projectId) continue;
+      return session;
+    }
+    return undefined;
+  }
+
   /**
    * Listen for gate review events to update awaiting_approval sessions.
    */
@@ -130,11 +168,22 @@ class SessionManager {
       return;
     }
 
+    // Ensure common user-local bin paths are in PATH before detection
+    const extraPaths = ['/Users/apple/.local/bin', '/usr/local/bin'];
+    const currentPath = process.env.PATH || '';
+    for (const p of extraPaths) {
+      if (!currentPath.split(':').includes(p)) {
+        process.env.PATH = `${p}:${currentPath}`;
+      }
+    }
+
     try {
-      const result = execSync('where claude', { encoding: 'utf-8', timeout: 5000 }).trim();
+      const isWindows = process.platform === 'win32';
+      const cmd = isWindows ? 'where claude' : 'which claude';
+      const result = execSync(cmd, { encoding: 'utf-8', timeout: 5000 }).trim();
       const lines = result.split('\n').map((l) => l.trim()).filter(Boolean);
       // Prefer .cmd on Windows (required for cmd.exe /c execution)
-      const cmdPath = lines.find((l) => l.endsWith('.cmd'));
+      const cmdPath = isWindows ? lines.find((l) => l.endsWith('.cmd')) : undefined;
       this.claudePath = cmdPath || lines[0] || null;
       if (this.claudePath) {
         logger.info(`Claude CLI found at: ${this.claudePath}`);
@@ -193,6 +242,14 @@ class SessionManager {
     // Spawn PTY
     const spawnEnv = { ...process.env } as Record<string, string>;
     delete spawnEnv.CLAUDECODE;
+    // Ensure user-local bin paths are available in the PTY shell
+    const extraPtyPaths = ['/Users/apple/.local/bin', '/usr/local/bin'];
+    const ptyPath = spawnEnv.PATH || '';
+    const ptyPathParts = ptyPath.split(':');
+    for (const p of extraPtyPaths) {
+      if (!ptyPathParts.includes(p)) ptyPathParts.unshift(p);
+    }
+    spawnEnv.PATH = ptyPathParts.join(':');
     const ptyProcess = spawnPty({
       claudePath: this.claudePath!,
       mockClaudeCliPath: process.env.MOCK_CLAUDE_CLI,
@@ -210,10 +267,28 @@ class SessionManager {
     const taskText = isDirectResume ? (params.task || '(resumed)')
       : isResume ? (resumeInfo.task || '(resumed)') : params.task;
 
+    // Auto-bind taskId: if not provided, find an assigned task for this agent in this project
+    let resolvedTaskId = isResume ? (resumeInfo.task_id || null) : (params.taskId || null);
+    const resolvedProjectId = isResume ? (resumeInfo.project_id || null) : (params.projectId || null);
+    if (!resolvedTaskId && resolvedProjectId && !isResume && !isDirectResume) {
+      try {
+        const rows = database.prepare(
+          `SELECT id FROM tasks WHERE project_id = ? AND assigned_to = ? AND status IN ('assigned', 'created') ORDER BY priority = 'critical' DESC, priority = 'high' DESC, created_at ASC LIMIT 1`,
+          [resolvedProjectId, agentId],
+        );
+        if (rows.length > 0) {
+          resolvedTaskId = (rows[0] as any).id;
+          logger.info(`Auto-bind: task ${resolvedTaskId} → session ${sessionId} (agent ${agentId})`);
+        }
+      } catch (err) {
+        logger.warn('Auto-bind task lookup failed (non-fatal)', err);
+      }
+    }
+
     const session: ManagedSession = {
       sessionId, ptyId, agentId, agentName, task: taskText,
-      taskId: isResume ? (resumeInfo.task_id || null) : (params.taskId || null),
-      model, projectId: isResume ? (resumeInfo.project_id || null) : (params.projectId || null),
+      taskId: resolvedTaskId,
+      model, projectId: resolvedProjectId,
       status: 'starting', costUsd: 0, inputTokens: 0, outputTokens: 0,
       toolCallsCount: 0, turnsCount: 0, startedAt: now,
       ptyProcess, eventParser, tmpFile, interactive,
@@ -539,7 +614,12 @@ class SessionManager {
     try { database.run(`UPDATE claude_sessions SET status = ? WHERE id = ?`, [status, sessionId]); }
     catch (err) { logger.warn('Failed to update session status in DB', err); }
     if (status === 'waiting_input' || status === 'awaiting_approval') this.flushPendingMessages(sessionId);
-    if (status === 'waiting_input') this.delegationMgr.deliverOnIdle(sessionId, (id) => this.sessions.get(id));
+    if (status === 'waiting_input') {
+      this.delegationMgr.deliverOnIdle(sessionId, (id) => this.sessions.get(id));
+      // Deliver pending broker messages for this agent
+      const s = this.sessions.get(sessionId);
+      if (s) messageBroker.deliverPending(s.agentId, s.projectId);
+    }
   }
 
   /**

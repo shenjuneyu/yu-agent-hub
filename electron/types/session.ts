@@ -139,3 +139,38 @@ export interface SendDelegationParams {
   targetSessionId: string;
   instruction: string;
 }
+
+// ─── Cross-session messaging ─────────────────────────────────────────────────
+
+export type MessageStatus = 'pending' | 'delivered' | 'read';
+
+export interface MessageRecord {
+  id: string;
+  fromAgent: string;
+  toAgent: string;
+  content: string;
+  status: MessageStatus;
+  projectId: string | null;
+  sessionId: string | null;
+  replyTo: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  readAt: string | null;
+}
+
+export interface SendMessageParams {
+  fromAgent: string;
+  toAgent: string;
+  content: string;
+  projectId?: string | null;
+  replyTo?: string | null;
+}
+
+export interface MessageFilters {
+  agent?: string;        // messages to or from this agent
+  toAgent?: string;      // messages to this agent only
+  fromAgent?: string;    // messages from this agent only
+  projectId?: string;
+  status?: MessageStatus;
+  limit?: number;
+}

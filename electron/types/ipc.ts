@@ -133,6 +133,13 @@ export const IpcChannels = {
   PTY_INPUT: 'pty:input',
   PTY_RESIZE: 'pty:resize',
 
+  // Messages
+  MESSAGE_SEND: 'message:send',
+  MESSAGE_LIST: 'message:list',
+  MESSAGE_GET: 'message:get',
+  MESSAGE_MARK_READ: 'message:mark-read',
+  MESSAGE_UNREAD_COUNT: 'message:unread-count',
+
   // Push events (Main → Renderer)
   GATE_STATUS_CHANGED: 'gate:status-changed',
   SESSION_EVENT: 'session:event',
@@ -141,6 +148,8 @@ export const IpcChannels = {
   NOTIFICATION: 'notification',
   AGENTS_RELOADED: 'agents:reloaded',
   DELEGATION_REPORT: 'delegation:report',
+  MESSAGE_CREATED: 'message:created',
+  MESSAGE_DELIVERED: 'message:delivered',
 } as const;
 
 export interface IpcError {

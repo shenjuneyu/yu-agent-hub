@@ -131,6 +131,8 @@ function setupEventForwarding(): void {
   eventBus.onPtyData((data) => safeSend(IpcChannels.PTY_DATA, data));
   eventBus.on('agents:reloaded', (data) => safeSend(IpcChannels.AGENTS_RELOADED, data));
   eventBus.on('delegation:report', (data) => safeSend(IpcChannels.DELEGATION_REPORT, data));
+  eventBus.on('message:created', (data) => safeSend(IpcChannels.MESSAGE_CREATED, data));
+  eventBus.on('message:delivered', (data) => safeSend(IpcChannels.MESSAGE_DELIVERED, data));
   eventBus.on('gate:reviewed', (data) => safeSend('gate:status-changed', data));
   eventBus.onFileSynced((data) => safeSend(IpcChannels.PROJECT_SYNC_STATUS, data));
 }
@@ -233,6 +235,10 @@ app.whenReady().then(async () => {
 
   // Detect Claude CLI
   sessionManager.detectClaude();
+
+  // Setup cross-session messaging (must be after detectClaude)
+  sessionManager.setupMessageBroker();
+  logger.info('MessageBroker initialized');
 
   // Register IPC handlers
   registerAllHandlers();

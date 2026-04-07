@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { database } from './database';
 import { eventBus } from './event-bus';
+import { projectSync } from './project-sync';
 import { logger } from '../utils/logger';
 import type {
   TaskRecord,
@@ -179,6 +180,13 @@ class TaskManager {
       eventText += `\n指派給 ${task.assignedTo}`;
     }
     this.appendTaskEvent(task.projectId, task.id, eventText);
+
+    // Write-back: sync status change to .tasks/ markdown file
+    try {
+      projectSync.writeBackTaskStatus(task.projectId, task.id, params.toStatus);
+    } catch (err) {
+      logger.warn(`Task ${task.id} writeBack failed (non-fatal)`, err);
+    }
 
     // Trigger summary for associated sessions only when task is done
     if (params.toStatus === 'done') {

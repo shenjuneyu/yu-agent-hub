@@ -6,6 +6,7 @@
 import { randomUUID } from 'crypto';
 import { database } from './database';
 import { eventBus } from './event-bus';
+import { messageBroker } from './message-broker';
 import { logger } from '../utils/logger';
 import { stripTerminalOutput, ptyWriteAndSubmit } from './pty-manager';
 import type { DelegationRequest, SendDelegationParams } from '../types';
@@ -64,6 +65,17 @@ export class DelegationManager {
       logger.info(
         `Delegation ${delegation.id}: ${source.agentId} → ${target.agentId} "${params.instruction.slice(0, 50)}"`,
       );
+    }
+
+    // Persist delegation as a message for cross-session history
+    try {
+      messageBroker.send({
+        fromAgent: source.agentId,
+        toAgent: target.agentId,
+        content: `[委派] ${params.instruction}`,
+      });
+    } catch (err) {
+      logger.warn('Delegation: failed to persist via MessageBroker (non-fatal)', err);
     }
 
     return delegation;
@@ -159,5 +171,20 @@ export class DelegationManager {
       targetSessionId,
       report,
     });
+
+    // Persist report as a message for cross-session history
+    const target = getSession(targetSessionId);
+    const sourceSession = getSession(delegation.sourceSessionId);
+    if (target && sourceSession) {
+      try {
+        messageBroker.send({
+          fromAgent: target.agentId,
+          toAgent: sourceSession.agentId,
+          content: `[執行報告] ${report.slice(0, 500)}`,
+        });
+      } catch (err) {
+        logger.warn('Delegation report: failed to persist via MessageBroker (non-fatal)', err);
+      }
+    }
   }
 }

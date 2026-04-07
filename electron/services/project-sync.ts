@@ -534,6 +534,114 @@ class ProjectSyncService {
     }
     return count;
   }
+
+  // -------------------------------------------------------------------------
+  // Write-back: DB → .tasks/ markdown (reverse sync)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Update a task's status field in its .tasks/ markdown file.
+   * Called by TaskManager when a task transitions.
+   */
+  writeBackTaskStatus(projectId: string, taskId: string, newStatus: string): void {
+    // Resolve project work_dir
+    let workDir: string | null = null;
+    try {
+      const rows = database.prepare('SELECT work_dir FROM projects WHERE id = ?', [projectId]);
+      workDir = rows.length > 0 ? (rows[0] as any).work_dir : null;
+    } catch { /* ignore */ }
+
+    if (!workDir) {
+      logger.debug(`ProjectSync: writeBack skipped — no work_dir for project ${projectId}`);
+      return;
+    }
+
+    // taskId may be scoped like "sprint-1/T3" or flat like "T3"
+    const parts = taskId.split('/');
+    let filePath: string;
+    if (parts.length >= 2) {
+      // Scoped: sprint-1/T3 → .tasks/sprint-1/T3-*.md
+      const folder = parts.slice(0, -1).join('/');
+      const shortId = parts[parts.length - 1];
+      filePath = this.findTaskFile(path.join(workDir, '.tasks', folder), shortId);
+    } else {
+      // Flat: T3 → .tasks/T3-*.md or search sprint subfolders
+      filePath = this.findTaskFile(path.join(workDir, '.tasks'), taskId);
+      if (!filePath) {
+        // Try sprint subfolders
+        const tasksDir = path.join(workDir, '.tasks');
+        if (fs.existsSync(tasksDir)) {
+          try {
+            const subDirs = fs.readdirSync(tasksDir, { withFileTypes: true })
+              .filter((d) => d.isDirectory());
+            for (const dir of subDirs) {
+              const found = this.findTaskFile(path.join(tasksDir, dir.name), taskId);
+              if (found) { filePath = found; break; }
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    }
+
+    if (!filePath) {
+      logger.debug(`ProjectSync: writeBack skipped — file not found for task ${taskId}`);
+      return;
+    }
+
+    try {
+      let content = fs.readFileSync(filePath, 'utf-8');
+
+      // Replace status in markdown table: "| 狀態 | xxx |" → "| 狀態 | newStatus |"
+      const statusRegex = /(\|\s*狀態\s*\|\s*)([^\|]+)(\|)/;
+      if (statusRegex.test(content)) {
+        content = content.replace(statusRegex, `$1${newStatus} $3`);
+      }
+
+      // Update timestamps
+      const now = new Date().toISOString();
+      if (newStatus === 'in_progress') {
+        const startRegex = /(\|\s*開始時間\s*\|\s*)([^\|]+)(\|)/;
+        if (startRegex.test(content)) {
+          content = content.replace(startRegex, `$1${now} $3`);
+        }
+      } else if (newStatus === 'done') {
+        const endRegex = /(\|\s*完工時間\s*\|\s*)([^\|]+)(\|)/;
+        if (endRegex.test(content)) {
+          content = content.replace(endRegex, `$1${now} $3`);
+        }
+      }
+
+      // Append event to 事件紀錄
+      const eventLine = `\n### ${now} — 狀態自動更新（${newStatus}）\n由系統自動同步\n`;
+      content += eventLine;
+
+      // Mark as self-written to prevent re-sync loop
+      this.markWritten(filePath);
+      fs.writeFileSync(filePath, content, 'utf-8');
+      logger.info(`ProjectSync: writeBack — ${taskId} → ${newStatus} (${path.basename(filePath)})`);
+    } catch (err) {
+      logger.warn(`ProjectSync: writeBack failed for task ${taskId}`, err);
+    }
+  }
+
+  /**
+   * Find a task markdown file by short ID (e.g. "T3") in a directory.
+   * Looks for files matching T3-*.md or T3.md.
+   */
+  private findTaskFile(dir: string, shortId: string): string {
+    if (!fs.existsSync(dir)) return '';
+    try {
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+      // Exact match: T3-remove-services.md or T3.md
+      const match = files.find((f) => {
+        const base = f.replace('.md', '');
+        return base === shortId || base.startsWith(`${shortId}-`);
+      });
+      return match ? path.join(dir, match) : '';
+    } catch {
+      return '';
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

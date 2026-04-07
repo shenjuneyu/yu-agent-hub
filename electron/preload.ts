@@ -230,6 +230,13 @@ export interface MaestroApi {
       errors: string[];
     }>;
   };
+  messages: {
+    send: (params: { fromAgent: string; toAgent: string; content: string; projectId?: string | null; replyTo?: string | null }) => Promise<unknown>;
+    list: (filters?: { agent?: string; toAgent?: string; fromAgent?: string; projectId?: string; status?: string; limit?: number }) => Promise<unknown[]>;
+    get: (id: string) => Promise<unknown>;
+    markRead: (id: string) => Promise<{ success: boolean }>;
+    getUnreadCount: (agentId: string) => Promise<{ count: number }>;
+  };
   pitfall: {
     getOverdue: () => Promise<Array<{
       project: string;
@@ -282,6 +289,8 @@ export interface MaestroApi {
     delegationReport: (callback: (data: unknown) => void) => void;
     gateStatusChanged: (callback: (data: unknown) => void) => void;
     projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
+    messageCreated: (callback: (data: unknown) => void) => void;
+    messageDelivered: (callback: (data: unknown) => void) => void;
   };
 }
 
@@ -390,6 +399,13 @@ const api: MaestroApi = {
     export: (params) => ipcRenderer.invoke('skill:export', params),
     import: (params) => ipcRenderer.invoke('skill:import', params),
   },
+  messages: {
+    send: (params) => ipcRenderer.invoke('message:send', params),
+    list: (filters?) => ipcRenderer.invoke('message:list', filters),
+    get: (id) => ipcRenderer.invoke('message:get', id),
+    markRead: (id) => ipcRenderer.invoke('message:mark-read', id),
+    getUnreadCount: (agentId) => ipcRenderer.invoke('message:unread-count', agentId),
+  },
   pitfall: {
     getOverdue: () => ipcRenderer.invoke('pitfall:getOverdue'),
   },
@@ -445,6 +461,12 @@ const api: MaestroApi = {
     },
     projectSynced: (callback) => {
       ipcRenderer.on('project-sync:status', (_e, data) => callback(data));
+    },
+    messageCreated: (callback: (data: unknown) => void) => {
+      ipcRenderer.on('message:created', (_e, data) => callback(data));
+    },
+    messageDelivered: (callback: (data: unknown) => void) => {
+      ipcRenderer.on('message:delivered', (_e, data) => callback(data));
     },
   },
   projectSync: {

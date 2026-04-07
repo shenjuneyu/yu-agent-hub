@@ -14,6 +14,7 @@ import { registerHarnessHandlers } from './harness';
 import { registerHarnessHookHandlers } from './harness-hooks';
 import { registerHarnessLogHandlers } from './harness-logs';
 import { registerPitfallHandlers } from './pitfall';
+import { registerMessageHandlers } from './messages';
 
 export function registerAllHandlers(): void {
   registerSystemHandlers();
@@ -32,4 +33,5 @@ export function registerAllHandlers(): void {
   registerHarnessHookHandlers();
   registerHarnessLogHandlers();
   registerPitfallHandlers();
+  registerMessageHandlers();
 }
