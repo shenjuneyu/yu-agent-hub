@@ -139,6 +139,9 @@ function setupEventForwarding(): void {
   eventBus.onFileSynced((data) => safeSend(IpcChannels.PROJECT_SYNC_STATUS, data));
 }
 
+// Keep userData path consistent regardless of package.json name changes
+app.setPath('userData', join(app.getPath('appData'), 'maestro-v2'));
+
 app.whenReady().then(async () => {
   logger.info('Yu AgentHub starting...');
 
