@@ -166,18 +166,13 @@ class MessageBroker {
           }
           msg.read = true;
         } else if (this.canAutoSpawn(agentId)) {
-          // No active session — auto-spawn one
+          // No active session — auto-spawn with message as the initial task
           try {
-            const task = `收到來自 ${msg.from} 的訊息，請查看並回覆。`;
+            const task = `你收到來自 ${msg.from} 的訊息:\n\n${content}\n\n請閱讀並回覆。如需回覆對方，請使用: SendMessage(to: '${msg.from}', content: '你的回覆')`;
             const sessionId = this.callbacks.spawnSession(agentId, task, msg.project || null);
             this.recordSpawn(agentId);
-
-            const spawned = this.callbacks.getSession(sessionId);
-            if (spawned) {
-              spawned.pendingMessages.push(formatted);
-            }
             msg.read = true;
-            logger.info(`InboxPoller: auto-spawned session ${sessionId} for ${agentId}`);
+            logger.info(`InboxPoller: auto-spawned session ${sessionId} for ${agentId} (message as task)`);
           } catch (err) {
             logger.warn(`InboxPoller: auto-spawn failed for ${agentId}`, err);
           }
@@ -270,18 +265,11 @@ class MessageBroker {
       if (this.canAutoSpawn(message.toAgent)) {
         logger.info(`MessageBroker: auto-spawning session for ${message.toAgent}`);
         try {
-          const summary = `收到來自 ${message.fromAgent} 的訊息，請查看並回覆。`;
-          const sessionId = this.callbacks.spawnSession(message.toAgent, summary, message.projectId);
+          const task = `你收到來自 ${message.fromAgent} 的訊息:\n\n${message.content}\n\n請閱讀並回覆。如需回覆對方，請使用: SendMessage(to: '${message.fromAgent}', content: '你的回覆')`;
+          const sessionId = this.callbacks.spawnSession(message.toAgent, task, message.projectId);
           this.recordSpawn(message.toAgent);
-
-          // Queue message for delivery after session starts
-          const targetSession = this.callbacks.getSession(sessionId);
-          if (targetSession) {
-            const formatted = this.formatMessageForPty(message);
-            targetSession.pendingMessages.push(formatted);
-            this.markDelivered(message.id, sessionId);
-            logger.info(`Message ${message.id}: queued for auto-spawned session ${sessionId}`);
-          }
+          this.markDelivered(message.id, sessionId);
+          logger.info(`Message ${message.id}: auto-spawned session ${sessionId} (message as task)`);
           return;
         } catch (err) {
           logger.warn(`MessageBroker: auto-spawn failed for ${message.toAgent}`, err);
