@@ -13,6 +13,18 @@ import StatCard from '../components/common/StatCard.vue';
 import StatusDot from '../components/common/StatusDot.vue';
 import BaseTag from '../components/common/BaseTag.vue';
 import ProgressBar from '../components/common/ProgressBar.vue';
+import { Line, Doughnut, Bar } from 'vue-chartjs';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale, PointElement, LineElement,
+  BarElement, ArcElement, Tooltip, Legend, Filler,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Filler);
+
+// Chart.js global dark theme defaults
+ChartJS.defaults.color = '#94a3b8';
+ChartJS.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -145,6 +157,95 @@ const taskStatusLabel = computed<Record<string, string>>(() => ({
   done: t('taskboard.columnLabels.done'),
 }));
 
+// ── Chart data ──────────────────────────────────────────────
+const chartColors = ['#6c5ce7', '#22d3ee', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+
+const dailyChartData = computed(() => {
+  const daily = costStats.value?.daily.slice(-14) || [];
+  return {
+    labels: daily.map((d) => d.day.slice(5)),
+    datasets: [
+      {
+        label: 'Cost ($)',
+        data: daily.map((d) => d.cost),
+        borderColor: '#22d3ee',
+        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#22d3ee',
+      },
+      {
+        label: 'Sessions',
+        data: daily.map((d) => d.sessions),
+        borderColor: '#6c5ce7',
+        backgroundColor: 'rgba(108, 92, 231, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#6c5ce7',
+        yAxisID: 'y1',
+      },
+    ],
+  };
+});
+
+const dailyChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { position: 'bottom' as const, labels: { boxWidth: 10, padding: 12, font: { size: 11 } } } },
+  scales: {
+    x: { grid: { display: false } },
+    y: { position: 'left' as const, grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { callback: (v: unknown) => `$${v}` } },
+    y1: { position: 'right' as const, grid: { display: false }, ticks: { stepSize: 1 } },
+  },
+};
+
+const agentChartData = computed(() => {
+  const agents = costStats.value?.byAgent.slice(0, 6) || [];
+  return {
+    labels: agents.map((a) => a.agentId),
+    datasets: [{
+      data: agents.map((a) => a.totalCost),
+      backgroundColor: chartColors.slice(0, agents.length),
+      borderWidth: 0,
+    }],
+  };
+});
+
+const agentChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '65%',
+  plugins: { legend: { position: 'right' as const, labels: { boxWidth: 10, padding: 8, font: { size: 10 } } } },
+};
+
+const projectChartData = computed(() => {
+  const projects = costStats.value?.byProject.slice(0, 8) || [];
+  return {
+    labels: projects.map((p) => p.projectName || p.projectId),
+    datasets: [{
+      label: 'Cost ($)',
+      data: projects.map((p) => p.totalCost),
+      backgroundColor: 'rgba(108, 92, 231, 0.7)',
+      borderColor: '#6c5ce7',
+      borderWidth: 1,
+      borderRadius: 4,
+    }],
+  };
+});
+
+const projectChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: 'y' as const,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { callback: (v: unknown) => `$${v}` } },
+    y: { grid: { display: false } },
+  },
+};
+
 const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | 'red'> = {
   created: 'purple',
   assigned: 'blue',
@@ -213,50 +314,42 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
 
     <!-- ── Cost Breakdown ──────────────────────────────────────── -->
     <section v-if="costStats && costStats.totals.sessions > 0" class="cost-section">
+      <!-- Summary stats row -->
+      <div class="cost-summary">
+        <div class="cost-stat">
+          <span class="cost-stat-value">{{ formatTokens(costStats.totals.inputTokens + costStats.totals.outputTokens) }}</span>
+          <span class="cost-stat-label">Total Tokens</span>
+        </div>
+        <div class="cost-stat">
+          <span class="cost-stat-value">{{ costStats.totals.toolCalls }}</span>
+          <span class="cost-stat-label">Tool Calls</span>
+        </div>
+        <div class="cost-stat">
+          <span class="cost-stat-value">{{ costStats.totals.sessions }}</span>
+          <span class="cost-stat-label">Sessions</span>
+        </div>
+      </div>
+
       <div class="cost-grid">
-        <!-- By Agent -->
+        <!-- Daily Trend (Line chart) -->
+        <div class="cost-panel cost-panel-wide">
+          <h3 class="cost-panel-title">{{ $t('dashboard.dailyTrend') }}</h3>
+          <div class="chart-container">
+            <Line :data="dailyChartData" :options="dailyChartOptions" />
+          </div>
+        </div>
+        <!-- By Agent (Doughnut) -->
         <div class="cost-panel">
           <h3 class="cost-panel-title">{{ $t('dashboard.costByAgent') }}</h3>
-          <div class="cost-list">
-            <div
-              v-for="item in costStats.byAgent.slice(0, 8)"
-              :key="item.agentId"
-              class="cost-item"
-            >
-              <span class="cost-item-name">{{ item.agentId }}</span>
-              <span class="cost-item-meta">{{ item.sessions }} sessions</span>
-              <span class="cost-item-value">{{ formatCost(item.totalCost) }}</span>
-            </div>
+          <div class="chart-container-sm">
+            <Doughnut :data="agentChartData" :options="agentChartOptions" />
           </div>
         </div>
-        <!-- By Project -->
+        <!-- By Project (Horizontal bar) -->
         <div v-if="costStats.byProject.length > 0" class="cost-panel">
           <h3 class="cost-panel-title">{{ $t('dashboard.costByProject') }}</h3>
-          <div class="cost-list">
-            <div
-              v-for="item in costStats.byProject.slice(0, 8)"
-              :key="item.projectId"
-              class="cost-item"
-            >
-              <span class="cost-item-name">{{ item.projectName || item.projectId }}</span>
-              <span class="cost-item-meta">{{ formatTokens(item.totalTokens) }} tok</span>
-              <span class="cost-item-value">{{ formatCost(item.totalCost) }}</span>
-            </div>
-          </div>
-        </div>
-        <!-- Daily Trend -->
-        <div class="cost-panel">
-          <h3 class="cost-panel-title">{{ $t('dashboard.dailyTrend') }}</h3>
-          <div class="cost-list">
-            <div
-              v-for="item in costStats.daily.slice(-7)"
-              :key="item.day"
-              class="cost-item"
-            >
-              <span class="cost-item-name">{{ item.day.slice(5) }}</span>
-              <span class="cost-item-meta">{{ item.sessions }} sessions</span>
-              <span class="cost-item-value">{{ formatCost(item.cost) }}</span>
-            </div>
+          <div class="chart-container-sm">
+            <Bar :data="projectChartData" :options="projectChartOptions" />
           </div>
         </div>
       </div>
@@ -930,9 +1023,41 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
   margin-top: 4px;
 }
 
+.cost-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cost-stat {
+  flex: 1;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cost-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-stat-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
 .cost-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
@@ -941,6 +1066,10 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
   padding: 14px;
+}
+
+.cost-panel-wide {
+  grid-column: 1 / -1;
 }
 
 .cost-panel-title {
@@ -952,38 +1081,13 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
   margin-bottom: 10px;
 }
 
-.cost-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.chart-container {
+  height: 200px;
+  position: relative;
 }
 
-.cost-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.cost-item-name {
-  color: var(--color-text-primary);
-  font-weight: 500;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cost-item-meta {
-  color: var(--color-text-muted);
-  font-size: 10px;
-  flex-shrink: 0;
-}
-
-.cost-item-value {
-  color: var(--color-accent);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+.chart-container-sm {
+  height: 180px;
+  position: relative;
 }
 </style>

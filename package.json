@@ -27,6 +27,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "chart.js": "^4.5.1",
     "chokidar": "^5.0.0",
     "electron-updater": "^6.3.9",
     "gray-matter": "^4.0.3",
@@ -35,6 +36,7 @@
     "pinia": "^2.3.1",
     "sql.js": "^1.12.0",
     "vue": "^3.5.13",
+    "vue-chartjs": "^5.3.3",
     "vue-i18n": "^12.0.0-alpha.3",
     "vue-router": "^4.5.0"
   },
