@@ -755,13 +755,18 @@ class SessionManager {
       const gitStatus = await gitManager.getStatus(cwd);
       if (!gitStatus.isRepo) return;
       const branchName = `agent/${agentId}/${taskId || new Date().toISOString().slice(0, 10)}`;
-      const branches = await gitManager.getBranches(cwd);
-      if (branches.all.includes(branchName)) {
+
+      // Try checkout first (works if branch exists), then create if it doesn't
+      try {
         await gitManager.checkout(cwd, branchName);
         logger.info(`Session ${sessionId} checked out existing branch ${branchName}`);
-      } else {
-        await gitManager.createBranch(cwd, branchName, true);
-        logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
+      } catch {
+        try {
+          await gitManager.createBranch(cwd, branchName, true);
+          logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
+        } catch (createErr) {
+          logger.warn(`Session ${sessionId} auto-branch create failed (non-fatal)`, createErr);
+        }
       }
     } catch (err) { logger.warn(`Session ${sessionId} auto-branch failed (non-fatal)`, err); }
   }
