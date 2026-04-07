@@ -3,9 +3,11 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useSessionsStore } from '../../stores/sessions';
+import { useMessagesStore } from '../../stores/messages';
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
+const messagesStore = useMessagesStore();
 const { t } = useI18n();
 const expanded = ref(false);
 
@@ -18,6 +20,7 @@ const navGroups = computed(() => [
     { to: '/projects', icon: '▤', label: t('nav.projects'), name: 'projects' },
     { to: '/tasks', icon: '☰', label: t('nav.tasks'), name: 'tasks' },
     { to: '/gates', icon: '◈', label: t('nav.gates'), name: 'gates' },
+    { to: '/messages', icon: '✉', label: t('nav.messages'), name: 'messages', badge: 'messages' },
     { to: '/agents', icon: '◉', label: t('nav.agents'), name: 'agents' },
     { to: '/harness', icon: '⚡', label: 'Harness', name: 'harness' },
     { to: '/knowledge', icon: '📚', label: t('nav.knowledge'), name: 'knowledge' },
@@ -72,6 +75,10 @@ function isActive(item: { to: string }): boolean {
             v-if="item.badge === 'session' && sessionsStore.activeCount > 0"
             class="badge-dot bg-accent"
           ></span>
+          <span
+            v-if="item.badge === 'messages' && messagesStore.unreadCount > 0"
+            class="badge-dot bg-warning"
+          ></span>
 
           <!-- Badge number (expanded) -->
           <span
@@ -79,6 +86,12 @@ function isActive(item: { to: string }): boolean {
             class="sidebar-label ml-auto rounded-full bg-accent px-[7px] py-[2px] text-[10px] font-semibold text-white"
           >
             {{ sessionsStore.activeCount }}
+          </span>
+          <span
+            v-if="item.badge === 'messages' && messagesStore.unreadCount > 0"
+            class="sidebar-label ml-auto rounded-full bg-warning px-[7px] py-[2px] text-[10px] font-semibold text-white"
+          >
+            {{ messagesStore.unreadCount }}
           </span>
         </RouterLink>
       </template>

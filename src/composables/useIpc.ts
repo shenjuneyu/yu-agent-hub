@@ -425,6 +425,40 @@ export function useIpc() {
     return maestro.skills.import({ bundle: bundle as any, onConflict });
   }
 
+  // Messages
+  async function sendMessage(params: {
+    fromAgent: string;
+    toAgent: string;
+    content: string;
+    projectId?: string | null;
+    replyTo?: string | null;
+  }) {
+    return maestro.messages.send(params);
+  }
+
+  async function listMessages(filters?: {
+    agent?: string;
+    toAgent?: string;
+    fromAgent?: string;
+    projectId?: string;
+    status?: 'pending' | 'delivered' | 'read';
+    limit?: number;
+  }) {
+    return maestro.messages.list(filters);
+  }
+
+  async function getMessage(id: string) {
+    return maestro.messages.get(id);
+  }
+
+  async function markMessageRead(id: string) {
+    return maestro.messages.markRead(id);
+  }
+
+  async function getMessageUnreadCount(agentId: string, projectId?: string | null) {
+    return maestro.messages.getUnreadCount(agentId, projectId);
+  }
+
   // Pitfall
   async function getPitfallOverdue() {
     return maestro.pitfall.getOverdue();
@@ -592,6 +626,12 @@ export function useIpc() {
     toggleSkill,
     exportSkills,
     importSkills,
+    // Messages
+    sendMessage,
+    listMessages,
+    getMessage,
+    markMessageRead,
+    getMessageUnreadCount,
     // Pitfall
     getPitfallOverdue,
     // Events

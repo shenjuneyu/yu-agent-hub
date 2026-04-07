@@ -404,7 +404,7 @@ const api: MaestroApi = {
     list: (filters?) => ipcRenderer.invoke('message:list', filters),
     get: (id) => ipcRenderer.invoke('message:get', id),
     markRead: (id) => ipcRenderer.invoke('message:mark-read', id),
-    getUnreadCount: (agentId) => ipcRenderer.invoke('message:unread-count', agentId),
+    getUnreadCount: (agentId: string, projectId?: string | null) => ipcRenderer.invoke('message:unread-count', agentId, projectId),
   },
   pitfall: {
     getOverdue: () => ipcRenderer.invoke('pitfall:getOverdue'),

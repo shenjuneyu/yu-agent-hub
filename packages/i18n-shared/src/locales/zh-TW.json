@@ -50,7 +50,27 @@
     "agents": "團隊",
     "harness": "Harness",
     "knowledge": "知識庫",
+    "messages": "訊息",
     "settings": "設定"
+  },
+  "messages": {
+    "title": "訊息中心",
+    "allMessages": "全部訊息",
+    "unread": "未讀",
+    "read": "已讀",
+    "allProjects": "所有專案",
+    "noProject": "未指定專案",
+    "empty": "沒有訊息",
+    "loading": "載入中...",
+    "selectToRead": "選擇一則訊息來閱讀",
+    "markAllRead": "全部標為已讀",
+    "from": "來自",
+    "to": "收件人",
+    "project": "專案",
+    "justNow": "剛剛",
+    "minutesAgo": "{n} 分鐘前",
+    "hoursAgo": "{n} 小時前",
+    "daysAgo": "{n} 天前"
   },
   "status": {
     "active": "進行中",

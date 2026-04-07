@@ -50,7 +50,27 @@
     "agents": "Team",
     "harness": "Harness",
     "knowledge": "Knowledge",
+    "messages": "Messages",
     "settings": "Settings"
+  },
+  "messages": {
+    "title": "Messages",
+    "allMessages": "All Messages",
+    "unread": "Unread",
+    "read": "Read",
+    "allProjects": "All Projects",
+    "noProject": "No Project",
+    "empty": "No messages",
+    "loading": "Loading...",
+    "selectToRead": "Select a message to read",
+    "markAllRead": "Mark all read",
+    "from": "From",
+    "to": "To",
+    "project": "Project",
+    "justNow": "Just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago"
   },
   "status": {
     "active": "Active",

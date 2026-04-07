@@ -245,6 +245,62 @@ interface MaestroApi {
       errors: string[];
     }>;
   };
+  messages: {
+    send: (params: {
+      fromAgent: string;
+      toAgent: string;
+      content: string;
+      projectId?: string | null;
+      replyTo?: string | null;
+    }) => Promise<{
+      id: string;
+      fromAgent: string;
+      toAgent: string;
+      content: string;
+      status: 'pending' | 'delivered' | 'read';
+      projectId: string | null;
+      sessionId: string | null;
+      replyTo: string | null;
+      createdAt: string;
+      deliveredAt: string | null;
+      readAt: string | null;
+    }>;
+    list: (filters?: {
+      agent?: string;
+      toAgent?: string;
+      fromAgent?: string;
+      projectId?: string;
+      status?: 'pending' | 'delivered' | 'read';
+      limit?: number;
+    }) => Promise<Array<{
+      id: string;
+      fromAgent: string;
+      toAgent: string;
+      content: string;
+      status: 'pending' | 'delivered' | 'read';
+      projectId: string | null;
+      sessionId: string | null;
+      replyTo: string | null;
+      createdAt: string;
+      deliveredAt: string | null;
+      readAt: string | null;
+    }>>;
+    get: (id: string) => Promise<{
+      id: string;
+      fromAgent: string;
+      toAgent: string;
+      content: string;
+      status: 'pending' | 'delivered' | 'read';
+      projectId: string | null;
+      sessionId: string | null;
+      replyTo: string | null;
+      createdAt: string;
+      deliveredAt: string | null;
+      readAt: string | null;
+    } | null>;
+    markRead: (id: string) => Promise<{ success: boolean }>;
+    getUnreadCount: (agentId: string, projectId?: string | null) => Promise<{ count: number }>;
+  };
   pitfall: {
     getOverdue: () => Promise<Array<{
       project: string;
@@ -297,6 +353,8 @@ interface MaestroApi {
     delegationReport: (callback: (data: unknown) => void) => void;
     gateStatusChanged: (callback: (data: unknown) => void) => void;
     projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
+    messageCreated: (callback: (data: unknown) => void) => void;
+    messageDelivered: (callback: (data: unknown) => void) => void;
   };
 }
 

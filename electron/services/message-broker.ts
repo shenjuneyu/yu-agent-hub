@@ -266,11 +266,16 @@ class MessageBroker {
   /**
    * Get unread count for an agent.
    */
-  getUnreadCount(agentId: string): number {
-    const rows = database.prepare(
-      `SELECT COUNT(*) as cnt FROM messages WHERE to_agent = ? AND status IN ('pending', 'delivered')`,
-      [agentId],
-    );
+  getUnreadCount(agentId: string, projectId?: string | null): number {
+    let sql = `SELECT COUNT(*) as cnt FROM messages WHERE to_agent = ? AND status IN ('pending', 'delivered')`;
+    const params: unknown[] = [agentId];
+
+    if (projectId) {
+      sql += ' AND project_id = ?';
+      params.push(projectId);
+    }
+
+    const rows = database.prepare(sql, params);
     return (rows[0] as any)?.cnt || 0;
   }
 

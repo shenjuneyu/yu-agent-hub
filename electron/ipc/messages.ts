@@ -21,7 +21,7 @@ export function registerMessageHandlers(): void {
     return { success: true };
   });
 
-  ipcMain.handle(IpcChannels.MESSAGE_UNREAD_COUNT, (_event, agentId: string) => {
-    return { count: messageBroker.getUnreadCount(agentId) };
+  ipcMain.handle(IpcChannels.MESSAGE_UNREAD_COUNT, (_event, agentId: string, projectId?: string | null) => {
+    return { count: messageBroker.getUnreadCount(agentId, projectId) };
   });
 }

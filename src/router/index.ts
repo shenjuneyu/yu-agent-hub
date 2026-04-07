@@ -38,6 +38,12 @@ const routes = [
     meta: { titleKey: 'taskboard.title', icon: '☰', section: 'workspace' },
   },
   {
+    path: '/messages',
+    name: 'messages',
+    component: () => import('../views/MessagesView.vue'),
+    meta: { titleKey: 'messages.title', icon: '✉', section: 'workspace' },
+  },
+  {
     path: '/agents',
     name: 'agents',
     component: () => import('../views/AgentsView.vue'),
