@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
 import { join, relative, extname } from 'path';
-import { getKnowledgeDir } from '../utils/paths';
+import { getKnowledgeDir, safePath } from '../utils/paths';
 import { logger } from '../utils/logger';
 import type { KnowledgeTreeNode } from '../types';
 
@@ -35,12 +35,10 @@ class KnowledgeReader {
       if (existsSync(fallback)) knowledgeDir = fallback;
     }
 
-    const filePath = join(knowledgeDir, relativePath);
-
-    // Security: ensure path stays within knowledge dir
-    const resolved = join(knowledgeDir, relativePath);
-    if (!resolved.startsWith(knowledgeDir)) {
-      logger.warn(`Attempted path traversal: ${relativePath}`);
+    // Security: ensure path stays within knowledge dir (prevent path traversal)
+    const filePath = safePath(knowledgeDir, relativePath);
+    if (!filePath) {
+      logger.warn(`Blocked path traversal attempt: ${relativePath}`);
       return null;
     }
 

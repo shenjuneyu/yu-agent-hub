@@ -1,7 +1,21 @@
 import { app } from 'electron';
-import { join, basename, dirname } from 'path';
+import { join, basename, dirname, resolve, relative, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
+
+/**
+ * Validate that a resolved file path stays within a base directory.
+ * Prevents path traversal attacks via ../ or symlinks.
+ * Returns the resolved path if safe, null if traversal detected.
+ */
+export function safePath(baseDir: string, relativePath: string): string | null {
+  const resolved = resolve(baseDir, relativePath);
+  const rel = relative(baseDir, resolved);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    return null;
+  }
+  return resolved;
+}
 
 /**
  * Get the project root directory.

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { agentLoader } from './agent-loader';
 import { database } from './database';
-import { getKnowledgeDir } from '../utils/paths';
+import { getKnowledgeDir, safePath } from '../utils/paths';
 import { logger } from '../utils/logger';
 
 interface AssembleOptions {
@@ -341,20 +341,30 @@ class PromptAssembler {
       try {
         let filePath: string;
 
+        let baseDir: string;
+        let relPath: string;
+
         if (ref.startsWith('company://')) {
-          const relPath = ref.replace('company://', '');
-          filePath = join(knowledgeDir, 'company', relPath);
+          baseDir = join(knowledgeDir, 'company');
+          relPath = ref.replace('company://', '');
         } else if (ref.startsWith('project://')) {
           if (!projectId) continue;
-          const relPath = ref.replace('project://', '');
-          filePath = join(knowledgeDir, 'projects', projectId, relPath);
+          baseDir = join(knowledgeDir, 'projects', projectId);
+          relPath = ref.replace('project://', '');
         } else {
           continue;
         }
 
         // Handle glob patterns by just noting the reference
-        if (filePath.includes('*')) {
+        if (relPath.includes('*')) {
           resolved.push(`> 參考: ${ref}`);
+          continue;
+        }
+
+        // Security: prevent path traversal
+        filePath = safePath(baseDir, relPath) as string;
+        if (!filePath) {
+          logger.warn(`Blocked path traversal in knowledge ref: ${ref}`);
           continue;
         }
 
