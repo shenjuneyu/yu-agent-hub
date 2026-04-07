@@ -19,7 +19,7 @@ export interface MessageRecord {
 }
 
 export const useMessagesStore = defineStore('messages', () => {
-  const { listMessages, markMessageRead, getMessageUnreadCount } = useIpc();
+  const { listMessages, markMessageRead, getMessageUnreadCount, onMessageCreated, onMessageDelivered, onMessageRead } = useIpc();
 
   const messages = ref<MessageRecord[]>([]);
   const loading = ref(false);
@@ -87,6 +87,24 @@ export const useMessagesStore = defineStore('messages', () => {
     currentProjectId.value = projectId;
   }
 
+  function setupListeners() {
+    onMessageCreated(handleMessageCreated);
+    onMessageDelivered((data: unknown) => {
+      const { messageId } = data as { messageId: string };
+      const msg = messages.value.find((m) => m.id === messageId);
+      if (msg) msg.status = 'delivered';
+    });
+    onMessageRead((data: unknown) => {
+      const { messageId } = data as { messageId: string };
+      const msg = messages.value.find((m) => m.id === messageId);
+      if (msg && msg.status !== 'read') {
+        msg.status = 'read';
+        msg.readAt = new Date().toISOString();
+        if (unreadCount.value > 0) unreadCount.value--;
+      }
+    });
+  }
+
   function handleMessageCreated(data: unknown) {
     const msg = data as MessageRecord;
     // Only add if it matches current context
@@ -108,6 +126,7 @@ export const useMessagesStore = defineStore('messages', () => {
     unreadCount,
     unreadMessages,
     readMessages,
+    setupListeners,
     fetchMessages,
     fetchUnreadCount,
     markRead,

@@ -10,6 +10,7 @@ import { useGatesStore } from './stores/gates';
 import { useSettingsStore } from './stores/settings';
 import { useUiStore } from './stores/ui';
 import { useTasksStore } from './stores/tasks';
+import { useMessagesStore } from './stores/messages';
 import { useIpc } from './composables/useIpc';
 
 const sessionsStore = useSessionsStore();
@@ -19,6 +20,7 @@ const gatesStore = useGatesStore();
 const settingsStore = useSettingsStore();
 const uiStore = useUiStore();
 const tasksStore = useTasksStore();
+const messagesStore = useMessagesStore();
 const { onProjectSynced } = useIpc();
 
 // Global error handler
@@ -56,6 +58,7 @@ onMounted(async () => {
 
   // Setup real-time listeners
   sessionsStore.setupListeners();
+  messagesStore.setupListeners();
 
   // Re-fetch stores when FileWatcher detects .tasks/ or dev-plan changes
   // Note: tasks store has its own sync listener, so we only handle gates + stats here

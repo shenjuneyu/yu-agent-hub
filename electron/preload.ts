@@ -291,6 +291,7 @@ export interface MaestroApi {
     projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
     messageCreated: (callback: (data: unknown) => void) => void;
     messageDelivered: (callback: (data: unknown) => void) => void;
+    messageRead: (callback: (data: unknown) => void) => void;
   };
 }
 
@@ -467,6 +468,9 @@ const api: MaestroApi = {
     },
     messageDelivered: (callback: (data: unknown) => void) => {
       ipcRenderer.on('message:delivered', (_e, data) => callback(data));
+    },
+    messageRead: (callback: (data: unknown) => void) => {
+      ipcRenderer.on('message:read', (_e, data) => callback(data));
     },
   },
   projectSync: {

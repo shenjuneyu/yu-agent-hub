@@ -12,6 +12,9 @@
  */
 
 import { randomUUID } from 'crypto';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import { database } from './database';
 import { eventBus } from './event-bus';
 import { logger } from '../utils/logger';
@@ -59,7 +62,16 @@ class MessageBroker {
    * Send a message from one agent to another.
    * Persists to DB, then attempts immediate delivery.
    */
+  /** Max message content size (50KB) to prevent PTY buffer overflow. */
+  private static readonly MAX_CONTENT_LENGTH = 50_000;
+
   send(params: SendMessageParams): MessageRecord {
+    // M3: Truncate oversized content
+    if (params.content.length > MessageBroker.MAX_CONTENT_LENGTH) {
+      logger.warn(`MessageBroker: content truncated from ${params.content.length} to ${MessageBroker.MAX_CONTENT_LENGTH} chars`);
+      params.content = params.content.slice(0, MessageBroker.MAX_CONTENT_LENGTH) + '\n\n[... 訊息過長，已截斷]';
+    }
+
     const id = randomUUID();
     const now = new Date().toISOString();
 
@@ -88,6 +100,9 @@ class MessageBroker {
 
     // Emit for UI
     eventBus.emit('message:created', message);
+
+    // Sync to Claude Code Teams JSON inbox
+    this.syncToJsonInbox(message);
 
     // Attempt delivery
     this.tryDeliver(message);
@@ -142,7 +157,12 @@ class MessageBroker {
     const isIdle = session.interactive && ['running', 'waiting_input'].includes(session.status);
 
     if (isIdle) {
-      ptyWriteAndSubmit(session.ptyProcess as any, formatted);
+      try {
+        ptyWriteAndSubmit(session.ptyProcess as any, formatted);
+      } catch (err) {
+        logger.warn(`MessageBroker: PTY write failed for session ${session.sessionId}`, err);
+        session.pendingMessages.push(formatted);
+      }
       this.markDelivered(message.id, session.sessionId);
       logger.info(`Message ${message.id}: delivered to ${message.toAgent} (session ${session.sessionId})`);
     } else {
@@ -199,6 +219,45 @@ class MessageBroker {
       [now, messageId],
     );
     eventBus.emit('message:read', { messageId });
+  }
+
+  // ─── JSON Inbox Sync (bridge to Claude Code Teams) ─────────────────────────
+
+  /**
+   * Write message to Claude Code Teams JSON inbox so native CLI agents can see it.
+   * Path: ~/.claude/teams/default/inboxes/{toAgent}.json
+   */
+  private syncToJsonInbox(message: MessageRecord): void {
+    try {
+      const inboxDir = join(homedir(), '.claude', 'teams', 'default', 'inboxes');
+      if (!existsSync(inboxDir)) {
+        mkdirSync(inboxDir, { recursive: true });
+      }
+
+      const inboxPath = join(inboxDir, `${message.toAgent}.json`);
+      let entries: unknown[] = [];
+      if (existsSync(inboxPath)) {
+        try {
+          entries = JSON.parse(readFileSync(inboxPath, 'utf-8'));
+        } catch {
+          entries = [];
+        }
+      }
+
+      entries.push({
+        from: message.fromAgent,
+        text: message.content,
+        summary: message.content.slice(0, 80),
+        timestamp: message.createdAt,
+        read: false,
+        project: message.projectId || null,
+        messageId: message.id,
+      });
+
+      writeFileSync(inboxPath, JSON.stringify(entries, null, 2), 'utf-8');
+    } catch (err) {
+      logger.warn('MessageBroker: failed to sync to JSON inbox', err);
+    }
   }
 
   // ─── Rate limiting ─────────────────────────────────────────────────────────

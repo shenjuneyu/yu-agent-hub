@@ -355,6 +355,7 @@ interface MaestroApi {
     projectSynced: (callback: (data: { projectId: string; type: string; filePath?: string }) => void) => void;
     messageCreated: (callback: (data: unknown) => void) => void;
     messageDelivered: (callback: (data: unknown) => void) => void;
+    messageRead: (callback: (data: unknown) => void) => void;
   };
 }
 

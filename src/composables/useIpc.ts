@@ -498,6 +498,19 @@ export function useIpc() {
     maestro.on.delegationReport(callback);
   }
 
+  // Message events
+  function onMessageCreated(callback: (data: unknown) => void) {
+    maestro.on.messageCreated(callback);
+  }
+
+  function onMessageDelivered(callback: (data: unknown) => void) {
+    maestro.on.messageDelivered(callback);
+  }
+
+  function onMessageRead(callback: (data: unknown) => void) {
+    maestro.on.messageRead(callback);
+  }
+
   // Project Sync
   async function startProjectSync(projectId: string, workDir: string) {
     return maestro.projectSync.start({ projectId, workDir });
@@ -641,6 +654,10 @@ export function useIpc() {
     onNotification,
     onAgentsReloaded,
     onDelegationReport,
+    // Message events
+    onMessageCreated,
+    onMessageDelivered,
+    onMessageRead,
     // Project Sync
     startProjectSync,
     stopProjectSync,
