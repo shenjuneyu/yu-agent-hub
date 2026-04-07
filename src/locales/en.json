@@ -692,7 +692,7 @@
   },
   "electron": {
     "menu": {
-      "about": "About Maestro",
+      "about": "About Yu AgentHub",
       "quit": "Quit",
       "edit": "Edit",
       "undo": "Undo",

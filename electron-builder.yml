@@ -1,5 +1,5 @@
-appId: com.maestro.app
-productName: Maestro
+appId: com.yu-agenthub.app
+productName: Yu AgentHub
 directories:
   buildResources: build
 files:
@@ -44,5 +44,5 @@ mac:
     - dmg
 publish:
   provider: github
-  owner: Stanshy
-  repo: agent-hub
+  owner: shenjuneyu
+  repo: yu-agent-hub

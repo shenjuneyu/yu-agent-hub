@@ -49,9 +49,9 @@ function isActive(item: { to: string }): boolean {
         class="flex h-7 w-7 min-w-[28px] items-center justify-center rounded-lg text-sm font-bold text-white"
         style="background: linear-gradient(135deg, #6c5ce7, #22d3ee)"
       >
-        M
+        Y
       </div>
-      <span class="sidebar-label text-base font-bold tracking-tight">Maestro</span>
+      <span class="sidebar-label text-base font-bold tracking-tight">Yu Agent</span>
     </div>
 
     <!-- Nav groups -->

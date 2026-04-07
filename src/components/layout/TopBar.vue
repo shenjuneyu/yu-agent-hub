@@ -11,7 +11,7 @@ const uiStore = useUiStore();
 
 const pageTitle = computed(() => {
   const key = route.meta.titleKey as string | undefined;
-  return key ? t(key) : 'Maestro';
+  return key ? t(key) : 'Yu AgentHub';
 });
 
 const showUserDropdown = ref(false);
