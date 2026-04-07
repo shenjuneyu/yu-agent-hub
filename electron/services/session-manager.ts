@@ -731,23 +731,27 @@ class SessionManager {
   private pendingFlushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private flushPendingMessages(sessionId: string): void {
-    // Debounce: wait 500ms to batch consecutive messages into a single PTY write
+    // Debounce: wait 100ms to batch consecutive messages into a single PTY write
     if (this.pendingFlushTimers.has(sessionId)) return;
 
     this.pendingFlushTimers.set(sessionId, setTimeout(() => {
       this.pendingFlushTimers.delete(sessionId);
-      const session = this.sessions.get(sessionId);
-      if (!session || session.pendingMessages.length === 0) return;
+      this.doFlush(sessionId);
+    }, 100));
+  }
 
-      const messages = session.pendingMessages.splice(0);
-      const combined = messages.join('\n');
-      logger.info(`Flushing ${messages.length} pending message(s) to session ${sessionId}`);
-      try {
-        ptyWriteAndSubmit(session.ptyProcess, combined);
-      } catch (err) {
-        logger.warn(`Failed to flush messages to session ${sessionId}`, err);
-      }
-    }, 500));
+  private doFlush(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.pendingMessages.length === 0) return;
+
+    const messages = session.pendingMessages.splice(0);
+    const combined = messages.join('\n');
+    logger.info(`Flushing ${messages.length} pending message(s) to session ${sessionId}`);
+    try {
+      ptyWriteAndSubmit(session.ptyProcess, combined);
+    } catch (err) {
+      logger.warn(`Failed to flush messages to session ${sessionId}`, err);
+    }
   }
 
   private async tryAutoBranch(sessionId: string, cwd: string, agentId: string, taskId: string | null): Promise<void> {

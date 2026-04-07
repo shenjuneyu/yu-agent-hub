@@ -147,6 +147,9 @@ class MessageBroker {
           '',
           content,
           '',
+          '請閱讀以上訊息並回覆。如需回覆對方，請使用:',
+          `SendMessage(to: '${msg.from}', content: '你的回覆')`,
+          '',
         ].join('\n');
 
         if (session) {
@@ -332,8 +335,8 @@ class MessageBroker {
       '',
       message.content,
       '',
-      `（訊息 ID: ${message.id}）`,
-      `若需回覆，請使用: SendMessage(to: '${message.fromAgent}', content: '你的回覆')`,
+      '請閱讀以上訊息並回覆。如需回覆對方，請使用:',
+      `SendMessage(to: '${message.fromAgent}', content: '你的回覆')`,
       '',
     ];
     return lines.join('\n');
