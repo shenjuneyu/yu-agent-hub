@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, watch, type FSWatcher } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { database } from './database';
@@ -59,14 +59,15 @@ class MessageBroker {
     this.startInboxWatcher();
   }
 
-  // ─── JSON Inbox Watcher (Claude Code Teams → PTY injection) ───────────────
+  // ─── JSON Inbox Polling (Claude Code Teams → PTY injection) ────────────────
 
-  private inboxWatcher: FSWatcher | null = null;
-  private lastInboxState = new Map<string, number>(); // filename → last known message count
+  private inboxPoller: ReturnType<typeof setInterval> | null = null;
+  private lastDelivered = new Map<string, Set<string>>(); // agentId → set of delivered timestamps
 
   /**
-   * Watch ~/.claude/teams/default/inboxes/ for new messages.
-   * When a new unread message appears, inject it into the target agent's active PTY session.
+   * Poll ~/.claude/teams/default/inboxes/ every 3s for new unread messages.
+   * When found, inject into the target agent's active PTY session.
+   * Uses polling instead of fs.watch for macOS reliability.
    */
   private startInboxWatcher(): void {
     const inboxDir = join(homedir(), '.claude', 'teams', 'default', 'inboxes');
@@ -74,32 +75,38 @@ class MessageBroker {
       mkdirSync(inboxDir, { recursive: true });
     }
 
-    // Initialize state
-    this.scanInboxDir(inboxDir);
+    // Initialize: mark all existing unread messages as "already seen"
+    this.initInboxState(inboxDir);
 
-    try {
-      this.inboxWatcher = watch(inboxDir, { persistent: false }, (_eventType, filename) => {
-        if (!filename || !filename.endsWith('.json')) return;
-        // Debounce: wait 500ms for write to complete
-        setTimeout(() => this.checkInboxFile(inboxDir, filename), 500);
-      });
-      logger.info('MessageBroker: inbox watcher started');
-    } catch (err) {
-      logger.warn('MessageBroker: failed to start inbox watcher', err);
-    }
+    this.inboxPoller = setInterval(() => this.pollInboxDir(inboxDir), 3000);
+    logger.info('MessageBroker: inbox polling started (3s interval)');
   }
 
-  private scanInboxDir(inboxDir: string): void {
+  private initInboxState(inboxDir: string): void {
     try {
-      const { readdirSync } = require('fs') as typeof import('fs');
       for (const file of readdirSync(inboxDir)) {
         if (!file.endsWith('.json')) continue;
+        const agentId = file.replace('.json', '');
         try {
           const entries = JSON.parse(readFileSync(join(inboxDir, file), 'utf-8'));
-          this.lastInboxState.set(file, Array.isArray(entries) ? entries.length : 0);
-        } catch {
-          this.lastInboxState.set(file, 0);
-        }
+          if (!Array.isArray(entries)) continue;
+          const seen = new Set<string>();
+          for (const msg of entries) {
+            seen.add(msg.timestamp || '');
+          }
+          this.lastDelivered.set(agentId, seen);
+        } catch { /* ignore malformed files */ }
+      }
+    } catch { /* ignore */ }
+  }
+
+  private pollInboxDir(inboxDir: string): void {
+    if (!this.callbacks) return;
+
+    try {
+      for (const file of readdirSync(inboxDir)) {
+        if (!file.endsWith('.json')) continue;
+        this.checkInboxFile(inboxDir, file);
       }
     } catch { /* ignore */ }
   }
@@ -109,53 +116,49 @@ class MessageBroker {
 
     try {
       const filePath = join(inboxDir, filename);
-      if (!existsSync(filePath)) return;
-
       const entries = JSON.parse(readFileSync(filePath, 'utf-8'));
       if (!Array.isArray(entries)) return;
 
-      const prevCount = this.lastInboxState.get(filename) || 0;
-      if (entries.length <= prevCount) {
-        this.lastInboxState.set(filename, entries.length);
-        return;
-      }
-
-      // New messages detected — process only the new ones
-      const newMessages = entries.slice(prevCount);
-      this.lastInboxState.set(filename, entries.length);
-
       const agentId = filename.replace('.json', '');
+      const seen = this.lastDelivered.get(agentId) || new Set<string>();
+      let dirty = false;
 
-      for (const msg of newMessages) {
+      for (const msg of entries) {
         if (msg.read) continue;
-        // Skip messages we sent ourselves (already delivered via PTY)
-        if (msg.messageId) continue;
+        const key = msg.timestamp || '';
+        if (seen.has(key)) continue;
 
-        logger.info(`InboxWatcher: new message for ${agentId} from ${msg.from}`);
+        // New unread message found
+        seen.add(key);
+        dirty = true;
 
-        // Try to inject into active session
-        const session = this.callbacks.findActiveSessionByAgent(agentId, msg.project || null);
+        logger.info(`InboxPoller: new message for ${agentId} from ${msg.from}`);
+
+        // Find active session — try with project first, then without
+        let session = this.callbacks.findActiveSessionByAgent(agentId, msg.project || null);
+        if (!session) {
+          session = this.callbacks.findActiveSessionByAgent(agentId);
+        }
+
         if (session) {
+          const content = msg.text || msg.message || '(空訊息)';
           const formatted = [
             '',
             `--- [來自 ${msg.from} 的訊息] ---`,
             '',
-            msg.text || msg.message || '(空訊息)',
+            content,
             '',
           ].join('\n');
 
           try {
-            const isIdle = session.interactive && ['running', 'waiting_input'].includes(session.status);
-            if (isIdle) {
+            if (session.interactive && session.status === 'waiting_input') {
               ptyWriteAndSubmit(session.ptyProcess as any, formatted);
             } else {
               session.pendingMessages.push(formatted);
             }
           } catch (err) {
-            logger.warn(`InboxWatcher: PTY injection failed for ${agentId}`, err);
-            session.pendingMessages.push(
-              `\n--- [來自 ${msg.from} 的訊息] ---\n\n${msg.text || ''}\n`,
-            );
+            logger.warn(`InboxPoller: PTY injection failed for ${agentId}`, err);
+            session.pendingMessages.push(formatted);
           }
 
           // Mark as read in JSON
@@ -163,11 +166,13 @@ class MessageBroker {
         }
       }
 
-      // Write back with read flags
-      writeFileSync(filePath, JSON.stringify(entries, null, 2), 'utf-8');
-    } catch (err) {
-      logger.warn(`InboxWatcher: error processing ${filename}`, err);
-    }
+      this.lastDelivered.set(agentId, seen);
+
+      // Write back if we marked any as read
+      if (dirty) {
+        writeFileSync(filePath, JSON.stringify(entries, null, 2), 'utf-8');
+      }
+    } catch { /* ignore read/parse errors */ }
   }
 
   // ─── Send ──────────────────────────────────────────────────────────────────
