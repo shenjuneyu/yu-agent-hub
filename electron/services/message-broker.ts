@@ -43,6 +43,17 @@ export interface BrokerCallbacks {
 const SPAWN_COOLDOWN_MS = 60_000; // 1 minute window
 const MAX_SPAWNS_PER_WINDOW = 3;
 
+// Input validation
+const AGENT_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+function validateAgentId(id: string): void {
+  if (!id || !AGENT_ID_PATTERN.test(id)) {
+    throw new Error(`Invalid agent ID: ${id}`);
+  }
+}
+function escapeForPty(s: string): string {
+  return s.replace(/['\\`$]/g, '\\$&');
+}
+
 class MessageBroker {
   private callbacks: BrokerCallbacks | null = null;
   private spawnHistory: Map<string, number[]> = new Map(); // agentId → timestamps
@@ -105,7 +116,8 @@ class MessageBroker {
 
     try {
       for (const file of readdirSync(inboxDir)) {
-        if (!file.endsWith('.json')) continue;
+        // Validate filename: only alphanumeric + hyphens + underscores allowed
+        if (!file.match(/^[a-zA-Z0-9_-]+\.json$/)) continue;
         this.checkInboxFile(inboxDir, file);
       }
     } catch { /* ignore */ }
@@ -148,7 +160,7 @@ class MessageBroker {
           content,
           '',
           '請閱讀以上訊息並回覆。如需回覆對方，請使用:',
-          `SendMessage(to: '${msg.from}', content: '你的回覆')`,
+          `SendMessage(to: '${escapeForPty(msg.from || agentId)}', content: '你的回覆')`,
           '',
         ].join('\n');
 
@@ -185,9 +197,12 @@ class MessageBroker {
 
       this.lastDelivered.set(agentId, seen);
 
-      // Write back if we marked any as read
+      // Atomic write back if we marked any as read (write to temp, then rename)
       if (dirty) {
-        writeFileSync(filePath, JSON.stringify(entries, null, 2), 'utf-8');
+        const tmpPath = filePath + '.tmp';
+        writeFileSync(tmpPath, JSON.stringify(entries, null, 2), 'utf-8');
+        const { renameSync } = require('fs') as typeof import('fs');
+        renameSync(tmpPath, filePath);
       }
     } catch { /* ignore read/parse errors */ }
   }
@@ -201,7 +216,22 @@ class MessageBroker {
   /** Max message content size (50KB) to prevent PTY buffer overflow. */
   private static readonly MAX_CONTENT_LENGTH = 50_000;
 
+  /** Cleanup resources on shutdown. */
+  cleanup(): void {
+    if (this.inboxPoller) {
+      clearInterval(this.inboxPoller);
+      this.inboxPoller = null;
+    }
+    this.lastDelivered.clear();
+    this.spawnHistory.clear();
+    logger.info('MessageBroker: cleaned up');
+  }
+
   send(params: SendMessageParams): MessageRecord {
+    // Input validation
+    validateAgentId(params.fromAgent);
+    validateAgentId(params.toAgent);
+
     // M3: Truncate oversized content
     if (params.content.length > MessageBroker.MAX_CONTENT_LENGTH) {
       logger.warn(`MessageBroker: content truncated from ${params.content.length} to ${MessageBroker.MAX_CONTENT_LENGTH} chars`);
@@ -317,14 +347,15 @@ class MessageBroker {
   // ─── Format ────────────────────────────────────────────────────────────────
 
   private formatMessageForPty(message: MessageRecord): string {
+    const safeFrom = escapeForPty(message.fromAgent);
     const lines = [
       '',
-      `--- [來自 ${message.fromAgent} 的訊息] ---`,
+      `--- [來自 ${safeFrom} 的訊息] ---`,
       '',
       message.content,
       '',
       '請閱讀以上訊息並回覆。如需回覆對方，請使用:',
-      `SendMessage(to: '${message.fromAgent}', content: '你的回覆')`,
+      `SendMessage(to: '${safeFrom}', content: '你的回覆')`,
       '',
     ];
     return lines.join('\n');
@@ -383,7 +414,10 @@ class MessageBroker {
         messageId: message.id,
       });
 
-      writeFileSync(inboxPath, JSON.stringify(entries, null, 2), 'utf-8');
+      const tmpPath = inboxPath + '.tmp';
+      writeFileSync(tmpPath, JSON.stringify(entries, null, 2), 'utf-8');
+      const { renameSync } = require('fs') as typeof import('fs');
+      renameSync(tmpPath, inboxPath);
     } catch (err) {
       logger.warn('MessageBroker: failed to sync to JSON inbox', err);
     }

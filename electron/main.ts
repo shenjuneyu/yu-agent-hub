@@ -9,6 +9,7 @@ import { eventBus } from './services/event-bus';
 import { fileWatcher } from './services/file-watcher';
 import { projectSync } from './services/project-sync';
 import { hookManager } from './services/hook-manager';
+import { messageBroker } from './services/message-broker';
 import { skillManager } from './services/skill-manager';
 import { logger } from './utils/logger';
 import { IpcChannels } from './types';
@@ -314,6 +315,7 @@ app.on('window-all-closed', () => {
   trayService.destroy();
   fileWatcher.stop();
   projectSync.stopAll();
+  messageBroker.cleanup();
   sessionManager.cleanup();
   database.close();
   if (process.platform !== 'darwin') {

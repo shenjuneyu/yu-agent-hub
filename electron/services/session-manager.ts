@@ -793,6 +793,8 @@ class SessionManager {
 
     if (session.summaryTimer) { clearInterval(session.summaryTimer); session.summaryTimer = null; }
     if (session.idleTimer) { clearTimeout(session.idleTimer); session.idleTimer = null; }
+    const pendingTimer = this.pendingFlushTimers.get(sessionId);
+    if (pendingTimer) { clearTimeout(pendingTimer); this.pendingFlushTimers.delete(sessionId); }
     this.stopUsagePolling(sessionId);
 
     session.status = status;
