@@ -20,6 +20,7 @@ export const IpcChannels = {
   SESSION_REQUEST_SUMMARY: 'session:request-summary',
   SESSION_GET_SUMMARIES: 'session:get-summaries',
   SESSION_SCAN_RESUMABLE: 'session:scan-resumable',
+  SESSION_COST_STATS: 'session:cost-stats',
 
   // Agents
   AGENT_LIST: 'agent:list',

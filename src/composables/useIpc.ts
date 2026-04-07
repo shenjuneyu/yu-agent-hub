@@ -87,6 +87,10 @@ export function useIpc() {
     return maestro.sessions.scanResumable(limit);
   }
 
+  async function getCostStats(filters?: { projectId?: string; days?: number }) {
+    return maestro.sessions.getCostStats(filters);
+  }
+
   // Agents
   async function listAgents(filters?: { department?: string; level?: string; search?: string }) {
     return maestro.agents.list(filters);
@@ -547,6 +551,7 @@ export function useIpc() {
     requestSummary,
     getSessionSummaries,
     scanResumableSessions,
+    getCostStats,
     // Agents
     listAgents,
     getAgent,

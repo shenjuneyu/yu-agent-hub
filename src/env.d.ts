@@ -65,6 +65,18 @@ interface MaestroApi {
     requestSummary: (sessionId: string) => Promise<string | null>;
     getSummaries: (sessionId: string) => Promise<Array<{ content: string; createdAt: string }>>;
     scanResumable: (limit?: number) => Promise<ResumableSession[]>;
+    getCostStats: (filters?: { projectId?: string; days?: number }) => Promise<{
+      totals: {
+        sessions: number;
+        totalCost: number;
+        inputTokens: number;
+        outputTokens: number;
+        toolCalls: number;
+      };
+      byAgent: Array<{ agentId: string; sessions: number; totalCost: number; totalTokens: number }>;
+      byProject: Array<{ projectId: string; projectName: string; sessions: number; totalCost: number; totalTokens: number }>;
+      daily: Array<{ day: string; cost: number; sessions: number }>;
+    }>;
   };
   agents: {
     list: (filters?: {

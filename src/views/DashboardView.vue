@@ -16,7 +16,7 @@ import ProgressBar from '../components/common/ProgressBar.vue';
 
 const router = useRouter();
 const { t } = useI18n();
-const { getHealth, listSprints, getPitfallOverdue } = useIpc();
+const { getHealth, listSprints, getPitfallOverdue, getCostStats } = useIpc();
 const sessionsStore = useSessionsStore();
 const agentsStore = useAgentsStore();
 const projectsStore = useProjectsStore();
@@ -24,6 +24,19 @@ const tasksStore = useTasksStore();
 const gatesStore = useGatesStore();
 
 const health = ref<Record<string, unknown> | null>(null);
+
+interface CostStats {
+  totals: { sessions: number; totalCost: number; inputTokens: number; outputTokens: number; toolCalls: number };
+  byAgent: Array<{ agentId: string; sessions: number; totalCost: number; totalTokens: number }>;
+  byProject: Array<{ projectId: string; projectName: string; sessions: number; totalCost: number; totalTokens: number }>;
+  daily: Array<{ day: string; cost: number; sessions: number }>;
+}
+const costStats = ref<CostStats | null>(null);
+
+function formatCost(usd: number): string {
+  if (usd < 0.01) return '<$0.01';
+  return `$${usd.toFixed(2)}`;
+}
 
 // 逾期踩坑提醒
 interface OverduePitfall {
@@ -51,6 +64,11 @@ onMounted(async () => {
     overduePitfalls.value = await getPitfallOverdue();
   } catch (e) {
     console.error('Failed to get overdue pitfalls', e);
+  }
+  try {
+    costStats.value = await getCostStats({ days: 30 });
+  } catch (e) {
+    console.error('Failed to get cost stats', e);
   }
   if (projectsStore.projects.length === 0) await projectsStore.fetchAll();
 
@@ -160,7 +178,8 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
       />
       <StatCard
         :label="$t('dashboard.statUsage')"
-        value="—"
+        :value="costStats ? formatCost(costStats.totals.totalCost) : '—'"
+        :change="costStats ? $t('dashboard.sessions30d', { n: costStats.totals.sessions }) : undefined"
         change-color="muted"
       />
     </div>
@@ -188,6 +207,57 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
             <span class="pitfall-due">{{ $t('dashboard.dueDate', { date: pitfall.dueDate }) }}</span>
           </div>
           <div v-if="pitfall.problem" class="pitfall-problem">{{ pitfall.problem }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Cost Breakdown ──────────────────────────────────────── -->
+    <section v-if="costStats && costStats.totals.sessions > 0" class="cost-section">
+      <div class="cost-grid">
+        <!-- By Agent -->
+        <div class="cost-panel">
+          <h3 class="cost-panel-title">{{ $t('dashboard.costByAgent') }}</h3>
+          <div class="cost-list">
+            <div
+              v-for="item in costStats.byAgent.slice(0, 8)"
+              :key="item.agentId"
+              class="cost-item"
+            >
+              <span class="cost-item-name">{{ item.agentId }}</span>
+              <span class="cost-item-meta">{{ item.sessions }} sessions</span>
+              <span class="cost-item-value">{{ formatCost(item.totalCost) }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- By Project -->
+        <div v-if="costStats.byProject.length > 0" class="cost-panel">
+          <h3 class="cost-panel-title">{{ $t('dashboard.costByProject') }}</h3>
+          <div class="cost-list">
+            <div
+              v-for="item in costStats.byProject.slice(0, 8)"
+              :key="item.projectId"
+              class="cost-item"
+            >
+              <span class="cost-item-name">{{ item.projectName || item.projectId }}</span>
+              <span class="cost-item-meta">{{ formatTokens(item.totalTokens) }} tok</span>
+              <span class="cost-item-value">{{ formatCost(item.totalCost) }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- Daily Trend -->
+        <div class="cost-panel">
+          <h3 class="cost-panel-title">{{ $t('dashboard.dailyTrend') }}</h3>
+          <div class="cost-list">
+            <div
+              v-for="item in costStats.daily.slice(-7)"
+              :key="item.day"
+              class="cost-item"
+            >
+              <span class="cost-item-name">{{ item.day.slice(5) }}</span>
+              <span class="cost-item-meta">{{ item.sessions }} sessions</span>
+              <span class="cost-item-value">{{ formatCost(item.cost) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -853,5 +923,67 @@ const taskStatusColor: Record<string, 'purple' | 'blue' | 'yellow' | 'green' | '
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+/* ── Cost Section ──────────────────────────────────────────── */
+.cost-section {
+  margin-top: 4px;
+}
+
+.cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.cost-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.cost-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.cost-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cost-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cost-item-name {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cost-item-meta {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.cost-item-value {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 </style>

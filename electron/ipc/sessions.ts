@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { IpcChannels } from '../types';
 import { sessionManager } from '../services/session-manager';
 import { promptAssembler } from '../services/prompt-assembler';
+import { database } from '../services/database';
 import { logger } from '../utils/logger';
 import type { SpawnParams, StopParams, PtyInputData, PtyResizeData, AssignTaskParams, SendDelegationParams } from '../types';
 
@@ -137,6 +138,75 @@ export function registerSessionHandlers(): void {
       return sessionManager.scanResumableSessions(limit);
     } catch (err) {
       logger.error('Failed to scan resumable sessions', err);
+      throw err;
+    }
+  });
+
+  // Cost & usage statistics aggregation
+  ipcMain.handle(IpcChannels.SESSION_COST_STATS, (_e, filters?: { projectId?: string; days?: number }) => {
+    try {
+      const days = filters?.days || 30;
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const projectFilter = filters?.projectId ? ' AND project_id = ?' : '';
+      const params: unknown[] = [since];
+      if (filters?.projectId) params.push(filters.projectId);
+
+      // Overall totals
+      const totals = database.prepare(
+        `SELECT COUNT(*) as sessions, COALESCE(SUM(cost_usd), 0) as totalCost,
+                COALESCE(SUM(input_tokens), 0) as inputTokens, COALESCE(SUM(output_tokens), 0) as outputTokens,
+                COALESCE(SUM(tool_calls_count), 0) as toolCalls
+         FROM claude_sessions WHERE started_at >= ?${projectFilter}`,
+        params,
+      );
+
+      // Per-agent breakdown
+      const byAgent = database.prepare(
+        `SELECT agent_id as agentId, COUNT(*) as sessions, COALESCE(SUM(cost_usd), 0) as totalCost,
+                COALESCE(SUM(input_tokens + output_tokens), 0) as totalTokens
+         FROM claude_sessions WHERE started_at >= ?${projectFilter}
+         GROUP BY agent_id ORDER BY totalCost DESC LIMIT 20`,
+        params,
+      );
+
+      // Per-project breakdown (only when no project filter)
+      let byProject: unknown[] = [];
+      if (!filters?.projectId) {
+        byProject = database.prepare(
+          `SELECT cs.project_id as projectId, p.name as projectName, COUNT(*) as sessions,
+                  COALESCE(SUM(cs.cost_usd), 0) as totalCost,
+                  COALESCE(SUM(cs.input_tokens + cs.output_tokens), 0) as totalTokens
+           FROM claude_sessions cs LEFT JOIN projects p ON cs.project_id = p.id
+           WHERE cs.started_at >= ? AND cs.project_id IS NOT NULL
+           GROUP BY cs.project_id ORDER BY totalCost DESC`,
+          [since],
+        );
+      }
+
+      // Daily cost trend
+      const daily = database.prepare(
+        `SELECT DATE(started_at) as day, COALESCE(SUM(cost_usd), 0) as cost,
+                COUNT(*) as sessions
+         FROM claude_sessions WHERE started_at >= ?${projectFilter}
+         GROUP BY DATE(started_at) ORDER BY day ASC`,
+        params,
+      );
+
+      const t = (totals as any[])[0] || {};
+      return {
+        totals: {
+          sessions: t.sessions || 0,
+          totalCost: t.totalCost || 0,
+          inputTokens: t.inputTokens || 0,
+          outputTokens: t.outputTokens || 0,
+          toolCalls: t.toolCalls || 0,
+        },
+        byAgent,
+        byProject,
+        daily,
+      };
+    } catch (err) {
+      logger.error('Failed to get cost stats', err);
       throw err;
     }
   });
