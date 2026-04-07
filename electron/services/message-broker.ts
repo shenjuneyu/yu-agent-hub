@@ -140,16 +140,17 @@ class MessageBroker {
           session = this.callbacks.findActiveSessionByAgent(agentId);
         }
 
-        if (session) {
-          const content = msg.text || msg.message || '(空訊息)';
-          const formatted = [
-            '',
-            `--- [來自 ${msg.from} 的訊息] ---`,
-            '',
-            content,
-            '',
-          ].join('\n');
+        const content = msg.text || msg.message || '(空訊息)';
+        const formatted = [
+          '',
+          `--- [來自 ${msg.from} 的訊息] ---`,
+          '',
+          content,
+          '',
+        ].join('\n');
 
+        if (session) {
+          // Active session exists — inject or queue
           try {
             if (session.interactive && session.status === 'waiting_input') {
               ptyWriteAndSubmit(session.ptyProcess as any, formatted);
@@ -160,9 +161,27 @@ class MessageBroker {
             logger.warn(`InboxPoller: PTY injection failed for ${agentId}`, err);
             session.pendingMessages.push(formatted);
           }
-
-          // Mark as read in JSON
           msg.read = true;
+        } else if (this.canAutoSpawn(agentId)) {
+          // No active session — auto-spawn one
+          try {
+            const task = `收到來自 ${msg.from} 的訊息，請查看並回覆。`;
+            const sessionId = this.callbacks.spawnSession(agentId, task, msg.project || null);
+            this.recordSpawn(agentId);
+
+            const spawned = this.callbacks.getSession(sessionId);
+            if (spawned) {
+              spawned.pendingMessages.push(formatted);
+            }
+            msg.read = true;
+            logger.info(`InboxPoller: auto-spawned session ${sessionId} for ${agentId}`);
+          } catch (err) {
+            logger.warn(`InboxPoller: auto-spawn failed for ${agentId}`, err);
+          }
+        } else {
+          // Rate limit reached, message stays unread for next poll
+          seen.delete(key);
+          dirty = false;
         }
       }
 
