@@ -117,6 +117,12 @@ export function buildClaudeArgs(
 
   if (!interactive) {
     args.push('--max-turns', String(maxTurns), '--output-format', 'stream-json', '--verbose', '-p', params.task);
+  } else {
+    // Interactive mode: inject custom statusline for token tracking
+    const statuslinePath = join(process.cwd(), 'electron', 'utils', 'session-statusline.sh');
+    if (existsSync(statuslinePath)) {
+      args.push('--status-line', statuslinePath);
+    }
   }
 
   return { args, tmpFile };

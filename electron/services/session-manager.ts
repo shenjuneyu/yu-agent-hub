@@ -242,6 +242,12 @@ class SessionManager {
     // Spawn PTY
     const spawnEnv = { ...process.env } as Record<string, string>;
     delete spawnEnv.CLAUDECODE;
+
+    // Set up usage file for interactive token tracking via statusline
+    const usageDir = join(process.cwd(), '.maestro-usage');
+    if (!existsSync(usageDir)) mkdirSync(usageDir, { recursive: true });
+    const usageFile = join(usageDir, `${sessionId}.json`);
+    spawnEnv.AGENTHUB_USAGE_FILE = usageFile;
     // Ensure user-local bin paths are available in the PTY shell
     const extraPtyPaths = ['/Users/apple/.local/bin', '/usr/local/bin'];
     const ptyPath = spawnEnv.PATH || '';
@@ -327,6 +333,11 @@ class SessionManager {
     this.tryAutoBranch(sessionId, spawnCwd, agentId, session.taskId);
     this.wirePtyHandlers(session, ptyProcess, eventParser, ptyId, interactive);
     this.updateStatus(sessionId, interactive ? 'running' : 'starting');
+
+    // Poll usage file for interactive token tracking (statusline writes JSON)
+    if (interactive) {
+      this.startUsagePolling(sessionId, usageFile);
+    }
 
     // Send initial task into interactive TUI after it has initialized
     if (!isResume && interactive && params.task.trim()) {
@@ -671,6 +682,52 @@ class SessionManager {
     }
   }
 
+  // ─── Usage file polling (interactive token tracking) ──────────────────────
+
+  private usagePollers = new Map<string, ReturnType<typeof setInterval>>();
+
+  private startUsagePolling(sessionId: string, usageFile: string): void {
+    const poller = setInterval(() => {
+      const session = this.sessions.get(sessionId);
+      if (!session || ['completed', 'failed', 'stopped'].includes(session.status)) {
+        this.stopUsagePolling(sessionId);
+        return;
+      }
+      try {
+        if (!existsSync(usageFile)) return;
+        const raw = readFileSync(usageFile, 'utf-8').trim();
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        let updated = false;
+        if (data.costUsd > session.costUsd) { session.costUsd = data.costUsd; updated = true; }
+        if (data.inputTokens > session.inputTokens) { session.inputTokens = data.inputTokens; updated = true; }
+        if (data.outputTokens > session.outputTokens) { session.outputTokens = data.outputTokens; updated = true; }
+        if (updated) {
+          eventBus.emitSessionStatus({
+            sessionId, status: session.status, agentId: session.agentId,
+          });
+        }
+      } catch {
+        // File may be partially written, ignore
+      }
+    }, 5000); // Poll every 5 seconds
+
+    this.usagePollers.set(sessionId, poller);
+  }
+
+  private stopUsagePolling(sessionId: string): void {
+    const poller = this.usagePollers.get(sessionId);
+    if (poller) {
+      clearInterval(poller);
+      this.usagePollers.delete(sessionId);
+    }
+    // Clean up usage file
+    try {
+      const usageFile = join(process.cwd(), '.maestro-usage', `${sessionId}.json`);
+      if (existsSync(usageFile)) unlinkSync(usageFile);
+    } catch { /* ignore */ }
+  }
+
   private pendingFlushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private flushPendingMessages(sessionId: string): void {
@@ -727,6 +784,7 @@ class SessionManager {
 
     if (session.summaryTimer) { clearInterval(session.summaryTimer); session.summaryTimer = null; }
     if (session.idleTimer) { clearTimeout(session.idleTimer); session.idleTimer = null; }
+    this.stopUsagePolling(sessionId);
 
     session.status = status;
     const endedAt = new Date().toISOString();
