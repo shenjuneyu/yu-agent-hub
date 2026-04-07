@@ -174,6 +174,14 @@ class TaskManager {
 
     logger.info(`Task ${task.projectId}/${task.id} transitioned: ${task.status} → ${params.toStatus}`);
 
+    // Emit event for real-time UI updates
+    eventBus.emit('task:updated', {
+      projectId: task.projectId,
+      taskId: task.id,
+      fromStatus: task.status,
+      toStatus: params.toStatus,
+    });
+
     // Append event to task record file
     let eventText = `狀態變更: ${task.status} → ${params.toStatus}`;
     if (params.toStatus === 'assigned' && task.assignedTo) {

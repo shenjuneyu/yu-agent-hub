@@ -528,6 +528,11 @@ export function useIpc() {
     maestro.on.messageRead(callback);
   }
 
+  // Task events
+  function onTaskUpdated(callback: (data: { projectId: string; taskId: string; fromStatus: string; toStatus: string }) => void) {
+    maestro.on.taskUpdated(callback);
+  }
+
   // Project Sync
   async function startProjectSync(projectId: string, workDir: string) {
     return maestro.projectSync.start({ projectId, workDir });
@@ -680,6 +685,8 @@ export function useIpc() {
     onMessageCreated,
     onMessageDelivered,
     onMessageRead,
+    // Task events
+    onTaskUpdated,
     // Project Sync
     startProjectSync,
     stopProjectSync,

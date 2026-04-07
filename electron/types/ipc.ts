@@ -157,6 +157,7 @@ export const IpcChannels = {
   MESSAGE_CREATED: 'message:created',
   MESSAGE_DELIVERED: 'message:delivered',
   MESSAGE_READ: 'message:read',
+  TASK_UPDATED: 'task:updated',
 } as const;
 
 export interface IpcError {

@@ -390,6 +390,7 @@ interface MaestroApi {
     messageCreated: (callback: (data: unknown) => void) => void;
     messageDelivered: (callback: (data: unknown) => void) => void;
     messageRead: (callback: (data: unknown) => void) => void;
+    taskUpdated: (callback: (data: { projectId: string; taskId: string; fromStatus: string; toStatus: string }) => void) => void;
   };
 }
 

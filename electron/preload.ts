@@ -298,6 +298,7 @@ export interface MaestroApi {
     messageCreated: (callback: (data: unknown) => void) => void;
     messageDelivered: (callback: (data: unknown) => void) => void;
     messageRead: (callback: (data: unknown) => void) => void;
+    taskUpdated: (callback: (data: unknown) => void) => void;
   };
 }
 
@@ -483,6 +484,9 @@ const api: MaestroApi = {
     },
     messageRead: (callback: (data: unknown) => void) => {
       ipcRenderer.on('message:read', (_e, data) => callback(data));
+    },
+    taskUpdated: (callback: (data: unknown) => void) => {
+      ipcRenderer.on('task:updated', (_e, data) => callback(data));
     },
   },
   projectSync: {

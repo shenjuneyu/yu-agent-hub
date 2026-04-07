@@ -45,7 +45,7 @@ const KANBAN_COLUMNS: { key: TaskStatus; label: string }[] = [
 ];
 
 export const useTasksStore = defineStore('tasks', () => {
-  const { listTasks, createTask, transitionTask, updateTask, deleteTask, getTaskSessionCounts, getTask, addTaskDependency, removeTaskDependency, onProjectSynced } = useIpc();
+  const { listTasks, createTask, transitionTask, updateTask, deleteTask, getTaskSessionCounts, getTask, addTaskDependency, removeTaskDependency, onProjectSynced, onTaskUpdated } = useIpc();
 
   const tasks = ref<TaskRecord[]>([]);
   const subtasks = ref<TaskRecord[]>([]);
@@ -206,6 +206,21 @@ export const useTasksStore = defineStore('tasks', () => {
       if (data.type === 'task' || data.type === 'full') {
         // Only refresh if we're viewing the same project or all projects
         if (!currentProjectId.value || currentProjectId.value === data.projectId) {
+          fetchTasks();
+        }
+      }
+    });
+
+    // Listen for direct task status transitions (from session auto-transition, API calls, etc.)
+    onTaskUpdated((data) => {
+      if (!currentProjectId.value || currentProjectId.value === data.projectId) {
+        // Update in-memory task immediately for instant UI feedback
+        const task = tasks.value.find((t) => t.id === data.taskId);
+        if (task) {
+          task.status = data.toStatus as TaskStatus;
+          task.updatedAt = new Date().toISOString();
+        } else {
+          // Task not in current list, do a full refresh
           fetchTasks();
         }
       }
