@@ -30,6 +30,15 @@
 
 ---
 
+## 開發流程
+
+- **正式版（Production）**: 此目錄 `/Applications/MAMP/htdocs/AgentHub/`，分支 `main`
+- **開發測試版（Dev）**: `/Applications/MAMP/htdocs/AgentHub-dev/`，透過 git worktree 指向 `dev` 分支
+- **工作流程**: 在 `AgentHub-dev/`（dev 分支）開發測試 → 測好後 merge 回 `main` → 更新到 `AgentHub/`
+- **注意**: `AgentHub-dev/` 是 worktree，不是獨立 repo，共用同一個 git history
+
+---
+
 ## 常用指令
 
 ```bash
