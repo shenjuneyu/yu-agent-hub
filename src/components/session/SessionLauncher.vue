@@ -51,6 +51,10 @@ const promptPreview = ref('');
 const launching = ref(false);
 const availableTasks = ref<TaskRecord[]>([]);
 
+// Batch mode
+const batchMode = ref(false);
+const batchAgentIds = ref<Set<string>>(new Set());
+
 const selectedProjectId = ref<string | null>(null);
 
 // 9E: 內嵌專案建立
@@ -202,7 +206,21 @@ function onTaskSelect(taskId: string) {
   }
 }
 
+function toggleBatchAgent(agentId: string) {
+  if (batchAgentIds.value.has(agentId)) {
+    batchAgentIds.value.delete(agentId);
+  } else {
+    batchAgentIds.value.add(agentId);
+  }
+}
+
+const canBatchLaunch = computed(() => batchMode.value && batchAgentIds.value.size > 0);
+
 async function launch() {
+  if (batchMode.value) {
+    await launchBatch();
+    return;
+  }
   if (!canLaunch.value) return;
   launching.value = true;
   try {
@@ -222,6 +240,33 @@ async function launch() {
     console.error('Failed to launch session', err);
   } finally {
     launching.value = false;
+  }
+}
+
+async function launchBatch() {
+  launching.value = true;
+  let lastSessionId = '';
+  try {
+    for (const agentId of batchAgentIds.value) {
+      const agent = agentsStore.getById(agentId);
+      const result = await sessionsStore.spawn({
+        agentId,
+        task: task.value.trim(),
+        model: (agent?.model as 'opus' | 'sonnet' | 'haiku') || model.value,
+        maxTurns: maxTurns.value,
+        projectId: effectiveProjectId.value,
+        taskId: null,
+        interactive: true,
+      });
+      lastSessionId = result.sessionId;
+    }
+    if (lastSessionId) emit('launched', lastSessionId);
+    emit('close');
+  } catch (err) {
+    console.error('Failed to batch launch sessions', err);
+  } finally {
+    launching.value = false;
+    batchAgentIds.value.clear();
   }
 }
 
@@ -284,8 +329,45 @@ function onAgentChange(value: string) {
 <template>
   <BaseModal :show="show" :title="$t('sessions.launcher.title')" @close="emit('close')">
     <div class="launcher">
-      <!-- Agent Selection -->
+      <!-- Batch mode toggle -->
+      <div v-if="!agentLocked" class="batch-toggle">
+        <label class="batch-toggle-label">
+          <input v-model="batchMode" type="checkbox" class="batch-toggle-input" />
+          <span>{{ $t('sessions.launcher.batchMode') }}</span>
+        </label>
+      </div>
+
+      <!-- Batch Agent Selection (multi-select) -->
+      <div v-if="batchMode && !agentLocked" class="batch-agents">
+        <label class="launcher__label">{{ $t('sessions.launcher.selectAgents') }}</label>
+        <div class="batch-agent-list">
+          <template v-for="[dept, agents] in agentsStore.agentsByDepartment" :key="dept">
+            <div class="batch-dept-header">{{ departmentLabel[dept] || dept }}</div>
+            <label
+              v-for="agent in agents"
+              :key="agent.id"
+              class="batch-agent-item"
+              :class="{ 'batch-agent-selected': batchAgentIds.has(agent.id) }"
+            >
+              <input
+                type="checkbox"
+                :checked="batchAgentIds.has(agent.id)"
+                class="batch-agent-checkbox"
+                @change="toggleBatchAgent(agent.id)"
+              />
+              <span class="batch-agent-name">{{ agentsStore.displayName(agent) }}</span>
+              <span class="batch-agent-meta">{{ agent.level }} / {{ agent.model }}</span>
+            </label>
+          </template>
+        </div>
+        <div class="batch-count">
+          {{ $t('sessions.launcher.batchCount', { n: batchAgentIds.size }) }}
+        </div>
+      </div>
+
+      <!-- Single Agent Selection (original) -->
       <SessionAgentSelector
+        v-if="!batchMode"
         :selected-agent-id="selectedAgentId"
         :agent-locked="agentLocked"
         :selected-agent="selectedAgent"
@@ -336,8 +418,17 @@ function onAgentChange(value: string) {
     <template #footer>
       <div class="launcher__footer">
         <BaseButton variant="ghost" @click="emit('close')">{{ $t('common.cancel') }}</BaseButton>
-        <BaseButton variant="primary" :disabled="!canLaunch || launching" @click="launch">
-          {{ launching ? $t('sessions.launcher.launching') : $t('sessions.launcher.launch') }}
+        <BaseButton
+          variant="primary"
+          :disabled="batchMode ? !canBatchLaunch || launching : !canLaunch || launching"
+          @click="launch"
+        >
+          {{ launching
+            ? $t('sessions.launcher.launching')
+            : batchMode
+              ? $t('sessions.launcher.launchBatch', { n: batchAgentIds.size })
+              : $t('sessions.launcher.launch')
+          }}
         </BaseButton>
       </div>
     </template>
@@ -350,6 +441,88 @@ function onAgentChange(value: string) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* ── Batch mode ── */
+.batch-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.batch-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.batch-toggle-input {
+  accent-color: var(--color-accent);
+}
+
+.batch-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.batch-agent-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+}
+
+.batch-dept-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 8px 2px;
+}
+
+.batch-agent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.batch-agent-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.batch-agent-selected {
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.batch-agent-checkbox {
+  accent-color: var(--color-accent);
+}
+
+.batch-agent-name {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.batch-agent-meta {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.batch-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+  margin-top: 2px;
 }
 
 /* ── Footer ── */
