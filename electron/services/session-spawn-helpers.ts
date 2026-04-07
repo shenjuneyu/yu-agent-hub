@@ -51,6 +51,8 @@ export function buildClaudeArgs(
   // Normal spawn: assemble system prompt and write to temp file
   const systemPrompt = promptAssembler.assemble(params.agentId, params.projectId, {
     parentSessionId: params.parentSessionId,
+    taskId: params.taskId || undefined,
+    projectId: params.projectId || undefined,
   });
   const promptDir = join(process.cwd(), '.maestro-prompts');
   if (!existsSync(promptDir)) mkdirSync(promptDir, { recursive: true });

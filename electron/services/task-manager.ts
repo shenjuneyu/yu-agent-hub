@@ -518,6 +518,7 @@ class TaskManager {
       startedAt: row.started_at || null,
       completedAt: row.completed_at || null,
       dependsOn: deps,
+      outputSummary: row.output_summary || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

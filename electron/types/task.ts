@@ -27,6 +27,7 @@ export interface TaskRecord {
   startedAt: string | null;
   completedAt: string | null;
   dependsOn: string[];
+  outputSummary: string | null;
   createdAt: string;
   updatedAt: string;
 }

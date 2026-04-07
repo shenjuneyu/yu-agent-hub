@@ -723,12 +723,31 @@ class SessionManager {
     if (status === 'completed') {
       if (session.workDir) this.tryAutoCommit(sessionId, session.workDir, session.agentId, session.task);
 
-      // 9B: Session completed → Task auto done
+      // 9B: Persist session output summary for task chaining
+      const outputSummary = stripTerminalOutput(session.outputBuffer.slice(-5000)).slice(-2000) || null;
+      if (outputSummary) {
+        try {
+          database.run(
+            `UPDATE claude_sessions SET result_summary = ? WHERE id = ?`,
+            [outputSummary, sessionId],
+          );
+        } catch (err) { logger.warn('Failed to persist session result_summary (non-fatal)', err); }
+      }
+
+      // 9C: Session completed → Task auto done + persist output
       if (session.taskId) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { taskManager } = require('./task-manager') as { taskManager: { transition: (p: { taskId: string; toStatus: string }) => unknown } };
           taskManager.transition({ taskId: session.taskId, toStatus: 'done' });
+
+          // Persist output summary to task for downstream dependency injection
+          if (outputSummary) {
+            database.run(
+              `UPDATE tasks SET output_summary = ? WHERE id = ? AND project_id = ?`,
+              [outputSummary, session.taskId, session.projectId],
+            );
+          }
           logger.info(`Task ${session.taskId} auto → done (session ${sessionId})`);
         } catch (err) { logger.warn('Auto-transition task to done failed (non-fatal)', err); }
       }

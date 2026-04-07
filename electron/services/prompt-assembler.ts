@@ -7,6 +7,8 @@ import { logger } from '../utils/logger';
 
 interface AssembleOptions {
   parentSessionId?: string;
+  taskId?: string;
+  projectId?: string;
 }
 
 class PromptAssembler {
@@ -64,6 +66,14 @@ class PromptAssembler {
         }
       } catch (err) {
         logger.warn('Failed to load parent session summary', err);
+      }
+    }
+
+    // 4. Dependency task outputs (task output chaining)
+    if (options?.taskId && options?.projectId) {
+      const depContext = this.assembleDependencyContext(options.projectId, options.taskId);
+      if (depContext) {
+        sections.push(depContext);
       }
     }
 
@@ -179,6 +189,48 @@ class PromptAssembler {
     } catch (err) {
       logger.warn('Failed to assemble company manager context', err);
       return '';
+    }
+  }
+
+  /**
+   * Fetch output summaries from dependency tasks and assemble as context.
+   * Enables CrewAI-style task output chaining.
+   */
+  private assembleDependencyContext(projectId: string, taskId: string): string | null {
+    try {
+      const deps = database.prepare(
+        `SELECT t.id, t.title, t.status, t.output_summary, t.assigned_to
+         FROM task_dependencies td
+         JOIN tasks t ON t.project_id = td.project_id AND t.id = td.depends_on
+         WHERE td.project_id = ? AND td.task_id = ?
+         ORDER BY t.completed_at ASC`,
+        [projectId, taskId],
+      );
+
+      const withOutput = (deps as any[]).filter((d) => d.output_summary);
+      if (withOutput.length === 0) return null;
+
+      const lines = [
+        '\n---\n',
+        '## 前置任務輸出',
+        '',
+        '以下是你的任務所依賴的前置任務的執行結果，請參考：',
+        '',
+      ];
+
+      for (const dep of withOutput) {
+        lines.push(`### ${dep.id}: ${dep.title}`);
+        lines.push(`- 負責人: ${dep.assigned_to || '未指定'}`);
+        lines.push(`- 狀態: ${dep.status}`);
+        lines.push('');
+        lines.push(dep.output_summary);
+        lines.push('');
+      }
+
+      return lines.join('\n');
+    } catch (err) {
+      logger.warn('Failed to assemble dependency context', err);
+      return null;
     }
   }
 
