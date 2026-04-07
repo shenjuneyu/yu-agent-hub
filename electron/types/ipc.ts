@@ -110,6 +110,11 @@ export const IpcChannels = {
   SKILL_EXPORT: 'skill:export',
   SKILL_IMPORT: 'skill:import',
 
+  // Agent Memory
+  MEMORY_LIST: 'memory:list',
+  MEMORY_SAVE: 'memory:save',
+  MEMORY_DELETE: 'memory:delete',
+
   // Pitfall
   PITFALL_GET_OVERDUE: 'pitfall:getOverdue',
 

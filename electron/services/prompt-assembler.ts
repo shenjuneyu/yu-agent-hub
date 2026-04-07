@@ -77,6 +77,18 @@ class PromptAssembler {
       }
     }
 
+    // 5. Agent memory (persistent cross-session context)
+    const memoryCtx = this.assembleAgentMemory(agentId, projectId);
+    if (memoryCtx) {
+      sections.push(memoryCtx);
+    }
+
+    // 6. Autonomous delegation — inject colleague list + communication instructions
+    const delegationCtx = this.assembleCommunicationContext(agent);
+    if (delegationCtx) {
+      sections.push(delegationCtx);
+    }
+
     // 7. Agent metadata context — wrapped in <important> for context survival
     const metaLines = [
       `\n---\n`,
@@ -190,6 +202,83 @@ class PromptAssembler {
       logger.warn('Failed to assemble company manager context', err);
       return '';
     }
+  }
+
+  /**
+   * Inject persistent agent memory (key-value pairs from agent_memory table).
+   * Enables CrewAI-style long-term memory across sessions.
+   */
+  private assembleAgentMemory(agentId: string, projectId?: string | null): string | null {
+    try {
+      const rows = database.prepare(
+        `SELECT key, value, updated_at FROM agent_memory
+         WHERE agent_id = ? AND (project_id = ? OR project_id IS NULL)
+         ORDER BY updated_at DESC LIMIT 20`,
+        [agentId, projectId || null],
+      );
+
+      if (!rows || rows.length === 0) return null;
+
+      const lines = [
+        '\n---\n',
+        '## 工作記憶',
+        '',
+        '以下是你在先前工作階段中儲存的記憶，供參考：',
+        '',
+      ];
+
+      for (const r of rows as any[]) {
+        lines.push(`- **${r.key}**: ${r.value}`);
+      }
+
+      lines.push('');
+      lines.push('> 你可以用 `SaveMemory(key, value)` 儲存新記憶，或用 `DeleteMemory(key)` 刪除。');
+
+      return lines.join('\n');
+    } catch (err) {
+      logger.warn('Failed to assemble agent memory', err);
+      return null;
+    }
+  }
+
+  /**
+   * Inject available colleagues and communication instructions.
+   * Enables CrewAI-style autonomous delegation via SendMessage tool.
+   */
+  private assembleCommunicationContext(agent: { id: string; level: string; manages: string[]; reportsTo: string; coordinatesWith?: string[] }): string | null {
+    const colleagues: string[] = [];
+
+    if (agent.manages.length > 0) {
+      colleagues.push(...agent.manages.map((a) => `${a}（下屬）`));
+    }
+    if (agent.reportsTo) {
+      colleagues.push(`${agent.reportsTo}（上級）`);
+    }
+    if (agent.coordinatesWith && agent.coordinatesWith.length > 0) {
+      colleagues.push(...agent.coordinatesWith.map((a) => `${a}（協作）`));
+    }
+
+    if (colleagues.length === 0) return null;
+
+    return [
+      '\n---\n',
+      '## 跨 Agent 通訊',
+      '',
+      '你可以主動聯繫以下同事，使用 `SendMessage` 工具：',
+      '',
+      ...colleagues.map((c) => `- ${c}`),
+      '',
+      '### 使用方式',
+      '```',
+      "SendMessage(to: 'agent-id', content: '你的訊息')",
+      '```',
+      '',
+      '### 何時該主動聯繫',
+      '- 需要其他專業領域的協助時',
+      '- 任務完成後需要通知相關人員時',
+      '- 遇到阻塞需要上級決策時',
+      '- 需要下屬執行子任務時',
+    ].join('\n');
   }
 
   /**

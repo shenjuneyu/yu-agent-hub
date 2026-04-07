@@ -463,6 +463,19 @@ export function useIpc() {
     return maestro.messages.getUnreadCount(agentId, projectId);
   }
 
+  // Agent Memory
+  async function listAgentMemory(agentId: string, projectId?: string | null) {
+    return maestro.memory.list(agentId, projectId);
+  }
+
+  async function saveAgentMemory(params: { agentId: string; projectId?: string | null; key: string; value: string }) {
+    return maestro.memory.save(params);
+  }
+
+  async function deleteAgentMemory(params: { agentId: string; key: string; projectId?: string | null }) {
+    return maestro.memory.delete(params);
+  }
+
   // Pitfall
   async function getPitfallOverdue() {
     return maestro.pitfall.getOverdue();
@@ -650,6 +663,10 @@ export function useIpc() {
     getMessage,
     markMessageRead,
     getMessageUnreadCount,
+    // Agent Memory
+    listAgentMemory,
+    saveAgentMemory,
+    deleteAgentMemory,
     // Pitfall
     getPitfallOverdue,
     // Events

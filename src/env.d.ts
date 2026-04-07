@@ -313,6 +313,28 @@ interface MaestroApi {
     markRead: (id: string) => Promise<{ success: boolean }>;
     getUnreadCount: (agentId: string, projectId?: string | null) => Promise<{ count: number }>;
   };
+  memory: {
+    list: (agentId: string, projectId?: string | null) => Promise<Array<{
+      id: string;
+      agentId: string;
+      projectId: string | null;
+      key: string;
+      value: string;
+      createdAt: string;
+      updatedAt: string;
+    }>>;
+    save: (params: {
+      agentId: string;
+      projectId?: string | null;
+      key: string;
+      value: string;
+    }) => Promise<{ id: string; updated: boolean }>;
+    delete: (params: {
+      agentId: string;
+      key: string;
+      projectId?: string | null;
+    }) => Promise<{ success: boolean }>;
+  };
   pitfall: {
     getOverdue: () => Promise<Array<{
       project: string;

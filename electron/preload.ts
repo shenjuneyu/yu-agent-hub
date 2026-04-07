@@ -238,6 +238,11 @@ export interface MaestroApi {
     markRead: (id: string) => Promise<{ success: boolean }>;
     getUnreadCount: (agentId: string) => Promise<{ count: number }>;
   };
+  memory: {
+    list: (agentId: string, projectId?: string | null) => Promise<unknown[]>;
+    save: (params: { agentId: string; projectId?: string | null; key: string; value: string }) => Promise<{ id: string; updated: boolean }>;
+    delete: (params: { agentId: string; key: string; projectId?: string | null }) => Promise<{ success: boolean }>;
+  };
   pitfall: {
     getOverdue: () => Promise<Array<{
       project: string;
@@ -408,6 +413,11 @@ const api: MaestroApi = {
     get: (id) => ipcRenderer.invoke('message:get', id),
     markRead: (id) => ipcRenderer.invoke('message:mark-read', id),
     getUnreadCount: (agentId: string, projectId?: string | null) => ipcRenderer.invoke('message:unread-count', agentId, projectId),
+  },
+  memory: {
+    list: (agentId: string, projectId?: string | null) => ipcRenderer.invoke('memory:list', agentId, projectId),
+    save: (params: { agentId: string; projectId?: string | null; key: string; value: string }) => ipcRenderer.invoke('memory:save', params),
+    delete: (params: { agentId: string; key: string; projectId?: string | null }) => ipcRenderer.invoke('memory:delete', params),
   },
   pitfall: {
     getOverdue: () => ipcRenderer.invoke('pitfall:getOverdue'),
