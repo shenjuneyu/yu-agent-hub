@@ -77,6 +77,23 @@ interface MaestroApi {
       byProject: Array<{ projectId: string; projectName: string; sessions: number; totalCost: number; totalTokens: number }>;
       daily: Array<{ day: string; cost: number; sessions: number }>;
     }>;
+    getCheckpoints: (sessionId: string) => Promise<Array<{
+      id: string;
+      num: number;
+      label: string;
+      tokensUsed: number;
+      costUsd: number;
+      createdAt: string;
+    }>>;
+    replayCheckpoint: (checkpointId: string) => Promise<{ sessionId: string; ptyId: string } | null>;
+    spawnHeadless: (params: {
+      agentId: string;
+      task: string;
+      projectId?: string | null;
+      model?: string;
+      maxTurns?: number;
+      scheduledBy?: string;
+    }) => Promise<{ sessionId: string; ptyId: string }>;
   };
   agents: {
     list: (filters?: {

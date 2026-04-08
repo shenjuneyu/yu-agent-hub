@@ -142,6 +142,27 @@ export function registerSessionHandlers(): void {
     }
   });
 
+  // Checkpoints (time-travel debugging)
+  ipcMain.handle(IpcChannels.SESSION_GET_CHECKPOINTS, (_e, sessionId: string) => {
+    return sessionManager.getCheckpoints(sessionId);
+  });
+
+  ipcMain.handle(IpcChannels.SESSION_REPLAY_CHECKPOINT, (_e, checkpointId: string) => {
+    return sessionManager.replayFromCheckpoint(checkpointId);
+  });
+
+  // Headless session spawn
+  ipcMain.handle(IpcChannels.SESSION_SPAWN_HEADLESS, (_e, params: {
+    agentId: string;
+    task: string;
+    projectId?: string | null;
+    model?: string;
+    maxTurns?: number;
+    scheduledBy?: string;
+  }) => {
+    return sessionManager.spawnHeadless(params);
+  });
+
   // Cost & usage statistics aggregation
   ipcMain.handle(IpcChannels.SESSION_COST_STATS, (_e, filters?: { projectId?: string; days?: number }) => {
     try {

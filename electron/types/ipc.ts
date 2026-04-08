@@ -21,6 +21,9 @@ export const IpcChannels = {
   SESSION_GET_SUMMARIES: 'session:get-summaries',
   SESSION_SCAN_RESUMABLE: 'session:scan-resumable',
   SESSION_COST_STATS: 'session:cost-stats',
+  SESSION_GET_CHECKPOINTS: 'session:get-checkpoints',
+  SESSION_REPLAY_CHECKPOINT: 'session:replay-checkpoint',
+  SESSION_SPAWN_HEADLESS: 'session:spawn-headless',
 
   // Agents
   AGENT_LIST: 'agent:list',

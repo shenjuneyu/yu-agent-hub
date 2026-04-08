@@ -86,12 +86,18 @@ interface ManagedSession {
 /** How long (ms) to wait after last PTY output before considering interactive session idle */
 const INTERACTIVE_IDLE_MS = 3000;
 
+/** Max recovery attempts before giving up */
+const MAX_RECOVERY_ATTEMPTS = 3;
+/** Context snapshot size for checkpoints */
+const CHECKPOINT_CONTEXT_SIZE = 3000;
+
 class SessionManager {
   private sessions = new Map<string, ManagedSession>();
   private delegationMgr = new DelegationManager();
   private claudePath: string | null = null;
   private lastSummaryAt = new Map<string, number>();
   private readonly MIN_SUMMARY_INTERVAL = 15 * 60 * 1000; // 15 minutes
+  private checkpointCounters = new Map<string, number>(); // sessionId → counter
 
   /**
    * Register MessageBroker callbacks so it can find sessions and auto-spawn.
@@ -199,6 +205,32 @@ class SessionManager {
 
   isClaudeAvailable(): boolean {
     return this.claudePath !== null;
+  }
+
+  /**
+   * Spawn a headless (non-interactive, background) session.
+   * Runs with --print --output-format stream-json, no terminal UI.
+   * Useful for CI/CD, batch jobs, overnight automation.
+   */
+  spawnHeadless(params: { agentId: string; task: string; projectId?: string | null; model?: string; maxTurns?: number; scheduledBy?: string }): SpawnResult {
+    const result = this.spawn({
+      agentId: params.agentId,
+      task: params.task,
+      model: params.model as 'opus' | 'sonnet' | 'haiku' | undefined,
+      maxTurns: params.maxTurns || 30,
+      projectId: params.projectId,
+      interactive: false,
+    });
+
+    // Mark as headless in DB
+    try {
+      database.run(
+        `UPDATE claude_sessions SET is_headless = 1, scheduled_by = ? WHERE id = ?`,
+        [params.scheduledBy || 'manual', result.sessionId],
+      );
+    } catch { /* non-fatal */ }
+
+    return result;
   }
 
   /**
@@ -401,6 +433,16 @@ class SessionManager {
     ptyProcess.onExit(({ exitCode }) => {
       logger.info(`Session ${sessionId} exited with code ${exitCode}`);
       if (!interactive) eventParser.flush();
+
+      if (exitCode !== 0 && interactive) {
+        // Crash detected — try auto-recovery before finalizing as failed
+        const recovered = this.tryAutoRecover(sessionId);
+        if (recovered) {
+          this.finalizeSession(sessionId, 'failed', `Exit code: ${exitCode} (auto-recovered)`);
+          return;
+        }
+      }
+
       const finalStatus: SessionStatus = exitCode === 0 ? 'completed' : 'failed';
       this.finalizeSession(sessionId, finalStatus, exitCode !== 0 ? `Exit code: ${exitCode}` : null);
     });
@@ -615,6 +657,119 @@ class SessionManager {
         [sessionId, parsed.type, parsed.subtype || null, parsed.content || parsed.toolName || '', now],
       );
     } catch (err) { logger.warn('Failed to insert session event', err); }
+
+    // Auto-checkpoint on significant events (tool calls, assistant completions)
+    if (parsed.type === 'tool_use' || parsed.type === 'result') {
+      this.saveCheckpoint(sessionId, `${parsed.type}${parsed.toolName ? ':' + parsed.toolName : ''}`);
+    }
+  }
+
+  // ─── Checkpoint System (Time-Travel Debugging) ───────────────────────────
+
+  private saveCheckpoint(sessionId: string, label: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    const num = (this.checkpointCounters.get(sessionId) || 0) + 1;
+    this.checkpointCounters.set(sessionId, num);
+
+    try {
+      const id = `${sessionId}-cp${num}`;
+      const context = session.outputBuffer.slice(-CHECKPOINT_CONTEXT_SIZE);
+      database.run(
+        `INSERT INTO session_checkpoints (id, session_id, checkpoint_num, label, context, task_text, tokens_used, cost_usd, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, sessionId, num, label, context, session.task, session.inputTokens + session.outputTokens, session.costUsd, new Date().toISOString()],
+      );
+    } catch (err) {
+      logger.warn(`Failed to save checkpoint for session ${sessionId}`, err);
+    }
+  }
+
+  /** Get checkpoints for a session (for time-travel UI). */
+  getCheckpoints(sessionId: string): Array<{ id: string; num: number; label: string; tokensUsed: number; costUsd: number; createdAt: string }> {
+    try {
+      return database.prepare(
+        `SELECT id, checkpoint_num as num, label, tokens_used as tokensUsed, cost_usd as costUsd, created_at as createdAt
+         FROM session_checkpoints WHERE session_id = ? ORDER BY checkpoint_num ASC`,
+        [sessionId],
+      ) as any[];
+    } catch { return []; }
+  }
+
+  /** Replay from a checkpoint: spawn a new session with the checkpoint's context. */
+  replayFromCheckpoint(checkpointId: string): SpawnResult | null {
+    try {
+      const rows = database.prepare(
+        `SELECT cp.*, cs.agent_id, cs.project_id, cs.model, cs.task
+         FROM session_checkpoints cp
+         JOIN claude_sessions cs ON cs.id = cp.session_id
+         WHERE cp.id = ?`,
+        [checkpointId],
+      );
+      if (rows.length === 0) return null;
+      const cp = rows[0] as any;
+
+      const contextPrefix = `[從 checkpoint #${cp.checkpoint_num} 繼續]\n\n以下是先前的工作脈絡:\n${cp.context}\n\n請從這個狀態繼續工作。`;
+
+      return this.spawn({
+        agentId: cp.agent_id,
+        task: contextPrefix + '\n\n原始任務: ' + (cp.task_text || cp.task),
+        model: cp.model,
+        projectId: cp.project_id,
+        interactive: true,
+        parentSessionId: cp.session_id,
+      });
+    } catch (err) {
+      logger.error('Failed to replay from checkpoint', err);
+      return null;
+    }
+  }
+
+  // ─── Auto-Recovery (Crash Detection) ──────────────────────────────────────
+
+  private tryAutoRecover(sessionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.interactive) return false;
+
+    // Check recovery count
+    try {
+      const rows = database.prepare(
+        `SELECT recovery_count FROM claude_sessions WHERE id = ?`,
+        [sessionId],
+      );
+      const count = (rows[0] as any)?.recovery_count || 0;
+      if (count >= MAX_RECOVERY_ATTEMPTS) {
+        logger.warn(`Session ${sessionId}: max recovery attempts (${MAX_RECOVERY_ATTEMPTS}) reached, giving up`);
+        return false;
+      }
+    } catch { return false; }
+
+    // Find latest checkpoint
+    const checkpoints = this.getCheckpoints(sessionId);
+    if (checkpoints.length === 0) {
+      logger.info(`Session ${sessionId}: no checkpoints available for recovery`);
+      return false;
+    }
+
+    const lastCp = checkpoints[checkpoints.length - 1];
+    logger.info(`Session ${sessionId}: auto-recovering from checkpoint #${lastCp.num}`);
+
+    try {
+      const result = this.replayFromCheckpoint(lastCp.id);
+      if (result) {
+        // Track recovery
+        database.run(
+          `UPDATE claude_sessions SET recovery_count = recovery_count + 1, recovered_from = ? WHERE id = ?`,
+          [lastCp.id, result.sessionId],
+        );
+        logger.info(`Session ${sessionId}: recovered as ${result.sessionId} from checkpoint ${lastCp.id}`);
+        return true;
+      }
+    } catch (err) {
+      logger.warn(`Session ${sessionId}: auto-recovery failed`, err);
+    }
+    return false;
   }
 
   private updateStatus(sessionId: string, status: SessionStatus): void {
@@ -758,18 +913,33 @@ class SessionManager {
     try {
       const gitStatus = await gitManager.getStatus(cwd);
       if (!gitStatus.isRepo) return;
-      const branchName = `agent/${agentId}/${taskId || new Date().toISOString().slice(0, 10)}`;
 
-      // Try checkout first (works if branch exists), then create if it doesn't
+      const branchName = `agent/${agentId}/${taskId || new Date().toISOString().slice(0, 10)}`;
+      const worktreePath = join(cwd, '.worktrees', `${agentId}-${sessionId.slice(0, 8)}`);
+
+      // Try git worktree for true isolation (multiple agents on same repo)
       try {
-        await gitManager.checkout(cwd, branchName);
-        logger.info(`Session ${sessionId} checked out existing branch ${branchName}`);
+        await gitManager.createWorktree(cwd, branchName, worktreePath);
+        // Update session working directory to the worktree
+        const session = this.sessions.get(sessionId);
+        if (session) {
+          session.workDir = worktreePath;
+          logger.info(`Session ${sessionId} using worktree: ${worktreePath} (branch: ${branchName})`);
+        }
+        return;
       } catch {
+        // Worktree failed (branch may already exist in another worktree)
+        // Fallback: try simple branch checkout
         try {
-          await gitManager.createBranch(cwd, branchName, true);
-          logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
-        } catch (createErr) {
-          logger.warn(`Session ${sessionId} auto-branch create failed (non-fatal)`, createErr);
+          await gitManager.checkout(cwd, branchName);
+          logger.info(`Session ${sessionId} checked out existing branch ${branchName}`);
+        } catch {
+          try {
+            await gitManager.createBranch(cwd, branchName, true);
+            logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
+          } catch (createErr) {
+            logger.warn(`Session ${sessionId} auto-branch create failed (non-fatal)`, createErr);
+          }
         }
       }
     } catch (err) { logger.warn(`Session ${sessionId} auto-branch failed (non-fatal)`, err); }

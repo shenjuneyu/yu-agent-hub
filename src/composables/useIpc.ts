@@ -91,6 +91,25 @@ export function useIpc() {
     return maestro.sessions.getCostStats(filters);
   }
 
+  async function getSessionCheckpoints(sessionId: string) {
+    return maestro.sessions.getCheckpoints(sessionId);
+  }
+
+  async function replayCheckpoint(checkpointId: string) {
+    return maestro.sessions.replayCheckpoint(checkpointId);
+  }
+
+  async function spawnHeadlessSession(params: {
+    agentId: string;
+    task: string;
+    projectId?: string | null;
+    model?: string;
+    maxTurns?: number;
+    scheduledBy?: string;
+  }) {
+    return maestro.sessions.spawnHeadless(params);
+  }
+
   // Agents
   async function listAgents(filters?: { department?: string; level?: string; search?: string }) {
     return maestro.agents.list(filters);
@@ -570,6 +589,9 @@ export function useIpc() {
     getSessionSummaries,
     scanResumableSessions,
     getCostStats,
+    getSessionCheckpoints,
+    replayCheckpoint,
+    spawnHeadlessSession,
     // Agents
     listAgents,
     getAgent,

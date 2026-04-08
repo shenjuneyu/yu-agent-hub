@@ -51,6 +51,9 @@ export interface MaestroApi {
     getSummaries: (sessionId: string) => Promise<Array<{ content: string; createdAt: string }>>;
     scanResumable: (limit?: number) => Promise<import('./types').ResumableSession[]>;
     getCostStats: (filters?: { projectId?: string; days?: number }) => Promise<unknown>;
+    getCheckpoints: (sessionId: string) => Promise<unknown[]>;
+    replayCheckpoint: (checkpointId: string) => Promise<unknown>;
+    spawnHeadless: (params: { agentId: string; task: string; projectId?: string | null; model?: string; maxTurns?: number; scheduledBy?: string }) => Promise<unknown>;
   };
   agents: {
     list: (filters?: {
@@ -326,6 +329,9 @@ const api: MaestroApi = {
     getSummaries: (sessionId) => ipcRenderer.invoke('session:get-summaries', sessionId),
     scanResumable: (limit?) => ipcRenderer.invoke('session:scan-resumable', limit),
     getCostStats: (filters?: { projectId?: string; days?: number }) => ipcRenderer.invoke('session:cost-stats', filters),
+    getCheckpoints: (sessionId: string) => ipcRenderer.invoke('session:get-checkpoints', sessionId),
+    replayCheckpoint: (checkpointId: string) => ipcRenderer.invoke('session:replay-checkpoint', checkpointId),
+    spawnHeadless: (params: { agentId: string; task: string; projectId?: string | null; model?: string; maxTurns?: number; scheduledBy?: string }) => ipcRenderer.invoke('session:spawn-headless', params),
   },
   agents: {
     list: (filters) => ipcRenderer.invoke('agent:list', filters),
