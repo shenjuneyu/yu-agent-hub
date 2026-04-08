@@ -89,8 +89,12 @@ class MessageBroker {
     // Initialize: mark all existing unread messages as "already seen"
     this.initInboxState(inboxDir);
 
-    this.inboxPoller = setInterval(() => this.pollInboxDir(inboxDir), 3000);
-    logger.info('MessageBroker: inbox polling started (3s interval)');
+    // Delay first poll by 10s to let app fully initialize before processing backlog
+    setTimeout(() => {
+      this.pollInboxDir(inboxDir);
+      this.inboxPoller = setInterval(() => this.pollInboxDir(inboxDir), 3000);
+    }, 10_000);
+    logger.info('MessageBroker: inbox polling will start in 10s (3s interval)');
   }
 
   private initInboxState(inboxDir: string): void {
@@ -103,24 +107,35 @@ class MessageBroker {
           if (!Array.isArray(entries)) continue;
           const seen = new Set<string>();
           for (const msg of entries) {
-            seen.add(msg.timestamp || '');
+            // Only mark already-read messages as seen; unread ones should be processed
+            if (msg.read === true) {
+              seen.add(msg.timestamp || '');
+            }
           }
           this.lastDelivered.set(agentId, seen);
+          const unreadCount = entries.filter((m: any) => !m.read).length;
+          if (unreadCount > 0) {
+            logger.info(`InboxPoller: ${agentId} has ${unreadCount} unread messages pending`);
+          }
         } catch { /* ignore malformed files */ }
       }
     } catch { /* ignore */ }
   }
 
   private pollInboxDir(inboxDir: string): void {
-    if (!this.callbacks) return;
+    if (!this.callbacks) {
+      logger.warn('InboxPoller: no callbacks registered, skipping');
+      return;
+    }
 
     try {
-      for (const file of readdirSync(inboxDir)) {
-        // Validate filename: only alphanumeric + hyphens + underscores allowed
-        if (!file.match(/^[a-zA-Z0-9_-]+\.json$/)) continue;
+      const files = readdirSync(inboxDir).filter((f) => f.match(/^[a-zA-Z0-9_-]+\.json$/));
+      for (const file of files) {
         this.checkInboxFile(inboxDir, file);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      logger.warn('InboxPoller: scan failed', err);
+    }
   }
 
   private checkInboxFile(inboxDir: string, filename: string): void {
