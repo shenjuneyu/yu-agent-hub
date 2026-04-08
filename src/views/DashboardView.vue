@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useIpc } from '../composables/useIpc';
@@ -65,35 +65,23 @@ const overduePitfalls = ref<OverduePitfall[]>([]);
 import type { SprintRecord } from '../stores/projects';
 const allSprints = ref<SprintRecord[]>([]);
 
-onMounted(async () => {
-  try {
-    health.value = await getHealth();
-  } catch (e) {
-    console.error('Failed to get health', e);
-  }
+// ── Auto-refresh ────────────────────────────────────────────
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-  try {
-    overduePitfalls.value = await getPitfallOverdue();
-  } catch (e) {
-    console.error('Failed to get overdue pitfalls', e);
-  }
-  try {
-    costStats.value = await getCostStats({ days: 30 });
-  } catch (e) {
-    console.error('Failed to get cost stats', e);
-  }
+async function refreshDashboard() {
+  try { health.value = await getHealth(); } catch { /* ignore */ }
+  try { costStats.value = await getCostStats({ days: 30 }); } catch { /* ignore */ }
+  try { overduePitfalls.value = await getPitfallOverdue(); } catch { /* ignore */ }
+
   if (projectsStore.projects.length === 0) await projectsStore.fetchAll();
 
-  // 載入所有專案的 sprints
   const sprintResults = await Promise.all(
     projectsStore.projects.map((p) => listSprints(p.id).catch(() => [])),
   );
   allSprints.value = sprintResults.flat() as SprintRecord[];
 
-  // Gates: 全部專案（無 filter）
   await gatesStore.fetchGates();
 
-  // Tasks: 用第一個專案的 active sprint 做預覽
   if (projectsStore.projects.length > 0) {
     const firstProject = projectsStore.projects[0];
     await projectsStore.selectProject(firstProject.id);
@@ -101,6 +89,16 @@ onMounted(async () => {
     tasksStore.setContext(firstProject.id, firstActiveSprint?.id ?? null);
     await tasksStore.fetchTasks();
   }
+}
+
+onMounted(async () => {
+  await refreshDashboard();
+  // Auto-refresh every 30 seconds
+  refreshTimer = setInterval(refreshDashboard, 30_000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
 });
 
 
