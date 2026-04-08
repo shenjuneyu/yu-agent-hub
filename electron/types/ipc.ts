@@ -25,6 +25,23 @@ export const IpcChannels = {
   SESSION_REPLAY_CHECKPOINT: 'session:replay-checkpoint',
   SESSION_SPAWN_HEADLESS: 'session:spawn-headless',
 
+  // Group Chat
+  GROUP_CHAT_START: 'group-chat:start',
+  GROUP_CHAT_GET: 'group-chat:get',
+  GROUP_CHAT_LIST: 'group-chat:list',
+  GROUP_CHAT_CANCEL: 'group-chat:cancel',
+
+  // Sprint Generator
+  SPRINT_GENERATE: 'sprint:generate',
+
+  // Browser Verify
+  BROWSER_SCREENSHOT: 'browser:screenshot',
+  BROWSER_AVAILABLE: 'browser:available',
+
+  // MCP Server
+  MCP_GET_TOOLS: 'mcp:get-tools',
+  MCP_CALL_TOOL: 'mcp:call-tool',
+
   // Agents
   AGENT_LIST: 'agent:list',
   AGENT_GET: 'agent:get',

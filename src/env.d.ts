@@ -386,6 +386,23 @@ interface MaestroApi {
     input: (ptyId: string, data: string) => void;
     resize: (ptyId: string, cols: number, rows: number) => void;
   };
+  groupChat: {
+    start: (config: { topic: string; agentIds: string[]; projectId?: string | null; maxRounds?: number }) => Promise<unknown>;
+    get: (id: string) => Promise<unknown>;
+    list: () => Promise<unknown[]>;
+    cancel: (id: string) => Promise<{ success: boolean }>;
+  };
+  sprint: {
+    generate: (params: { projectId: string; brief: string; sprintName?: string; priority?: string }) => Promise<{ sessionId: string; status: string }>;
+  };
+  browser: {
+    available: () => Promise<boolean>;
+    screenshot: (params: { url: string; width?: number; height?: number; fullPage?: boolean }) => Promise<{ success: boolean; screenshotPath?: string; statusCode?: number; title?: string; error?: string }>;
+  };
+  mcp: {
+    getTools: () => Promise<unknown[]>;
+    callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  };
   projectSync: {
     start: (params: { projectId: string; workDir: string }) => Promise<{ success: boolean }>;
     stop: (params: { projectId: string }) => Promise<{ success: boolean }>;

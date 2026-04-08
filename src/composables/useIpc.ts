@@ -552,6 +552,29 @@ export function useIpc() {
     maestro.on.taskUpdated(callback);
   }
 
+  // Group Chat
+  async function startGroupChat(config: { topic: string; agentIds: string[]; projectId?: string | null; maxRounds?: number }) {
+    return maestro.groupChat.start(config);
+  }
+  async function getGroupChat(id: string) { return maestro.groupChat.get(id); }
+  async function listGroupChats() { return maestro.groupChat.list(); }
+  async function cancelGroupChat(id: string) { return maestro.groupChat.cancel(id); }
+
+  // Sprint Generator
+  async function generateSprint(params: { projectId: string; brief: string; sprintName?: string; priority?: string }) {
+    return maestro.sprint.generate(params);
+  }
+
+  // Browser Verify
+  async function isBrowserAvailable() { return maestro.browser.available(); }
+  async function takeScreenshot(params: { url: string; width?: number; height?: number; fullPage?: boolean }) {
+    return maestro.browser.screenshot(params);
+  }
+
+  // MCP
+  async function getMcpTools() { return maestro.mcp.getTools(); }
+  async function callMcpTool(name: string, args: Record<string, unknown>) { return maestro.mcp.callTool(name, args); }
+
   // Project Sync
   async function startProjectSync(projectId: string, workDir: string) {
     return maestro.projectSync.start({ projectId, workDir });
@@ -709,6 +732,19 @@ export function useIpc() {
     onMessageRead,
     // Task events
     onTaskUpdated,
+    // Group Chat
+    startGroupChat,
+    getGroupChat,
+    listGroupChats,
+    cancelGroupChat,
+    // Sprint Generator
+    generateSprint,
+    // Browser Verify
+    isBrowserAvailable,
+    takeScreenshot,
+    // MCP
+    getMcpTools,
+    callMcpTool,
     // Project Sync
     startProjectSync,
     stopProjectSync,

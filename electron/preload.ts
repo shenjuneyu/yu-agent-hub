@@ -280,6 +280,23 @@ export interface MaestroApi {
     input: (ptyId: string, data: string) => void;
     resize: (ptyId: string, cols: number, rows: number) => void;
   };
+  groupChat: {
+    start: (config: { topic: string; agentIds: string[]; projectId?: string | null; maxRounds?: number }) => Promise<unknown>;
+    get: (id: string) => Promise<unknown>;
+    list: () => Promise<unknown[]>;
+    cancel: (id: string) => Promise<{ success: boolean }>;
+  };
+  sprint: {
+    generate: (params: { projectId: string; brief: string; sprintName?: string; priority?: string }) => Promise<{ sessionId: string; status: string }>;
+  };
+  browser: {
+    available: () => Promise<boolean>;
+    screenshot: (params: { url: string; width?: number; height?: number; fullPage?: boolean }) => Promise<{ success: boolean; screenshotPath?: string; statusCode?: number; title?: string; error?: string }>;
+  };
+  mcp: {
+    getTools: () => Promise<unknown[]>;
+    callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  };
   projectSync: {
     start: (params: { projectId: string; workDir: string }) => Promise<{ success: boolean }>;
     stop: (params: { projectId: string }) => Promise<{ success: boolean }>;
@@ -499,6 +516,23 @@ const api: MaestroApi = {
     start: (params) => ipcRenderer.invoke('project-sync:start', params),
     stop: (params) => ipcRenderer.invoke('project-sync:stop', params),
     fullSync: (params) => ipcRenderer.invoke('project-sync:full', params),
+  },
+  groupChat: {
+    start: (config) => ipcRenderer.invoke('group-chat:start', config),
+    get: (id: string) => ipcRenderer.invoke('group-chat:get', id),
+    list: () => ipcRenderer.invoke('group-chat:list'),
+    cancel: (id: string) => ipcRenderer.invoke('group-chat:cancel', id),
+  },
+  sprint: {
+    generate: (params) => ipcRenderer.invoke('sprint:generate', params),
+  },
+  browser: {
+    available: () => ipcRenderer.invoke('browser:available'),
+    screenshot: (params) => ipcRenderer.invoke('browser:screenshot', params),
+  },
+  mcp: {
+    getTools: () => ipcRenderer.invoke('mcp:get-tools'),
+    callTool: (name: string, args: Record<string, unknown>) => ipcRenderer.invoke('mcp:call-tool', name, args),
   },
 };
 
