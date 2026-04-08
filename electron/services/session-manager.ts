@@ -915,31 +915,17 @@ class SessionManager {
       if (!gitStatus.isRepo) return;
 
       const branchName = `agent/${agentId}/${taskId || new Date().toISOString().slice(0, 10)}`;
-      const worktreePath = join(cwd, '.worktrees', `${agentId}-${sessionId.slice(0, 8)}`);
 
-      // Try git worktree for true isolation (multiple agents on same repo)
+      // Use branch checkout (not worktree) to preserve .claude/ skills and hooks
       try {
-        await gitManager.createWorktree(cwd, branchName, worktreePath);
-        // Update session working directory to the worktree
-        const session = this.sessions.get(sessionId);
-        if (session) {
-          session.workDir = worktreePath;
-          logger.info(`Session ${sessionId} using worktree: ${worktreePath} (branch: ${branchName})`);
-        }
-        return;
+        await gitManager.checkout(cwd, branchName);
+        logger.info(`Session ${sessionId} checked out existing branch ${branchName}`);
       } catch {
-        // Worktree failed (branch may already exist in another worktree)
-        // Fallback: try simple branch checkout
         try {
-          await gitManager.checkout(cwd, branchName);
-          logger.info(`Session ${sessionId} checked out existing branch ${branchName}`);
-        } catch {
-          try {
-            await gitManager.createBranch(cwd, branchName, true);
-            logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
-          } catch (createErr) {
-            logger.warn(`Session ${sessionId} auto-branch create failed (non-fatal)`, createErr);
-          }
+          await gitManager.createBranch(cwd, branchName, true);
+          logger.info(`Session ${sessionId} created auto-branch ${branchName}`);
+        } catch (createErr) {
+          logger.warn(`Session ${sessionId} auto-branch create failed (non-fatal)`, createErr);
         }
       }
     } catch (err) { logger.warn(`Session ${sessionId} auto-branch failed (non-fatal)`, err); }
