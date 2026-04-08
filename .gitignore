@@ -9,6 +9,10 @@ out/
 .DS_Store
 Thumbs.db
 .maestro-prompts/
+.maestro-usage/
+.maestro-screenshots/
+.worktrees/
+knowledge/
 playwright-report/
 test-results/
 .claude/
